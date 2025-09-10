@@ -15,6 +15,13 @@
       "when": 1756048366507,
       "tag": "0001_empty_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756627496320,
+      "tag": "0002_icy_mystique",
+      "breakpoints": true
     }
   ]
 }

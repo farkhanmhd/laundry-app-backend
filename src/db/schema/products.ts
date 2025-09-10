@@ -15,6 +15,7 @@ export const products = pgTable(
     image: varchar("image"),
     price: integer("price").notNull(),
     currentQuantity: integer("current_quantity").notNull().default(0),
+    reorderPoint: integer("reorder_point").notNull().default(0),
   },
   (table) => [check("current_quantity_check", sql`${table.currentQuantity} >= 0`), check("price_check", sql`${table.price} >= 0`)],
 );
@@ -23,3 +24,5 @@ export const productsRelations = relations(products, ({ many }) => ({
   orderDetails: many(orderDetails),
   stockAdjustments: many(stockAdjustments),
 }));
+
+export type ProductInsert = typeof products.$inferInsert;

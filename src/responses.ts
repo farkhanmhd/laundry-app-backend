@@ -1,25 +1,34 @@
 import { Elysia, t } from "elysia";
 
-export const defaultResponse = t.Object({
-  status: t.Union([t.Literal("success"), t.Literal("failed")]),
+const successStatus = t.Literal("success");
+const failedStatus = t.Literal("failed");
+
+export const succesResponse = t.Object({
+  status: successStatus,
   message: t.String(),
 });
 
-const validationErrors = t.Object({
-  errors: t.Array(
-    t.Object({
-      property: t.String(),
-      message: t.String(),
-    }),
-  ),
+export const failedResponse = t.Object({
+  status: failedStatus,
+  message: t.String(),
 });
 
-export const validationErrorResponse = t.Composite([defaultResponse, validationErrors]);
+// const validationErrors = t.Object({
+//   errors: t.Array(
+//     t.Object({
+//       property: t.String(),
+//       message: t.String(),
+//     }),
+//   ),
+// });
 
-export const defaultResponseModel = new Elysia({
+// export const validationErrorResponse = t.Composite([failedResponse, validationErrors]);
+
+export const responseHandler = new Elysia({
   name: "default/response",
 })
   .model({
-    defaultResponse,
+    succesResponse,
+    failedResponse,
   })
   .as("global");

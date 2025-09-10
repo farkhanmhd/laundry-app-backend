@@ -6,10 +6,10 @@ import { Elysia } from "elysia";
 import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth";
 import { betterAuth } from "./auth-instance";
-import { customError } from "./exceptions";
+import { exceptionHandler } from "./exceptions";
 import { productsController } from "./modules/products";
 import { fileUploadController } from "./modules/uploads";
-import { defaultResponseModel } from "./responses";
+import { responseHandler } from "./responses";
 
 const port = Number(process.env.APP_PORT as string);
 
@@ -32,22 +32,22 @@ const app = new Elysia()
   )
   .use(
     cors({
-      origin: process.env.FRONTEND_URL,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      origin: [process.env.FRONTEND_URL as string],
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
     }),
   )
+  .use(betterAuth)
+  .use(responseHandler)
+  .use(exceptionHandler)
+  .use(productsController)
+  .use(fileUploadController)
   .use(
     staticPlugin({
       assets: "public",
     }),
   )
-  .use(betterAuth)
-  .use(defaultResponseModel)
-  .use(customError)
-  .use(productsController)
-  .use(fileUploadController)
   .listen(port);
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

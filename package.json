@@ -13,7 +13,7 @@
     "better-auth": "^1.3.7",
     "drizzle-orm": "^0.44.4",
     "drizzle-typebox": "^0.3.3",
-    "elysia": "latest",
+    "elysia": "^1.3.21",
     "elysia-remote-dts": "^1.0.3",
     "nanoid": "^5.1.5",
     "postgres": "^3.4.7"

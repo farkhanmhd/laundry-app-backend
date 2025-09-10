@@ -18,39 +18,28 @@ export class AuthorizationError extends Error {
   }
 }
 
-export const customError = new Elysia({ name: "custom-error" })
+export const exceptionHandler = new Elysia({ name: "custom-error" })
   .error({
     INTERNAL_ERROR: InternalError,
     NOT_FOUND_RESOURCE: NotFoundError,
     UNAUTHORIZED: AuthorizationError,
   })
   .onError(({ code, status, error }) => {
-    if (code === "INTERNAL_ERROR") {
-      return status(500, {
-        status: "failed",
-        message: error.message,
-      });
-    }
-    if (code === "NOT_FOUND") {
-      return status(404, {
-        status: "failed",
-        message: "The requested route does not exist.",
-      });
-    }
+    const errorCodeMap = {
+      // Custom Errors
+      INTERNAL_ERROR: 500,
+      NOT_FOUND_RESOURCE: 404,
+      UNAUTHORIZED: 401,
 
-    if (code === "NOT_FOUND_RESOURCE") {
-      return status(404, {
-        status: "failed",
-        message: error.message,
-      });
-    }
-
-    if (code === "UNAUTHORIZED") {
-      return status(401, {
-        status: "failed",
-        message: error.message,
-      });
-    }
+      // Elysia Built-in Errors
+      UNKNOWN: 500,
+      VALIDATION: 422,
+      NOT_FOUND: 404,
+      PARSE: 400,
+      INTERNAL_SERVER_ERROR: 500,
+      INVALID_COOKIE_SIGNATURE: 401,
+      INVALID_FILE_TYPE: 422,
+    };
 
     if (code === "VALIDATION") {
       const details = error.all.map((e) => {
@@ -70,5 +59,14 @@ export const customError = new Elysia({ name: "custom-error" })
         errors: details,
       });
     }
+
+    const message = error instanceof Error ? error.message : String(error);
+
+    const defaultErrorResponse = {
+      status: "failed",
+      message,
+    };
+
+    return status(errorCodeMap[code as keyof typeof errorCodeMap], defaultErrorResponse);
   })
   .as("global");
