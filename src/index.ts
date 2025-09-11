@@ -7,6 +7,7 @@ import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth";
 import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
+import { chatController } from "./modules/chat";
 import { productsController } from "./modules/products";
 import { fileUploadController } from "./modules/uploads";
 import { responseHandler } from "./responses";
@@ -41,6 +42,7 @@ const app = new Elysia()
   .use(betterAuth)
   .use(responseHandler)
   .use(exceptionHandler)
+  .use(chatController)
   .use(productsController)
   .use(fileUploadController)
   .use(
