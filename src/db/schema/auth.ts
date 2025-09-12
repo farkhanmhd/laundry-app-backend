@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { chatParticipants, messages } from "./chats";
 import { orders } from "./orders";
 import { shifts } from "./shifts";
 import { stockAdjustments } from "./stock-adjustments";
@@ -69,4 +70,6 @@ export const usersRelations = relations(user, ({ many }) => ({
   shifts: many(shifts),
   orders: many(orders),
   stockAdjustments: many(stockAdjustments),
+  chatParticipants: many(chatParticipants),
+  messages: many(messages),
 }));

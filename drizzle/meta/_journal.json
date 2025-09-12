@@ -22,6 +22,13 @@
       "when": 1756627496320,
       "tag": "0002_icy_mystique",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1757585133868,
+      "tag": "0003_chief_la_nuit",
+      "breakpoints": true
     }
   ]
 }

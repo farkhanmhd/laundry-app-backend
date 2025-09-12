@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { chatModels } from "./model";
+import { Chats } from "./service";
 
 const message = t.Object({ message: t.String() });
 const response = t.Object({
@@ -16,6 +18,7 @@ export const chatController = new Elysia({ prefix: "/chat" })
     message,
     response,
   })
+  .use(chatModels)
   .get("/", ({ status }) => {
     return status(200, {
       status: "success",
@@ -49,4 +52,35 @@ export const chatController = new Elysia({ prefix: "/chat" })
       console.log(`User ${ws.id} left the chat`);
       ws.unsubscribe("chat");
     },
-  });
+  })
+  .post(
+    "/",
+    async ({ status, body }) => {
+      const existingChatId = await Chats.checkExistingChat(body);
+
+      if (existingChatId) {
+        return status(200, {
+          status: "success",
+          message: "Chat ID Retrieved",
+          data: {
+            id: existingChatId as string,
+          },
+        });
+      }
+
+      const newChatId = await Chats.createNewChat(body);
+
+      if (newChatId) {
+        return status(201, {
+          status: "created",
+          message: "New Chat ID Created",
+          data: {
+            id: newChatId,
+          },
+        });
+      }
+    },
+    {
+      body: "createChatBody",
+    },
+  );

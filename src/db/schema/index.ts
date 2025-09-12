@@ -1,4 +1,5 @@
 import { account, session, user, verification } from "./auth";
+import { chatParticipants, chats, messages } from "./chats";
 import { customers } from "./customers";
 import { orderDetails } from "./order-details";
 import { orders } from "./orders";
@@ -25,4 +26,7 @@ export const table = {
   shifts,
   stockAdjustments,
   vouchers,
+  chats,
+  chatParticipants,
+  messages,
 } as const;
