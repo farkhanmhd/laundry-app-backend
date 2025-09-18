@@ -44,4 +44,5 @@ package-lock.json
 **/*.bun
 
 # public folder
-/public/*
+/public
+/http:

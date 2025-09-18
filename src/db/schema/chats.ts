@@ -7,7 +7,7 @@ export const chats = pgTable("chats", {
   id: varchar("id", { length: 12 })
     .primaryKey()
     .$defaultFn(() => `chat-${nanoid()}`),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string" }).defaultNow().notNull(),
 });
 
 export const chatParticipants = pgTable(
@@ -30,7 +30,7 @@ export const messages = pgTable("messages", {
     .references(() => user.id, { onDelete: "cascade" })
     .notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string" }).defaultNow().notNull(),
 });
 
 export const chatsRelations = relations(chats, ({ many }) => ({

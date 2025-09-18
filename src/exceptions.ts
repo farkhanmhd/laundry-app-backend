@@ -41,6 +41,8 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
       INVALID_FILE_TYPE: 422,
     };
 
+    console.log("Error code: ", code);
+
     if (code === "VALIDATION") {
       const details = error.all.map((e) => {
         if (e.summary && e.path) {

@@ -26,9 +26,31 @@ const createChatResponseModel = t.Composite([
   }),
 ]);
 
+const chatListUpdate = t.Object({
+  chatId: t.String(),
+  lastMessage: t.String(),
+  lastMessageTime: t.String(),
+});
+
+const getUserResponse = t.Object({
+  id: t.String(),
+  name: t.String(),
+});
+
+const response = t.Object(models.select.messages);
+const messageResponse = t.Omit(response, ["chatId"]);
+const newMessage = t.Object({ message: t.String() });
+
+export type NewMessageBody = Omit<typeof response.static, "id" | "createdAt">;
+export type NewMessageResponse = typeof messageResponse.static;
 export type CreateChatBody = typeof createChatBodyModel.static;
+export type ChatListUpdate = typeof chatListUpdate.static;
 
 export const chatModels = new Elysia({ name: "chat/model" }).model({
   createChatBody: createChatBodyModel,
   createChatResponse: createChatResponseModel,
+  newMessage,
+  messageResponse,
+  chatListUpdate,
+  getUserResponse,
 });
