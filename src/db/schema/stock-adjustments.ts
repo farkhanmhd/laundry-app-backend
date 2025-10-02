@@ -9,7 +9,7 @@ export const stockAdjustments = pgTable("stock_adjustments", {
     .primaryKey()
     .$defaultFn(() => `sa-${nanoid(5)}`),
   productId: varchar("product_id")
-    .references(() => products.id)
+    .references(() => products.id, { onDelete: "cascade" })
     .notNull(),
   userId: varchar("user_id")
     .references(() => user.id)

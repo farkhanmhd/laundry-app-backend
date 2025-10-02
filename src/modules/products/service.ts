@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { type ProductInsert, products } from "@/db/schema/products";
 import { stockAdjustments } from "@/db/schema/stock-adjustments";
@@ -7,7 +7,7 @@ import type { AddProductBody, AdjustQuantitySchema, UpdateProductBody, UpdatePro
 
 export abstract class Products {
   static async getProducts() {
-    const rows = await db.select().from(products);
+    const rows = await db.select().from(products).orderBy(desc(products.createdAt));
 
     return rows;
   }
@@ -90,7 +90,16 @@ export abstract class Products {
 
   static async adjustQuantity(userId: string, productId: string, body: AdjustQuantitySchema) {
     const stockAdjustmentId = await db.transaction(async (tx) => {
-      const selectedProduct = (await tx.select({ productId: products.id, previousQuantity: products.currentQuantity }).from(products).where(eq(products.id, productId)).limit(1))[0];
+      const selectedProduct = (
+        await tx
+          .select({
+            productId: products.id,
+            previousQuantity: products.currentQuantity,
+          })
+          .from(products)
+          .where(eq(products.id, productId))
+          .limit(1)
+      )[0];
 
       if (!selectedProduct) {
         tx.rollback();
@@ -100,7 +109,12 @@ export abstract class Products {
       const stockAdjustment = (
         await tx
           .insert(stockAdjustments)
-          .values({ ...selectedProduct, newQuantity: body.newQuantity, reason: body.reason, userId })
+          .values({
+            ...selectedProduct,
+            newQuantity: body.newQuantity,
+            reason: body.reason,
+            userId,
+          })
           .returning({ id: stockAdjustments.id })
       )[0];
 
@@ -122,10 +136,18 @@ export abstract class Products {
   }
 
   static async deleteProduct(id: string) {
-    const result = await db.delete(products).where(eq(products.id, id)).returning({ id: products.id });
+    const result = await db.delete(products).where(eq(products.id, id)).returning({ id: products.id, image: products.image });
 
     if (!result.length) {
       throw new InternalError("Product id not valid");
+    }
+
+    const folderPath = "public/uploads";
+    const fullpath = `${folderPath}/${result[0]?.image?.split("/").at(-1)}`;
+    const fileToDelete = Bun.file(fullpath);
+
+    if (await fileToDelete.exists()) {
+      await fileToDelete.delete();
     }
 
     return result[0]?.id as string;

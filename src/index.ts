@@ -1,12 +1,13 @@
 import { mkdir } from "node:fs/promises";
 import { cors } from "@elysiajs/cors";
+import { openapi } from "@elysiajs/openapi";
 import { staticPlugin } from "@elysiajs/static";
-import { swagger } from "@elysiajs/swagger";
 import { Elysia } from "elysia";
 import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth";
 import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
+import { customerController } from "./modules/customers";
 import { productsController } from "./modules/products";
 import { fileUploadController } from "./modules/uploads";
 import { responseHandler } from "./responses";
@@ -23,7 +24,7 @@ const app = new Elysia()
     }),
   )
   .use(
-    swagger({
+    openapi({
       documentation: {
         components: await OpenAPI.components,
         paths: await OpenAPI.getPaths(),
@@ -42,6 +43,7 @@ const app = new Elysia()
   .use(responseHandler)
   .use(exceptionHandler)
   .use(productsController)
+  .use(customerController)
   .use(fileUploadController)
   .use(
     staticPlugin({
