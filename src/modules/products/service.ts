@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type ProductInsert, products } from "@/db/schema/products";
 import { stockAdjustments } from "@/db/schema/stock-adjustments";
@@ -60,7 +60,11 @@ export abstract class Products {
       reorderPoint,
     };
 
-    const result = await db.update(products).set(insertData).where(eq(products.id, id)).returning({ id: products.id });
+    const result = await db
+      .update(products)
+      .set({ ...insertData, updatedAt: sql`now()` })
+      .where(eq(products.id, id))
+      .returning({ id: products.id });
 
     if (!result.length) {
       throw new InternalError();

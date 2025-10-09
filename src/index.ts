@@ -7,7 +7,7 @@ import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth";
 import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
-import { customerController } from "./modules/customers";
+import { membersController } from "./modules/members";
 import { productsController } from "./modules/products";
 import { fileUploadController } from "./modules/uploads";
 import { responseHandler } from "./responses";
@@ -43,13 +43,13 @@ const app = new Elysia()
   .use(responseHandler)
   .use(exceptionHandler)
   .use(productsController)
-  .use(customerController)
-  .use(fileUploadController)
+  .use(membersController)
   .use(
     staticPlugin({
       assets: "public",
     }),
   )
+  .use(fileUploadController)
   .listen(port);
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

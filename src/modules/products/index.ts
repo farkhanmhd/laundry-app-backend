@@ -22,6 +22,9 @@ export const productsController = new Elysia({ prefix: "/products" })
       auth: true,
     },
   )
+  .guard({
+    isAdmin: true,
+  })
   .post(
     "/",
     async ({ body, status }) => {
@@ -41,7 +44,6 @@ export const productsController = new Elysia({ prefix: "/products" })
       response: {
         201: "addProductResponse",
       },
-      isAdmin: true,
     },
   )
   .patch(
@@ -57,7 +59,6 @@ export const productsController = new Elysia({ prefix: "/products" })
     {
       parse: "application/json",
       body: "updateProduct",
-      isAdmin: true,
     },
   )
   .patch(
@@ -71,7 +72,6 @@ export const productsController = new Elysia({ prefix: "/products" })
       });
     },
     {
-      isAdmin: true,
       body: "updateProductImage",
     },
   )
@@ -87,21 +87,14 @@ export const productsController = new Elysia({ prefix: "/products" })
     },
     {
       parse: "application/json",
-      isAdmin: true,
       body: "adjustQuantity",
     },
   )
-  .delete(
-    "/:id",
-    async ({ params: { id }, status }) => {
-      await Products.deleteProduct(id);
+  .delete("/:id", async ({ params: { id }, status }) => {
+    await Products.deleteProduct(id as string);
 
-      return status(200, {
-        status: "success",
-        message: "Product deleted",
-      });
-    },
-    {
-      isAdmin: true,
-    },
-  );
+    return status(200, {
+      status: "success",
+      message: "Product deleted",
+    });
+  });

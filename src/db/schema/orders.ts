@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { user } from "./auth";
-import { customers } from "./customers";
+import { members } from "./members";
 import { orderDetails } from "./order-details";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
@@ -12,7 +12,7 @@ export const orders = pgTable("orders", {
   id: varchar("id", { length: 8 })
     .primaryKey()
     .$defaultFn(() => `o-${nanoid(5)}`),
-  customerId: varchar("customer_id").references(() => customers.id),
+  member: varchar("member_id").references(() => members.id),
   userId: varchar("user_id")
     .references(() => user.id)
     .notNull(),
@@ -30,9 +30,9 @@ export const orders = pgTable("orders", {
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [orders.customerId],
-    references: [customers.id],
+  member: one(members, {
+    fields: [orders.member],
+    references: [members.id],
   }),
   user: one(user, {
     fields: [orders.userId],

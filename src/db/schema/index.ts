@@ -1,5 +1,5 @@
 import { account, session, user, verification } from "./auth";
-import { customers } from "./customers";
+import { members } from "./members";
 import { orderDetails } from "./order-details";
 import { orders } from "./orders";
 import { payments } from "./payments";
@@ -15,7 +15,7 @@ export const table = {
   user,
   session,
   verification,
-  customers,
+  members,
   orderDetails,
   orders,
   payments,

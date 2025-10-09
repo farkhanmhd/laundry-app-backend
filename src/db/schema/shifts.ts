@@ -28,7 +28,7 @@ export const shifts = pgTable("shifts", {
 });
 
 export const shiftsRelations = relations(shifts, ({ one, many }) => ({
-  customer: one(user, {
+  user: one(user, {
     fields: [shifts.userId],
     references: [user.id],
   }),

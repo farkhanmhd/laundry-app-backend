@@ -1,13 +1,13 @@
 import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
-import { customers } from "./customers";
+import { members } from "./members";
 import { orders } from "./orders";
 import { vouchers } from "./vouchers";
 
 export const redemptionHistory = pgTable("redemption_history", {
   id: varchar("id").primaryKey(),
-  customerId: varchar("customer_id")
-    .references(() => customers.id)
+  memberId: varchar("member_id")
+    .references(() => members.id)
     .notNull(),
   voucherId: varchar("voucher_id")
     .references(() => vouchers.id)
@@ -20,9 +20,9 @@ export const redemptionHistory = pgTable("redemption_history", {
 });
 
 export const redemptionHistoryRelations = relations(redemptionHistory, ({ one }) => ({
-  customer: one(customers, {
-    fields: [redemptionHistory.customerId],
-    references: [customers.id],
+  member: one(members, {
+    fields: [redemptionHistory.memberId],
+    references: [members.id],
   }),
   voucher: one(vouchers, {
     fields: [redemptionHistory.voucherId],

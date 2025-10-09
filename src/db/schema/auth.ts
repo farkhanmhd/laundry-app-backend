@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { members } from "./members";
 import { orders } from "./orders";
 import { shifts } from "./shifts";
 import { stockAdjustments } from "./stock-adjustments";
@@ -65,7 +66,8 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").$defaultFn(() => /* @__PURE__ */ new Date()),
 });
 
-export const usersRelations = relations(user, ({ many }) => ({
+export const usersRelations = relations(user, ({ many, one }) => ({
+  member: one(members),
   shifts: many(shifts),
   orders: many(orders),
   stockAdjustments: many(stockAdjustments),
