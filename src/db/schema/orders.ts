@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { user } from "./auth";
+import { jobLogs } from "./job-logs";
 import { members } from "./members";
 import { orderDetails } from "./order-details";
 import { payments } from "./payments";
@@ -45,4 +46,5 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   orderDetails: many(orderDetails),
   payments: many(payments),
   redemptionHistory: many(redemptionHistory),
+  jobLogs: many(jobLogs),
 }));

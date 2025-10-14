@@ -3,7 +3,9 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "drizzle:generate": "bunx --bun drizzle-kit generate",
+    "drizzle:migrate": "bunx --bun drizzle-kit migrate"
   },
   "dependencies": {
     "@elysiajs/bearer": "^1.4.1",
