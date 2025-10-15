@@ -18,6 +18,7 @@ export const products = pgTable(
     reorderPoint: integer("reorder_point").notNull().default(0),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
+    deletedAt: timestamp("deleted_at", { mode: "string" }),
   },
   (table) => [check("current_quantity_check", sql`${table.currentQuantity} >= 0`), check("price_check", sql`${table.price} >= 0`)],
 );

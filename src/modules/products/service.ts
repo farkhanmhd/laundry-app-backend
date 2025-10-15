@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type ProductInsert, products } from "@/db/schema/products";
 import { stockAdjustments } from "@/db/schema/stock-adjustments";
@@ -7,7 +7,7 @@ import type { AddProductBody, AdjustQuantitySchema, UpdateProductBody, UpdatePro
 
 export abstract class Products {
   static async getProducts() {
-    const rows = await db.select().from(products).orderBy(desc(products.createdAt));
+    const rows = await db.select().from(products).where(isNull(products.deletedAt)).orderBy(desc(products.createdAt));
 
     return rows;
   }
@@ -140,18 +140,10 @@ export abstract class Products {
   }
 
   static async deleteProduct(id: string) {
-    const result = await db.delete(products).where(eq(products.id, id)).returning({ id: products.id, image: products.image });
+    const result = await db.update(products).set({ deletedAt: sql`now()` }).where(eq(products.id, id)).returning({ id: products.id });
 
     if (!result.length) {
       throw new InternalError("Product id not valid");
-    }
-
-    const folderPath = "public/uploads";
-    const fullpath = `${folderPath}/${result[0]?.image?.split("/").at(-1)}`;
-    const fileToDelete = Bun.file(fullpath);
-
-    if (await fileToDelete.exists()) {
-      await fileToDelete.delete();
     }
 
     return result[0]?.id as string;

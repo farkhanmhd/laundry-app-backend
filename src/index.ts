@@ -9,6 +9,7 @@ import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { membersController } from "./modules/members";
 import { productsController } from "./modules/products";
+import { servicesRoute } from "./modules/services";
 import { fileUploadController } from "./modules/uploads";
 import { responseHandler } from "./responses";
 
@@ -21,7 +22,7 @@ const app = new Elysia()
   .use(
     dts("./src/index.ts", {
       dtsPath: "/types.d.ts",
-    }),
+    })
   )
   .use(
     openapi({
@@ -29,7 +30,7 @@ const app = new Elysia()
         components: await OpenAPI.components,
         paths: await OpenAPI.getPaths(),
       },
-    }),
+    })
   )
   .use(
     cors({
@@ -37,21 +38,24 @@ const app = new Elysia()
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
-    }),
+    })
   )
   .use(betterAuth)
   .use(responseHandler)
   .use(exceptionHandler)
   .use(productsController)
   .use(membersController)
+  .use(servicesRoute)
   .use(
     staticPlugin({
       assets: "public",
-    }),
+    })
   )
   .use(fileUploadController)
   .listen(port);
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+console.log(
+  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+);
 
 export type App = typeof app;
