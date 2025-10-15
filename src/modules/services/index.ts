@@ -3,7 +3,7 @@ import { betterAuth } from "@/auth-instance";
 import { type GetServices, servicesModel } from "./model";
 import { Services } from "./service";
 
-export const servicesRoute = new Elysia({ prefix: "/services" })
+export const servicesController = new Elysia({ prefix: "/services" })
   .use(servicesModel)
   .use(betterAuth)
   .get(
@@ -20,7 +20,7 @@ export const servicesRoute = new Elysia({ prefix: "/services" })
     {
       response: "getServices",
       auth: true,
-    },
+    }
   )
   .guard({
     isAdmin: true,
@@ -44,7 +44,7 @@ export const servicesRoute = new Elysia({ prefix: "/services" })
       response: {
         201: "addServiceResponse",
       },
-    },
+    }
   )
   .patch(
     "/:id",
@@ -59,7 +59,7 @@ export const servicesRoute = new Elysia({ prefix: "/services" })
     {
       parse: "application/json",
       body: "updateService",
-    },
+    }
   )
   .patch(
     "/:id/image",
@@ -73,7 +73,7 @@ export const servicesRoute = new Elysia({ prefix: "/services" })
     },
     {
       body: "updateServiceImage",
-    },
+    }
   )
   .delete("/:id", async ({ params: { id }, status }) => {
     await Services.deleteService(id as string);

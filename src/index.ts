@@ -9,8 +9,9 @@ import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { membersController } from "./modules/members";
 import { productsController } from "./modules/products";
-import { servicesRoute } from "./modules/services";
+import { servicesController } from "./modules/services";
 import { fileUploadController } from "./modules/uploads";
+import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
 
 const port = Number(process.env.APP_PORT as string);
@@ -45,7 +46,8 @@ const app = new Elysia()
   .use(exceptionHandler)
   .use(productsController)
   .use(membersController)
-  .use(servicesRoute)
+  .use(servicesController)
+  .use(vouchersController)
   .use(
     staticPlugin({
       assets: "public",
