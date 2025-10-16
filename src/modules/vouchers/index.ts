@@ -41,6 +41,7 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
     },
     {
       body: "addVoucher",
+      parse: "application/json",
     }
   )
   .patch(
@@ -55,6 +56,7 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
     },
     {
       body: "updateVoucher",
+      parse: "application/json",
     }
   )
   .delete("/:id", async ({ params: { id }, status }) => {

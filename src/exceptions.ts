@@ -43,10 +43,9 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
 
     if (code === "VALIDATION") {
       const details = error.all.map((e) => {
-        if (e.summary && e.path) {
+        if (e.summary) {
           return {
-            property: e.path.substring(1),
-            message: e.schema.errors,
+            message: e.summary,
           };
         }
 
@@ -67,6 +66,9 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
       message,
     };
 
-    return status(errorCodeMap[code as keyof typeof errorCodeMap], defaultErrorResponse);
+    return status(
+      errorCodeMap[code as keyof typeof errorCodeMap],
+      defaultErrorResponse
+    );
   })
   .as("global");

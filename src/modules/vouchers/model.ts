@@ -31,6 +31,14 @@ const addVoucher = t.Object({
     ...models.insert.vouchers.expiresAt,
     error: "Expire date required",
   }),
+  isActive: t.Boolean({
+    ...models.insert.vouchers.isActive,
+    error: "Voucher Activation Status is required",
+  }),
+  isVisible: t.Boolean({
+    ...models.insert.vouchers.isVisible,
+    error: "Voucher Visibility Status is required",
+  }),
 });
 
 // Schema for updating an existing voucher. All fields are optional.
