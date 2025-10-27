@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1760434128861,
-      "tag": "0000_kind_marrow",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1760492628959,
-      "tag": "0001_watery_ultimo",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1760501499844,
-      "tag": "0002_tiny_junta",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1760515014521,
-      "tag": "0003_magical_the_professor",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1760516106714,
-      "tag": "0004_empty_tony_stark",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1760516547729,
-      "tag": "0005_ambiguous_tenebrous",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1760516682576,
-      "tag": "0006_silky_anita_blake",
+      "when": 1761034102989,
+      "tag": "0000_fantastic_moondragon",
       "breakpoints": true
     }
   ]

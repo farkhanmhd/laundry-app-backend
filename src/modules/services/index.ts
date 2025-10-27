@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth-instance";
-import { type GetServices, servicesModel } from "./model";
+import { servicesModel } from "./model";
 import { Services } from "./service";
 
 export const servicesController = new Elysia({ prefix: "/services" })
@@ -15,15 +15,14 @@ export const servicesController = new Elysia({ prefix: "/services" })
         status: "success",
         message: "Services Retrieved",
         data: result,
-      } as GetServices);
+      });
     },
     {
-      response: "getServices",
       auth: true,
     }
   )
   .guard({
-    isAdmin: true,
+    isSuperAdmin: true,
   })
   .post(
     "/",

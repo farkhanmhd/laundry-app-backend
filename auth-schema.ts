@@ -1,11 +1,4 @@
-import { relations } from "drizzle-orm";
-import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { members } from "./members";
-import { orders } from "./orders";
-import { shifts } from "./shifts";
-import { stockAdjustments } from "./stock-adjustments";
-
-export const roleEnum = pgEnum("role", ["superadmin", "admin", "user"]);
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -22,7 +15,7 @@ export const user = pgTable("user", {
     .notNull(),
   username: text("username").unique(),
   displayUsername: text("display_username"),
-  role: roleEnum().default("user"),
+  role: text("role"),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
@@ -81,10 +74,3 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
-
-export const usersRelations = relations(user, ({ many, one }) => ({
-  member: one(members),
-  shifts: many(shifts),
-  orders: many(orders),
-  stockAdjustments: many(stockAdjustments),
-}));

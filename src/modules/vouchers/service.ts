@@ -14,12 +14,25 @@ export abstract class Vouchers {
    * Implements "soft delete" by filtering out vouchers where `isActive` is false.
    * @returns A promise that resolves to an array of active vouchers.
    */
-  static async getVouchers() {
+  static async getActiveVouchers() {
     try {
       const rows = await db
         .select()
         .from(vouchers)
         .where(and(eq(vouchers.isActive, true), eq(vouchers.isVisible, true)))
+        .orderBy(desc(vouchers.createdAt));
+      return rows;
+    } catch (error) {
+      console.error("Error fetching vouchers:", error);
+      throw new InternalError("Could not retrieve vouchers.");
+    }
+  }
+
+  static async getAllVouchers() {
+    try {
+      const rows = await db
+        .select()
+        .from(vouchers)
         .orderBy(desc(vouchers.createdAt));
       return rows;
     } catch (error) {

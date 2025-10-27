@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { check, integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  check,
+  integer,
+  pgTable,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { nanoid } from "../utils";
 import { orderDetails } from "./order-details";
@@ -20,7 +26,10 @@ export const products = pgTable(
     updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
     deletedAt: timestamp("deleted_at", { mode: "string" }),
   },
-  (table) => [check("current_quantity_check", sql`${table.currentQuantity} >= 0`), check("price_check", sql`${table.price} >= 0`)],
+  (table) => [
+    check("current_quantity_check", sql`${table.currentQuantity} >= 0`),
+    check("price_check", sql`${table.price} >= 0`),
+  ]
 );
 
 export const productsRelations = relations(products, ({ many }) => ({

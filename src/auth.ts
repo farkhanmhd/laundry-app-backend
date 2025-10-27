@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: copied directly from better-auth docs */
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { bearer, openAPI, username } from "better-auth/plugins";
+import { admin, bearer, openAPI, username } from "better-auth/plugins";
 import { account, session, user, verification } from "@/db/schema/auth";
 import { db } from "./db";
 
@@ -19,14 +19,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  plugins: [username(), bearer(), openAPI()],
-  user: {
-    additionalFields: {
-      role: {
-        type: "string",
-      },
-    },
-  },
+  plugins: [
+    username(),
+    bearer(),
+    openAPI(),
+    admin({ adminRoles: ["admin", "superadmin"] }),
+  ],
 });
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;

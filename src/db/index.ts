@@ -1,6 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/bun-sql";
 
-// You can specify any property from the postgres-js connection options
 export const db = drizzle({
   connection: {
     url: process.env.DATABASE_URL,

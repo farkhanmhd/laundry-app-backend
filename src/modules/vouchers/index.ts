@@ -9,22 +9,21 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
   .get(
     "/",
     async ({ status }) => {
-      const result = await Vouchers.getVouchers();
+      const result = await Vouchers.getAllVouchers();
 
       return status(200, {
         status: "success",
         message: "Vouchers Retrieved",
         data: result,
-      } as GetVouchers);
+      });
     },
     {
-      response: "getVouchers",
       auth: true, // Requires authentication to view vouchers
     }
   )
   // Guard subsequent routes to ensure only admins can modify vouchers.
   .guard({
-    isAdmin: true,
+    isSuperAdmin: true,
   })
   .post(
     "/",

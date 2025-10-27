@@ -1,11 +1,11 @@
 import { authClient } from "@/auth-client";
 
 const { data, error } = await authClient.signUp.email({
-  email: "user@laundry.com",
-  name: "staff",
-  password: "laundry_staff",
-  username: "staff",
-  role: "staff",
+  email: "admin@laundry.com",
+  name: "admin",
+  password: "laundry_admin",
+  username: "admin",
+  displayUsername: "admin",
 });
 
 if (data) {

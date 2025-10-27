@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth-instance";
-import { type GetProducts, productsModel } from "./model";
+import { productsModel } from "./model";
 import { Products } from "./service";
 
 export const productsController = new Elysia({ prefix: "/products" })
@@ -15,15 +15,14 @@ export const productsController = new Elysia({ prefix: "/products" })
         status: "success",
         message: "Products Retrieved",
         data: result,
-      } as GetProducts);
+      });
     },
     {
-      response: "getProducts",
       auth: true,
-    },
+    }
   )
   .guard({
-    isAdmin: true,
+    isSuperAdmin: true,
   })
   .post(
     "/",
@@ -44,7 +43,7 @@ export const productsController = new Elysia({ prefix: "/products" })
       response: {
         201: "addProductResponse",
       },
-    },
+    }
   )
   .patch(
     "/:id",
@@ -59,7 +58,7 @@ export const productsController = new Elysia({ prefix: "/products" })
     {
       parse: "application/json",
       body: "updateProduct",
-    },
+    }
   )
   .patch(
     "/:id/image",
@@ -73,7 +72,7 @@ export const productsController = new Elysia({ prefix: "/products" })
     },
     {
       body: "updateProductImage",
-    },
+    }
   )
   .patch(
     "/:id/stock",
@@ -88,7 +87,7 @@ export const productsController = new Elysia({ prefix: "/products" })
     {
       parse: "application/json",
       body: "adjustQuantity",
-    },
+    }
   )
   .delete("/:id", async ({ params: { id }, status }) => {
     await Products.deleteProduct(id as string);

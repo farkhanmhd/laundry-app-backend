@@ -31,7 +31,27 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
-        if (session.user.role === "staff") {
+        if (session.user.role !== "user") {
+          throw new AuthorizationError();
+        }
+
+        return {
+          user: session.user,
+          session: session.session,
+        };
+      },
+    },
+    isSuperAdmin: {
+      async resolve({ request: { headers } }) {
+        const session = await auth.api.getSession({
+          headers,
+        });
+
+        if (!session) {
+          throw new AuthorizationError();
+        }
+
+        if (session.user.role !== "superadmin") {
           throw new AuthorizationError();
         }
 

@@ -5,7 +5,6 @@ const { data, error } = await authClient.signUp.email({
   name: "admin",
   password: "laundry_admin",
   username: "admin",
-  role: "admin",
 });
 
 if (data) {

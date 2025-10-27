@@ -10,6 +10,7 @@ import { exceptionHandler } from "./exceptions";
 import { membersController } from "./modules/members";
 import { productsController } from "./modules/products";
 import { servicesController } from "./modules/services";
+import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
 import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
@@ -48,6 +49,7 @@ const app = new Elysia()
   .use(membersController)
   .use(servicesController)
   .use(vouchersController)
+  .use(staffsController)
   .use(
     staticPlugin({
       assets: "public",
