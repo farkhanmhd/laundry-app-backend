@@ -7,7 +7,7 @@ export abstract class Staffs {
     const rows = await db
       .select()
       .from(user)
-      .where(eq(user.role, "staff"))
+      .where(eq(user.role, "admin"))
       .orderBy(desc(user.createdAt));
 
     return rows;

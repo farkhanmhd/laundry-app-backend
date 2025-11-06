@@ -1,17 +1,32 @@
-import { authClient } from "@/auth-client";
+import { auth } from "@/auth";
 
-const { data, error } = await authClient.signUp.email({
-  email: "admin@laundry.com",
-  name: "admin",
-  password: "laundry_admin",
-  username: "admin",
-  displayUsername: "admin",
-});
+const employeesData = [
+  {
+    email: "admin@laundry.com",
+    name: "admin",
+    password: "laundry_admin",
+    data: {
+      role: "admin",
+      username: "admin",
+      displayUsername: "admin",
+    },
+  },
+  {
+    email: "superadmin@laundry.com",
+    name: "Super Admin",
+    password: "superadmin",
+    data: {
+      role: "superadmin",
+      username: "superadmin",
+      displayUsername: "superadmin",
+    },
+  },
+];
 
-if (data) {
-  console.log(data);
+for (const employee of employeesData) {
+  await auth.api.createUser({
+    body: employee,
+  });
 }
 
-if (error) {
-  console.log(error);
-}
+console.log("finished");

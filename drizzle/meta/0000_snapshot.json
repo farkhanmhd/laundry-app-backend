@@ -1,5 +1,5 @@
 {
-  "id": "a4050f13-0f4a-4ebb-85c2-603170076ee9",
+  "id": "f65d531b-f18c-4f1e-846a-45519e9e7829",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -360,6 +360,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "description": {
+          "name": "description",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "image": {
           "name": "image",
           "type": "varchar",
@@ -527,129 +533,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.bookings": {
-      "name": "bookings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "member_id": {
-          "name": "member_id",
-          "type": "varchar(6)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "machine_id": {
-          "name": "machine_id",
-          "type": "smallserial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "start_time": {
-          "name": "start_time",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "end_time": {
-          "name": "end_time",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "bookings_member_id_members_id_fk": {
-          "name": "bookings_member_id_members_id_fk",
-          "tableFrom": "bookings",
-          "tableTo": "members",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "bookings_machine_id_machines_id_fk": {
-          "name": "bookings_machine_id_machines_id_fk",
-          "tableFrom": "bookings",
-          "tableTo": "machines",
-          "columnsFrom": [
-            "machine_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.machines": {
-      "name": "machines",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "smallserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -962,12 +845,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "machine_id": {
-          "name": "machine_id",
-          "type": "smallserial",
-          "primaryKey": false,
-          "notNull": true
-        },
         "service_name": {
           "name": "service_name",
           "type": "varchar(50)",
@@ -1008,19 +885,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "job_logs_machine_id_machines_id_fk": {
-          "name": "job_logs_machine_id_machines_id_fk",
-          "tableFrom": "job_logs",
-          "tableTo": "machines",
-          "columnsFrom": [
-            "machine_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1050,6 +914,12 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
         },
         "price": {
           "name": "price",
@@ -1446,23 +1316,6 @@
     }
   },
   "enums": {
-    "public.status": {
-      "name": "status",
-      "schema": "public",
-      "values": [
-        "pending",
-        "in_progress",
-        "completed"
-      ]
-    },
-    "public.type": {
-      "name": "type",
-      "schema": "public",
-      "values": [
-        "washer",
-        "dryer"
-      ]
-    },
     "public.shift_status": {
       "name": "shift_status",
       "schema": "public",
@@ -1477,6 +1330,15 @@
       "values": [
         "qris",
         "cash"
+      ]
+    },
+    "public.status": {
+      "name": "status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "in_progress",
+        "completed"
       ]
     },
     "public.role": {

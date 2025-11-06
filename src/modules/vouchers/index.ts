@@ -1,11 +1,16 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth-instance";
-import { type GetVouchers, vouchersModel } from "./model";
+import { vouchersModel } from "./model";
 import { Vouchers } from "./service";
 
 export const vouchersController = new Elysia({ prefix: "/vouchers" })
   .use(vouchersModel)
   .use(betterAuth)
+  .guard({
+    detail: {
+      tags: ["Voucher"],
+    },
+  })
   .get(
     "/",
     async ({ status }) => {

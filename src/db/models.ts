@@ -5,5 +5,5 @@ import { spreads } from "./utils";
 export const models = {
   insert: spreads(table, "insert"),
   select: spreads(table, "select"),
-  services
+  services,
 } as const;

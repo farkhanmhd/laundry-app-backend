@@ -18,6 +18,7 @@ export const products = pgTable(
       .primaryKey()
       .$defaultFn(() => `p-${nanoid()}`),
     name: varchar("name", { length: 128 }).notNull(),
+    description: varchar("description", { length: 512 }).notNull(),
     image: varchar("image"),
     price: integer("price").notNull(),
     currentQuantity: integer("current_quantity").notNull().default(0),

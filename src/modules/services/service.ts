@@ -1,40 +1,52 @@
+import { write } from "bun";
 import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type ServiceInsert, services } from "@/db/schema/services";
 import { InternalError } from "@/exceptions";
+import { redis } from "@/redis";
 import type {
   AddServiceBody,
+  Service,
   UpdateServiceBody,
   UpdateServiceImage,
 } from "./model";
 
+const SERVICE_CACHE_KEY = "service:all";
+
 export abstract class Services {
   static async getServices() {
-    const rows = await db
+    const json = await redis.get(SERVICE_CACHE_KEY);
+
+    if (json) {
+      return JSON.parse(json) as Service[];
+    }
+
+    const rows: Service[] = await db
       .select()
       .from(services)
       .where(isNull(services.deletedAt))
       .orderBy(desc(services.createdAt));
 
+    await redis.set(SERVICE_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
+
     return rows;
   }
 
   static async addService(formData: AddServiceBody) {
-    const { name, image, price } = formData;
+    const { image, ...data } = formData;
 
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
     const folderPath = "public/uploads";
     const fullPath = `${folderPath}/${fileName}`;
     const imageUrl = `${process.env.BETTER_AUTH_URL}/uploads/${fileName}`;
 
-    await Bun.write(fullPath, image);
+    await write(fullPath, image);
 
     const result = await db
       .insert(services)
       .values({
-        name: name as string,
+        ...data,
         image: imageUrl,
-        price,
       })
       .returning({ id: services.id });
 
@@ -42,26 +54,23 @@ export abstract class Services {
       throw new InternalError();
     }
 
+    await redis.del(SERVICE_CACHE_KEY);
+
     return result[0]?.id as string;
   }
 
   static async updateService(id: string, data: UpdateServiceBody) {
-    const { name, price } = data;
-
-    const insertData: ServiceInsert = {
-      name,
-      price,
-    };
-
     const result = await db
       .update(services)
-      .set({ ...insertData, updatedAt: sql`now()` })
+      .set({ ...data, updatedAt: sql`now()` })
       .where(eq(services.id, id))
       .returning({ id: services.id });
 
     if (!result.length) {
       throw new InternalError();
     }
+
+    await redis.del(SERVICE_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -74,7 +83,7 @@ export abstract class Services {
     const fullPath = `${folderPath}/${fileName}`;
     const imageUrl = `${process.env.BETTER_AUTH_URL}/uploads/${fileName}`;
 
-    await Bun.write(fullPath, image);
+    await write(fullPath, image);
 
     const result = await db
       .update(services)
@@ -85,6 +94,8 @@ export abstract class Services {
     if (!result.length) {
       throw new InternalError();
     }
+
+    await redis.del(SERVICE_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -99,6 +110,8 @@ export abstract class Services {
     if (!result.length) {
       throw new InternalError("Service id not valid");
     }
+
+    await redis.del(SERVICE_CACHE_KEY);
 
     return result[0]?.id as string;
   }

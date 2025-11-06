@@ -1,7 +1,18 @@
 import { db } from "..";
 import { members } from "../schema/members";
 
-const randomNames = ["John", "Jane", "James", "Frank", "Josh", "Michael", "Donny", "Chris"];
+console.log('Seeding users')
+
+const randomNames = [
+  "John",
+  "Jane",
+  "James",
+  "Frank",
+  "Josh",
+  "Michael",
+  "Donny",
+  "Chris",
+];
 
 const seedMembers = async () => {
   const randomUsers = Array.from({ length: 50 }).map(() => ({
@@ -13,3 +24,5 @@ const seedMembers = async () => {
 };
 
 seedMembers();
+
+console.log('finished')

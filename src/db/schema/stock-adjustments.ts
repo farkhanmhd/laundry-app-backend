@@ -20,13 +20,16 @@ export const stockAdjustments = pgTable("stock_adjustments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const stockAdjustmentsRelations = relations(stockAdjustments, ({ one }) => ({
-  product: one(products, {
-    fields: [stockAdjustments.productId],
-    references: [products.id],
-  }),
-  user: one(user, {
-    fields: [stockAdjustments.userId],
-    references: [user.id],
-  }),
-}));
+export const stockAdjustmentsRelations = relations(
+  stockAdjustments,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [stockAdjustments.productId],
+      references: [products.id],
+    }),
+    user: one(user, {
+      fields: [stockAdjustments.userId],
+      references: [user.id],
+    }),
+  })
+);

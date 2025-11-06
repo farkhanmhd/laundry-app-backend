@@ -6,20 +6,61 @@ import { Products } from "./service";
 export const productsController = new Elysia({ prefix: "/products" })
   .use(productsModel)
   .use(betterAuth)
+  .guard({
+    detail: {
+      tags: ["Product"],
+    },
+  })
   .get(
     "/",
     async ({ status }) => {
-      const result = await Products.getProducts();
-
-      return status(200, {
-        status: "success",
-        message: "Products Retrieved",
-        data: result,
-      });
+      try {
+        const result = await Products.getProducts();
+        return status(200, {
+          status: "success",
+          message: "Products Retrieved",
+          data: result,
+        });
+      } catch {
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
     },
     {
       auth: true,
     }
+  )
+  .get(
+    "/:id",
+    async ({ params, status }) => {
+      try {
+        const product = await Products.getProductById(params.id as string);
+        return status(200, {
+          status: "success",
+          message: "Product Retrieved",
+          data: product,
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotFoundError"
+        ) {
+          return status(404, {
+            status: "error",
+            message: "Product not found",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
+    },
+    { auth: true }
   )
   .guard({
     isSuperAdmin: true,
@@ -27,48 +68,94 @@ export const productsController = new Elysia({ prefix: "/products" })
   .post(
     "/",
     async ({ body, status }) => {
-      const newProductId = await Products.addProduct(body);
-
-      return status(201, {
-        status: "success",
-        message: "New Product Created",
-        data: {
-          id: newProductId,
-        },
-      });
+      try {
+        const product = await Products.addProduct(body);
+        return status(201, {
+          status: "success",
+          message: "New Product Created",
+          data: product,
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "InternalError"
+        ) {
+          return status(400, {
+            status: "error",
+            message: "Failed to create product",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
     },
     {
       parse: "multipart/form-data",
       body: "addProduct",
-      response: {
-        201: "addProductResponse",
-      },
     }
   )
   .patch(
     "/:id",
     async ({ params: { id }, body, status }) => {
-      await Products.updateProduct(id, body);
-
-      return status(200, {
-        status: "success",
-        message: "Product updated",
-      });
+      try {
+        await Products.updateProduct(id, body);
+        return status(200, {
+          status: "success",
+          message: "Product Updated",
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotFoundError"
+        ) {
+          return status(404, {
+            status: "error",
+            message: "Product not found",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
     },
     {
-      parse: "application/json",
       body: "updateProduct",
+      parse: "application/json",
     }
   )
   .patch(
     "/:id/image",
     async ({ params: { id }, body, status }) => {
-      await Products.updateProductImage(id, body);
-
-      return status(200, {
-        status: "success",
-        message: "Product updated",
-      });
+      try {
+        await Products.updateProductImage(id as string, body);
+        return status(200, {
+          status: "success",
+          message: "Product updated",
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotFoundError"
+        ) {
+          return status(404, {
+            status: "error",
+            message: "Product not found",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
     },
     {
       body: "updateProductImage",
@@ -77,12 +164,29 @@ export const productsController = new Elysia({ prefix: "/products" })
   .patch(
     "/:id/stock",
     async ({ params: { id }, status, body, user }) => {
-      await Products.adjustQuantity(user.id, id, body);
-
-      return status(200, {
-        status: "success",
-        message: "Quantity Updated",
-      });
+      try {
+        await Products.adjustQuantity(user.id, id as string, body);
+        return status(200, {
+          status: "success",
+          message: "Quantity Updated",
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotFoundError"
+        ) {
+          return status(404, {
+            status: "error",
+            message: "Product not found",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
     },
     {
       parse: "application/json",
@@ -90,10 +194,27 @@ export const productsController = new Elysia({ prefix: "/products" })
     }
   )
   .delete("/:id", async ({ params: { id }, status }) => {
-    await Products.deleteProduct(id as string);
-
-    return status(200, {
-      status: "success",
-      message: "Product deleted",
-    });
+    try {
+      await Products.deleteProduct(id as string);
+      return status(200, {
+        status: "success",
+        message: "Product deleted",
+      });
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "name" in error &&
+        error.name === "NotFoundError"
+      ) {
+        return status(404, {
+          status: "error",
+          message: "Product not found",
+        });
+      }
+      return status(500, {
+        status: "error",
+        message: "Internal server error",
+      });
+    }
   });

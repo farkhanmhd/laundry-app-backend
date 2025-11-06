@@ -6,6 +6,11 @@ import { Services } from "./service";
 export const servicesController = new Elysia({ prefix: "/services" })
   .use(servicesModel)
   .use(betterAuth)
+  .guard({
+    detail: {
+      tags: ["Service"],
+    },
+  })
   .get(
     "/",
     async ({ status }) => {

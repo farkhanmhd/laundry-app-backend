@@ -15,7 +15,9 @@ export abstract class Members {
     const whereQuery = or(searchById, searchByName, searchByPhone);
 
     const result = await db.transaction(async (tx) => {
-      const total = (await tx.select({ count: count() }).from(membersTable).where(whereQuery))[0]?.count;
+      const total = (
+        await tx.select({ count: count() }).from(membersTable).where(whereQuery)
+      )[0]?.count;
       const members = await tx
         .select()
         .from(membersTable)
@@ -30,7 +32,10 @@ export abstract class Members {
   }
 
   static async addMember(data: AddMemberBody) {
-    const result = await db.insert(membersTable).values(data).returning({ id: membersTable.id });
+    const result = await db
+      .insert(membersTable)
+      .values(data)
+      .returning({ id: membersTable.id });
 
     if (!result.length) {
       throw new InternalError();

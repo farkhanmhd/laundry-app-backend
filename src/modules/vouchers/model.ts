@@ -31,20 +31,13 @@ const addVoucher = t.Object({
     ...models.insert.vouchers.expiresAt,
     error: "Expire date required",
   }),
-  isActive: t.Boolean({
-    ...models.insert.vouchers.isActive,
-    error: "Voucher Activation Status is required",
-  }),
-  isVisible: t.Boolean({
-    ...models.insert.vouchers.isVisible,
-    error: "Voucher Visibility Status is required",
-  }),
 });
 
 // Schema for updating an existing voucher. All fields are optional.
 const updateVoucher = t.Partial(addVoucher);
 
 // TypeScript types inferred from the schemas.
+export type Voucher = typeof voucher.static;
 export type AddVoucherBody = typeof addVoucher.static;
 export type UpdateVoucherBody = typeof updateVoucher.static;
 

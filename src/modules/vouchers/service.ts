@@ -2,12 +2,16 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
-import type { AddVoucherBody, UpdateVoucherBody } from "./model";
+import { redis } from "@/redis";
+import type { AddVoucherBody, UpdateVoucherBody, Voucher } from "./model";
 
 /**
  * Abstract class for handling voucher-related database operations.
  * This approach centralizes data logic and ensures consistency.
  */
+
+const VOUCHER_CACHE_KEY = "voucher:all";
+
 export abstract class Vouchers {
   /**
    * Retrieves all active vouchers from the database, sorted by creation date.
@@ -16,11 +20,20 @@ export abstract class Vouchers {
    */
   static async getActiveVouchers() {
     try {
+      const json = await redis.get(VOUCHER_CACHE_KEY);
+
+      if (json) {
+        return JSON.parse(json) as Voucher[];
+      }
+
       const rows = await db
         .select()
         .from(vouchers)
         .where(and(eq(vouchers.isActive, true), eq(vouchers.isVisible, true)))
         .orderBy(desc(vouchers.createdAt));
+
+      await redis.set(VOUCHER_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
+
       return rows;
     } catch (error) {
       console.error("Error fetching vouchers:", error);
@@ -34,6 +47,9 @@ export abstract class Vouchers {
         .select()
         .from(vouchers)
         .orderBy(desc(vouchers.createdAt));
+
+      await redis.del(VOUCHER_CACHE_KEY);
+
       return rows;
     } catch (error) {
       console.error("Error fetching vouchers:", error);
@@ -57,6 +73,8 @@ export abstract class Vouchers {
       throw new InternalError("Failed to create the new voucher.");
     }
 
+    await redis.del(VOUCHER_CACHE_KEY);
+
     return result[0].id;
   }
 
@@ -78,6 +96,8 @@ export abstract class Vouchers {
       throw new NotFoundError("Voucher not found.");
     }
 
+    await redis.del(VOUCHER_CACHE_KEY);
+
     return result[0].id;
   }
 
@@ -98,6 +118,8 @@ export abstract class Vouchers {
     if (!(result.length && result[0]?.id)) {
       throw new NotFoundError("Voucher not found.");
     }
+
+    await redis.del(VOUCHER_CACHE_KEY);
 
     return result[0].id;
   }

@@ -10,6 +10,11 @@ const addService = t.Object({
     minLength: 1,
     error: "Service name cannot be empty",
   }),
+  description: t.String({
+    ...models.insert.services.description,
+    minLength: 1,
+    error: "Description cannot be empty",
+  }),
   image: t.File({
     type: "image/*",
     maxSize: "5m",
@@ -21,9 +26,12 @@ const addService = t.Object({
   }),
 });
 
-const updateService = t.Composite([t.Pick(addService, ["name", "price"])]);
+const updateService = t.Composite([
+  t.Pick(addService, ["name", "price", "description"]),
+]);
 const updateServiceImage = t.Pick(addService, ["image"]);
 
+export type Service = typeof service.static;
 export type AddServiceBody = typeof addService.static;
 export type UpdateServiceBody = typeof updateService.static;
 export type UpdateServiceImage = typeof updateServiceImage.static;

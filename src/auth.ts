@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: copied directly from better-auth docs */
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, bearer, openAPI, username } from "better-auth/plugins";
+import { admin, openAPI, username } from "better-auth/plugins";
 import { account, session, user, verification } from "@/db/schema/auth";
 import { db } from "./db";
 
@@ -21,10 +21,15 @@ export const auth = betterAuth({
   },
   plugins: [
     username(),
-    bearer(),
     openAPI(),
     admin({ adminRoles: ["admin", "superadmin"] }),
   ],
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60,
+    },
+  },
 });
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;

@@ -1,7 +1,5 @@
 import { account, session, user, verification } from "./auth";
-import { bookings } from "./bookings";
 import { jobLogs } from "./job-logs";
-import { machines } from "./machines";
 import { members } from "./members";
 import { orderDetails } from "./order-details";
 import { orders } from "./orders";
@@ -29,6 +27,4 @@ export const table = {
   stockAdjustments,
   vouchers,
   jobLogs,
-  machines,
-  bookings,
 } as const;

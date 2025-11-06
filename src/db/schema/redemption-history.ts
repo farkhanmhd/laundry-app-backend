@@ -19,17 +19,20 @@ export const redemptionHistory = pgTable("redemption_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const redemptionHistoryRelations = relations(redemptionHistory, ({ one }) => ({
-  member: one(members, {
-    fields: [redemptionHistory.memberId],
-    references: [members.id],
-  }),
-  voucher: one(vouchers, {
-    fields: [redemptionHistory.voucherId],
-    references: [vouchers.id],
-  }),
-  order: one(orders, {
-    fields: [redemptionHistory.orderId],
-    references: [orders.id],
-  }),
-}));
+export const redemptionHistoryRelations = relations(
+  redemptionHistory,
+  ({ one }) => ({
+    member: one(members, {
+      fields: [redemptionHistory.memberId],
+      references: [members.id],
+    }),
+    voucher: one(vouchers, {
+      fields: [redemptionHistory.voucherId],
+      references: [vouchers.id],
+    }),
+    order: one(orders, {
+      fields: [redemptionHistory.orderId],
+      references: [orders.id],
+    }),
+  })
+);

@@ -8,6 +8,11 @@ export const membersController = new Elysia({ prefix: "/members" })
   .use(betterAuth)
   .use(membersModel)
   .use(searchQueryModel)
+  .guard({
+    detail: {
+      tags: ["Member"],
+    },
+  })
   .get(
     "/",
     async ({ status, query }) => {
@@ -22,7 +27,7 @@ export const membersController = new Elysia({ prefix: "/members" })
     {
       auth: true,
       query: "searchQuery",
-    },
+    }
   )
   .post(
     "/",
@@ -41,5 +46,5 @@ export const membersController = new Elysia({ prefix: "/members" })
       auth: true,
       body: "addMember",
       parse: "application/json",
-    },
+    }
   );

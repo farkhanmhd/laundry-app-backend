@@ -24,6 +24,11 @@ const addProduct = t.Object({
     minimum: 0,
     error: "Quantity cannot be empty",
   }),
+  description: t.String({
+    ...models.insert.products.description,
+    minLength: 1,
+    error: "Product name cannot be empty",
+  }),
   reorderPoint: t.Numeric({
     ...models.insert.products.reorderPoint,
     minimum: 0,
@@ -31,12 +36,17 @@ const addProduct = t.Object({
   }),
 });
 
-const updateProduct = t.Composite([t.Pick(addProduct, ["name", "price"]), t.Partial(t.Pick(addProduct, ["reorderPoint"]))]);
+const updateProduct = t.Composite([
+  t.Pick(addProduct, ["name", "price"]),
+  t.Partial(t.Pick(addProduct, ["reorderPoint"])),
+]);
+
 const updateProductImage = t.Pick(addProduct, ["image"]);
 
 export type AddProductBody = typeof addProduct.static;
 export type UpdateProductBody = typeof updateProduct.static;
 export type UpdateProductImage = typeof updateProductImage.static;
+export type Product = typeof product.static;
 
 const addProductResponse = t.Composite([
   succesResponse,

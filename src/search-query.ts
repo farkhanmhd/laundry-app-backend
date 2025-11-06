@@ -8,6 +8,8 @@ const searchQuery = t.Object({
 
 export type SearchQuery = typeof searchQuery.static;
 
-export const searchQueryModel = new Elysia({ name: "search-query/model" }).model({
+export const searchQueryModel = new Elysia({
+  name: "search-query/model",
+}).model({
   searchQuery,
 });
