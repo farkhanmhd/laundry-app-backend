@@ -37,7 +37,7 @@ const addProduct = t.Object({
 });
 
 const updateProduct = t.Composite([
-  t.Pick(addProduct, ["name", "price"]),
+  t.Pick(addProduct, ["name", "price", "description"]),
   t.Partial(t.Pick(addProduct, ["reorderPoint"])),
 ]);
 

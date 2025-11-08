@@ -17,10 +17,10 @@ const PRODUCTS_CACHE_KEY = "products:all";
 
 export abstract class Products {
   static async getProducts() {
-      const json = await redis.get("categories");
+    const json = await redis.get("categories");
 
-      if (json) {
-        return JSON.parse(json) as Product[];
+    if (json) {
+      return JSON.parse(json) as Product[];
     }
 
     const rows: Product[] = await db
@@ -76,6 +76,7 @@ export abstract class Products {
     if (!row.length) {
       throw new NotFoundError("Product not found");
     }
+
     await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
     return row[0] as Product;
   }
