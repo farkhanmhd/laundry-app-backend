@@ -2,14 +2,14 @@ import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { nanoid } from "../utils";
 import { user } from "./auth";
-import { products } from "./products";
+import { inventories } from "./inventories";
 
 export const stockAdjustments = pgTable("stock_adjustments", {
   id: varchar("id")
     .primaryKey()
     .$defaultFn(() => `sa-${nanoid(5)}`),
-  productId: varchar("product_id")
-    .references(() => products.id, { onDelete: "cascade" })
+  inventoryId: varchar("inventory_id")
+    .references(() => inventories.id, { onDelete: "cascade" })
     .notNull(),
   userId: varchar("user_id")
     .references(() => user.id)
@@ -23,9 +23,9 @@ export const stockAdjustments = pgTable("stock_adjustments", {
 export const stockAdjustmentsRelations = relations(
   stockAdjustments,
   ({ one }) => ({
-    product: one(products, {
-      fields: [stockAdjustments.productId],
-      references: [products.id],
+    inventory: one(inventories, {
+      fields: [stockAdjustments.inventoryId],
+      references: [inventories.id],
     }),
     user: one(user, {
       fields: [stockAdjustments.userId],

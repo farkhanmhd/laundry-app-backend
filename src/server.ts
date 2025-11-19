@@ -7,8 +7,8 @@ import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth";
 import { betterAuth } from "./auth-instance";
 import { exceptionHandler } from "./exceptions";
+import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
-import { productsController } from "./modules/products";
 import { servicesController } from "./modules/services";
 import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
@@ -32,7 +32,7 @@ const app = new Elysia()
         components: await OpenAPI.components,
         paths: await OpenAPI.getPaths(),
         tags: [
-          { name: "Product", description: "Product API endpoints" },
+          { name: "Inventory", description: "Inventory API endpoints" },
           { name: "Member", description: "Member API endpoints" },
           { name: "Service", description: "Service API endpoints" },
           { name: "Voucher", description: "Voucher API endpoints" },
@@ -53,7 +53,7 @@ const app = new Elysia()
   .use(betterAuth)
   .use(responseHandler)
   .use(exceptionHandler)
-  .use(productsController)
+  .use(inventoriesController)
   .use(membersController)
   .use(servicesController)
   .use(vouchersController)

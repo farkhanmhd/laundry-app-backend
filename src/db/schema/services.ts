@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   check,
   integer,
@@ -7,6 +7,8 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
+import { bundlingItems } from "./bundling-items";
+import { orderItems } from "./order-items";
 
 export const services = pgTable(
   "services",
@@ -26,3 +28,8 @@ export const services = pgTable(
 );
 
 export type ServiceInsert = typeof services.$inferInsert;
+
+export const servicesRelations = relations(services, ({ many }) => ({
+  orderItems: many(orderItems),
+  bundlingItems: many(bundlingItems),
+}));

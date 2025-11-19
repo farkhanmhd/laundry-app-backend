@@ -7,6 +7,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { nanoid } from "../utils";
+import { orderItems } from "./order-items";
 import { redemptionHistory } from "./redemption-history";
 
 export const vouchers = pgTable("vouchers", {
@@ -28,4 +29,5 @@ export const vouchers = pgTable("vouchers", {
 
 export const vouchersRelations = relations(vouchers, ({ many }) => ({
   redemptionHistory: many(redemptionHistory),
+  orderItems: many(orderItems),
 }));

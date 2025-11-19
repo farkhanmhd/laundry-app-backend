@@ -1,7 +1,7 @@
 import { randomUUIDv7 } from "bun";
 import {
   integer,
-  json,
+  jsonb,
   pgEnum,
   pgTable,
   timestamp,
@@ -9,22 +9,24 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { orders } from "./orders";
-import { shifts } from "./shifts";
 
 export const paymentTypeEnum = pgEnum("paymentType", ["qris", "cash"]);
 
-export const payments = pgTable("payments", {
+export const payments = pgTable("payment_detail", {
   id: varchar("id")
     .primaryKey()
     .$defaultFn(() => `pd-${randomUUIDv7()}`),
   orderId: varchar("order_id")
     .references(() => orders.id)
     .notNull(),
-  shiftId: varchar("shift_id")
-    .references(() => shifts.id)
-    .notNull(),
-  grossAmount: integer("amount").notNull(),
   paymentType: paymentTypeEnum(),
+
+  discountAmount: integer("discount_amount").notNull(),
+  amountPaid: integer("amount_paid").notNull(), // if not cash then amountPaid === total
+  change: integer("change"), // possible if cash. if not cash then 0
+  total: integer("total").notNull(), // customer total payment
+
+  transactionStatus: varchar("transaction_status"),
   transactionTime: timestamp("transaction_time", { mode: "string" })
     .defaultNow()
     .notNull(),
@@ -35,7 +37,7 @@ export const payments = pgTable("payments", {
   qrString: varchar("qr_string", { length: 500 }),
   acquirer: varchar("acquirer", { length: 50 }),
   actions:
-    json("actions").$type<{ name: string; method: string; url: string }[]>(),
+    jsonb("actions").$type<{ name: string; method: string; url: string }[]>(),
 
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
@@ -45,9 +47,5 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   order: one(orders, {
     fields: [payments.orderId],
     references: [orders.id],
-  }),
-  shift: one(shifts, {
-    fields: [payments.shiftId],
-    references: [shifts.id],
   }),
 }));

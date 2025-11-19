@@ -1,50 +1,49 @@
 import { relations } from "drizzle-orm";
-import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { user } from "./auth";
-import { jobLogs } from "./job-logs";
 import { members } from "./members";
-import { orderDetails } from "./order-details";
+import { orderItems } from "./order-items";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
-import { shifts } from "./shifts";
+
+export const orderStatusEnum = pgEnum("orderStatus", [
+  "pending", // waiting for payment
+  "processing", // paid and work in progress
+  "ready", // finished working and ready to be pickedup by customer
+  "completed", // picked up by customer
+]);
 
 export const orders = pgTable("orders", {
   id: varchar("id", { length: 8 })
     .primaryKey()
     .$defaultFn(() => `o-${nanoid(5)}`),
-  member: varchar("member_id").references(() => members.id),
-  userId: varchar("user_id")
+  customerName: varchar("customer_name", { length: 50 }), // handle non member
+  memberId: varchar("member_id").references(() => members.id),
+  userId: varchar("user_id") // staff id
     .references(() => user.id)
     .notNull(),
-  shiftId: varchar("shift_id")
-    .references(() => shifts.id)
-    .notNull(),
-  status: varchar("status", {
-    length: 50,
-    enum: ["pending", "processing", "ready", "completed"],
-  }).notNull(),
-  totalAmount: integer("total_amount").notNull(),
-  discountApplied: integer("discount_applied").default(0).notNull(),
-  amountPaid: integer("amount_paid").notNull(),
+  status: orderStatusEnum().notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   member: one(members, {
-    fields: [orders.member],
+    fields: [orders.memberId],
     references: [members.id],
   }),
   user: one(user, {
     fields: [orders.userId],
     references: [user.id],
   }),
-  shift: one(shifts, {
-    fields: [orders.shiftId],
-    references: [shifts.id],
+  payment: one(payments, {
+    fields: [orders.id],
+    references: [payments.orderId],
   }),
-  orderDetails: many(orderDetails),
-  payments: many(payments),
-  redemptionHistory: many(redemptionHistory),
-  jobLogs: many(jobLogs),
+  redemptionHistory: one(redemptionHistory, {
+    fields: [orders.id],
+    references: [redemptionHistory.orderId],
+  }),
+
+  orderItems: many(orderItems),
 }));

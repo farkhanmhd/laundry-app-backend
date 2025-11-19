@@ -1,104 +1,102 @@
 import { write } from "bun";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { products } from "@/db/schema/products";
+import { inventories } from "@/db/schema/inventories";
 import { stockAdjustments } from "@/db/schema/stock-adjustments";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type {
-  AddProductBody,
+  AddInventoryBody,
   AdjustQuantitySchema,
-  Product,
-  UpdateProductBody,
-  UpdateProductImage,
+  Inventory,
+  UpdateInventoryBody,
+  UpdateInventoryImage,
 } from "./model";
 
-const PRODUCTS_CACHE_KEY = "products:all";
+const INVENTORIES_CACHE_KEY = "inventories:all";
 
-export abstract class Products {
-  static async getProducts() {
-    const json = await redis.get("categories");
+export abstract class Inventories {
+  static async getInventories() {
+    const json = await redis.get(INVENTORIES_CACHE_KEY);
 
     if (json) {
-      return JSON.parse(json) as Product[];
+      return JSON.parse(json) as Inventory[];
     }
 
-    const rows: Product[] = await db
+    const rows = await db
       .select()
-      .from(products)
-      .where(isNull(products.deletedAt))
-      .orderBy(desc(products.createdAt));
+      .from(inventories)
+      .orderBy(desc(inventories.createdAt));
 
-    await redis.set(PRODUCTS_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
+    await redis.set(INVENTORIES_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
   }
 
-  static async addProduct(formData: AddProductBody) {
-    const { name, image, price, currentQuantity, reorderPoint, description } =
-      formData;
+  static async addInventory(formData: AddInventoryBody) {
+    const { name, image, price, stock, safetyStock, description } = formData;
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
     const folderPath = "public/uploads";
     const fullPath = `${folderPath}/${fileName}`;
     const imageUrl = `${process.env.BETTER_AUTH_URL}/uploads/${fileName}`;
     await write(fullPath, image);
     const result = await db
-      .insert(products)
+      .insert(inventories)
       .values({
         name: name as string,
         description: description as string,
         image: imageUrl,
         price,
-        currentQuantity,
-        reorderPoint,
+        stock,
+        safetyStock,
       })
       .returning(); // return all columns
     if (result.length === 0) {
       throw new InternalError();
     }
     const row = result[0]; // safe because result.length > 0
-    await redis.del(PRODUCTS_CACHE_KEY);
-    await redis.set(`products:${row?.id}`, JSON.stringify(row), "EX", 3600);
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.set(`inventories:${row?.id}`, JSON.stringify(row), "EX", 3600);
     return row;
   }
 
-  static async getProductById(id: string) {
-    const cacheKey = `products:${id}`;
+  static async getInventoryById(id: string) {
+    const cacheKey = `inventories:${id}`;
     const json = await redis.get(cacheKey);
     if (json) {
-      return JSON.parse(json) as Product;
+      return JSON.parse(json) as Inventory;
     }
     const row = await db
       .select()
-      .from(products)
-      .where(and(eq(products.id, id), isNull(products.deletedAt)))
+      .from(inventories)
+      .where(and(eq(inventories.id, id), isNull(inventories.deletedAt)))
       .limit(1);
     if (!row.length) {
-      throw new NotFoundError("Product not found");
+      throw new NotFoundError("Inventory not found");
     }
 
     await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
-    return row[0] as Product;
+    return row[0] as Inventory;
   }
 
-  static async updateProduct(id: string, data: UpdateProductBody) {
+  static async updateInventory(id: string, data: UpdateInventoryBody) {
     const result = await db
-      .update(products)
+      .update(inventories)
       .set({ ...data, updatedAt: sql`now()` })
-      .where(eq(products.id, id))
-      .returning({ id: products.id });
+      .where(eq(inventories.id, id))
+      .returning({ id: inventories.id });
 
     if (!result.length) {
       throw new InternalError();
     }
 
-    await redis.del(PRODUCTS_CACHE_KEY);
-    await redis.del(`products:${id}`);
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }
 
-  static async updateProductImage(id: string, data: UpdateProductImage) {
+  static async updateInventoryImage(id: string, data: UpdateInventoryImage) {
     const { image } = data;
 
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
@@ -109,48 +107,48 @@ export abstract class Products {
     await write(fullPath, image);
 
     const result = await db
-      .update(products)
+      .update(inventories)
       .set({ image: imageUrl })
-      .where(eq(products.id, id))
-      .returning({ id: products.id });
+      .where(eq(inventories.id, id))
+      .returning({ id: inventories.id });
 
     if (!result.length) {
       throw new InternalError();
     }
 
-    await redis.del(PRODUCTS_CACHE_KEY);
-    await redis.del(`products:${id}`);
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }
 
   static async adjustQuantity(
     userId: string,
-    productId: string,
+    inventoryId: string,
     body: AdjustQuantitySchema
   ) {
     const stockAdjustmentId = await db.transaction(async (tx) => {
-      const selectedProduct = (
+      const selectedInventory = (
         await tx
           .select({
-            productId: products.id,
-            previousQuantity: products.currentQuantity,
+            inventoryId: inventories.id,
+            previousQuantity: inventories.stock,
           })
-          .from(products)
-          .where(eq(products.id, productId))
+          .from(inventories)
+          .where(eq(inventories.id, inventoryId))
           .limit(1)
       )[0];
 
-      if (!selectedProduct) {
+      if (!selectedInventory) {
         tx.rollback();
-        throw new NotFoundError("Product Id not found");
+        throw new NotFoundError("Inventory Id not found");
       }
 
       const stockAdjustment = (
         await tx
           .insert(stockAdjustments)
           .values({
-            ...selectedProduct,
+            ...selectedInventory,
             newQuantity: body.newQuantity,
             reason: body.reason,
             userId,
@@ -163,40 +161,40 @@ export abstract class Products {
         throw new InternalError();
       }
 
-      const updateProduct = (
+      const updateInventory = (
         await tx
-          .update(products)
-          .set({ currentQuantity: body.newQuantity })
-          .where(eq(products.id, productId))
-          .returning({ id: products.id })
+          .update(inventories)
+          .set({ stock: body.newQuantity })
+          .where(eq(inventories.id, inventoryId))
+          .returning({ id: inventories.id })
       )[0];
 
-      if (!updateProduct?.id) {
+      if (!updateInventory?.id) {
         throw new InternalError();
       }
 
       return stockAdjustment.id;
     });
 
-    await redis.del(PRODUCTS_CACHE_KEY);
-    await redis.del(`products:${productId}`);
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(`inventories:${inventoryId}`);
 
     return stockAdjustmentId;
   }
 
-  static async deleteProduct(id: string) {
+  static async deleteInventory(id: string) {
     const result = await db
-      .update(products)
+      .update(inventories)
       .set({ deletedAt: sql`now()` })
-      .where(eq(products.id, id))
-      .returning({ id: products.id });
+      .where(eq(inventories.id, id))
+      .returning({ id: inventories.id });
 
     if (!result.length) {
-      throw new InternalError("Product id not valid");
+      throw new InternalError("Inventory id not valid");
     }
 
-    await redis.del(PRODUCTS_CACHE_KEY);
-    await redis.del(`products:${id}`);
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }

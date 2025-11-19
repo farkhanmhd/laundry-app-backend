@@ -1,7 +1,7 @@
 import { db } from "..";
 import { members } from "../schema/members";
 
-console.log('Seeding users')
+console.log("Seeding users");
 
 const randomNames = [
   "John",
@@ -25,4 +25,4 @@ const seedMembers = async () => {
 
 seedMembers();
 
-console.log('finished')
+console.log("finished");

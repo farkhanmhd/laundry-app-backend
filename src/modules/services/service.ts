@@ -1,7 +1,7 @@
 import { write } from "bun";
 import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { type ServiceInsert, services } from "@/db/schema/services";
+import { services } from "@/db/schema/services";
 import { InternalError } from "@/exceptions";
 import { redis } from "@/redis";
 import type {

@@ -1,24 +1,24 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth-instance";
-import { productsModel } from "./model";
-import { Products } from "./service";
+import { inventoriesModel } from "./model";
+import { Inventories } from "./service";
 
-export const productsController = new Elysia({ prefix: "/products" })
-  .use(productsModel)
+export const inventoriesController = new Elysia({ prefix: "/inventories" })
+  .use(inventoriesModel)
   .use(betterAuth)
   .guard({
     detail: {
-      tags: ["Product"],
+      tags: ["Inventory"],
     },
   })
   .get(
     "/",
     async ({ status }) => {
       try {
-        const result = await Products.getProducts();
+        const result = await Inventories.getInventories();
         return status(200, {
           status: "success",
-          message: "Products Retrieved",
+          message: "Inventories Retrieved",
           data: result,
         });
       } catch {
@@ -36,11 +36,13 @@ export const productsController = new Elysia({ prefix: "/products" })
     "/:id",
     async ({ params, status }) => {
       try {
-        const product = await Products.getProductById(params.id as string);
+        const inventory = await Inventories.getInventoryById(
+          params.id as string
+        );
         return status(200, {
           status: "success",
-          message: "Product Retrieved",
-          data: product,
+          message: "Inventory Retrieved",
+          data: inventory,
         });
       } catch (error) {
         if (
@@ -51,7 +53,7 @@ export const productsController = new Elysia({ prefix: "/products" })
         ) {
           return status(404, {
             status: "error",
-            message: "Product not found",
+            message: "Inventory not found",
           });
         }
         return status(500, {
@@ -69,11 +71,11 @@ export const productsController = new Elysia({ prefix: "/products" })
     "/",
     async ({ body, status }) => {
       try {
-        const product = await Products.addProduct(body);
+        const inventory = await Inventories.addInventory(body);
         return status(201, {
           status: "success",
-          message: "New Product Created",
-          data: product,
+          message: "New inventory Created",
+          data: inventory,
         });
       } catch (error) {
         if (
@@ -84,7 +86,7 @@ export const productsController = new Elysia({ prefix: "/products" })
         ) {
           return status(400, {
             status: "error",
-            message: "Failed to create product",
+            message: "Failed to create inventory",
           });
         }
         return status(500, {
@@ -95,17 +97,17 @@ export const productsController = new Elysia({ prefix: "/products" })
     },
     {
       parse: "multipart/form-data",
-      body: "addProduct",
+      body: "addInventory",
     }
   )
   .patch(
     "/:id",
     async ({ params: { id }, body, status }) => {
       try {
-        await Products.updateProduct(id, body);
+        await Inventories.updateInventory(id, body);
         return status(200, {
           status: "success",
-          message: "Product Updated",
+          message: "Inventory Updated",
         });
       } catch (error) {
         if (
@@ -116,7 +118,7 @@ export const productsController = new Elysia({ prefix: "/products" })
         ) {
           return status(404, {
             status: "error",
-            message: "Product not found",
+            message: "Inventory not found",
           });
         }
         return status(500, {
@@ -126,7 +128,7 @@ export const productsController = new Elysia({ prefix: "/products" })
       }
     },
     {
-      body: "updateProduct",
+      body: "updateInventory",
       parse: "application/json",
     }
   )
@@ -134,10 +136,10 @@ export const productsController = new Elysia({ prefix: "/products" })
     "/:id/image",
     async ({ params: { id }, body, status }) => {
       try {
-        await Products.updateProductImage(id as string, body);
+        await Inventories.updateInventoryImage(id as string, body);
         return status(200, {
           status: "success",
-          message: "Product updated",
+          message: "inventory updated",
         });
       } catch (error) {
         if (
@@ -148,7 +150,7 @@ export const productsController = new Elysia({ prefix: "/products" })
         ) {
           return status(404, {
             status: "error",
-            message: "Product not found",
+            message: "inventory not found",
           });
         }
         return status(500, {
@@ -158,14 +160,14 @@ export const productsController = new Elysia({ prefix: "/products" })
       }
     },
     {
-      body: "updateProductImage",
+      body: "updateInventoryImage",
     }
   )
   .patch(
     "/:id/stock",
     async ({ params: { id }, status, body, user }) => {
       try {
-        await Products.adjustQuantity(user.id, id as string, body);
+        await Inventories.adjustQuantity(user.id, id as string, body);
         return status(200, {
           status: "success",
           message: "Quantity Updated",
@@ -179,7 +181,7 @@ export const productsController = new Elysia({ prefix: "/products" })
         ) {
           return status(404, {
             status: "error",
-            message: "Product not found",
+            message: "Inventory not found",
           });
         }
         return status(500, {
@@ -195,10 +197,10 @@ export const productsController = new Elysia({ prefix: "/products" })
   )
   .delete("/:id", async ({ params: { id }, status }) => {
     try {
-      await Products.deleteProduct(id as string);
+      await Inventories.deleteInventory(id as string);
       return status(200, {
         status: "success",
-        message: "Product deleted",
+        message: "Inventory deleted",
       });
     } catch (error) {
       if (
@@ -209,7 +211,7 @@ export const productsController = new Elysia({ prefix: "/products" })
       ) {
         return status(404, {
           status: "error",
-          message: "Product not found",
+          message: "Inventory not found",
         });
       }
       return status(500, {

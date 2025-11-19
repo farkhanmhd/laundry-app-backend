@@ -1,8 +1,9 @@
 import { relations } from "drizzle-orm";
 import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { addresses } from "./addresses";
+import { deliveries } from "./deliveries";
 import { members } from "./members";
 import { orders } from "./orders";
-import { shifts } from "./shifts";
 import { stockAdjustments } from "./stock-adjustments";
 
 export const roleEnum = pgEnum("role", ["superadmin", "admin", "user"]);
@@ -83,8 +84,12 @@ export const verification = pgTable("verification", {
 });
 
 export const usersRelations = relations(user, ({ many, one }) => ({
-  member: one(members),
-  shifts: many(shifts),
+  member: one(members, {
+    fields: [user.id],
+    references: [members.userId],
+  }),
   orders: many(orders),
+  addresses: many(addresses),
   stockAdjustments: many(stockAdjustments),
+  deliveries: many(deliveries),
 }));

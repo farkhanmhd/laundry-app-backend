@@ -1,13 +1,15 @@
+import { addresses } from "./addresses";
 import { account, session, user, verification } from "./auth";
-import { jobLogs } from "./job-logs";
+import { bundlingItems } from "./bundling-items";
+import { bundlings } from "./bundlings";
+import { deliveries } from "./deliveries";
+import { inventories } from "./inventories";
 import { members } from "./members";
-import { orderDetails } from "./order-details";
+import { orderItems } from "./order-items";
 import { orders } from "./orders";
 import { payments } from "./payments";
-import { products } from "./products";
 import { redemptionHistory } from "./redemption-history";
 import { services } from "./services";
-import { shifts } from "./shifts";
 import { stockAdjustments } from "./stock-adjustments";
 import { vouchers } from "./vouchers";
 
@@ -16,15 +18,17 @@ export const table = {
   user,
   session,
   verification,
+  addresses,
+  bundlings,
+  bundlingItems,
+  deliveries,
+  inventories,
   members,
-  orderDetails,
   orders,
+  orderItems,
   payments,
-  products,
   redemptionHistory,
   services,
-  shifts,
   stockAdjustments,
   vouchers,
-  jobLogs,
 } as const;

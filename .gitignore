@@ -12,7 +12,7 @@
 /.next/
 /out/
 
-# production
+# inventoryion
 /build
 
 # misc
@@ -30,7 +30,7 @@ yarn-error.log*
 .env.development.local
 .env.development
 .env.test.local
-.env.production.local
+.env.inventoryion.local
 
 # vercel
 .vercel
