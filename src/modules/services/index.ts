@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { betterAuth } from "@/auth-instance";
+import { betterAuth } from "@/auth/auth-instance";
 import { servicesModel } from "./model";
 import { Services } from "./service";
 

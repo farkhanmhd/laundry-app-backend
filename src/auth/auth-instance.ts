@@ -1,9 +1,9 @@
 import Elysia from "elysia";
+import { AuthorizationError } from "../exceptions";
 import { auth } from "./auth";
-import { AuthorizationError } from "./exceptions";
 
 export const betterAuth = new Elysia({ name: "better-auth" })
-  .mount(auth.handler)
+  .mount("/auth", auth.handler)
   .macro({
     auth: {
       async resolve({ request: { headers } }) {

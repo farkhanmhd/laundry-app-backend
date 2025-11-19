@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { betterAuth } from "@/auth-instance";
+import { betterAuth } from "@/auth/auth-instance";
 import { Staffs } from "./service";
 
 export const staffsController = new Elysia({ prefix: "/staffs" })

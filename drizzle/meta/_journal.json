@@ -8,6 +8,20 @@
       "when": 1762998874211,
       "tag": "0000_dizzy_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1763538780454,
+      "tag": "0001_magical_scream",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1763539331009,
+      "tag": "0002_classy_living_lightning",
+      "breakpoints": true
     }
   ]
 }

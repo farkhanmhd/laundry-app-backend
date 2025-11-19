@@ -1,11 +1,13 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: copied directly from better-auth docs */
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, openAPI, username } from "better-auth/plugins";
+import { admin as adminPlugin, openAPI, username } from "better-auth/plugins";
 import { account, session, user, verification } from "@/db/schema/auth";
-import { db } from "./db";
+import { db } from "../db";
+import { accessControl, admin, superadmin } from "./permissions";
 
 export const auth = betterAuth({
+  basePath: "/api",
   trustedOrigins: [process.env.FRONTEND_URL as string],
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
@@ -23,12 +25,18 @@ export const auth = betterAuth({
   plugins: [
     username(),
     openAPI(),
-    admin({ adminRoles: ["admin", "superadmin"] }),
+    adminPlugin({
+      ac: accessControl,
+      roles: {
+        admin,
+        superadmin,
+      },
+    }),
   ],
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 60,
+      maxAge: 3600,
     },
   },
 });
