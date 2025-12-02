@@ -34,7 +34,7 @@ export abstract class Inventories {
   }
 
   static async addInventory(formData: AddInventoryBody) {
-    const { name, image, price, stock, safetyStock, description } = formData;
+    const { image, ...rest } = formData;
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
     const folderPath = "public/uploads";
     const fullPath = `${folderPath}/${fileName}`;
@@ -43,12 +43,8 @@ export abstract class Inventories {
     const result = await db
       .insert(inventories)
       .values({
-        name: name as string,
-        description: description as string,
         image: imageUrl,
-        price,
-        stock,
-        safetyStock,
+        ...rest,
       })
       .returning(); // return all columns
     if (result.length === 0) {

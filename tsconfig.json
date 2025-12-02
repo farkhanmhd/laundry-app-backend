@@ -1,10 +1,14 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": [
+      "ESNext"
+    ],
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "node",
-    "types": ["bun-types"],
+    "types": [
+      "bun-types"
+    ],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -14,7 +18,9 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   }
 }

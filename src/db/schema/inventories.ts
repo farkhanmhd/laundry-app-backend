@@ -30,7 +30,7 @@ export const inventories = pgTable(
     description: varchar("description", { length: 512 }).notNull(),
     image: varchar("image"),
     price: integer("price").notNull(),
-    unit: inventoryUnitEnum(),
+    unit: inventoryUnitEnum().notNull(),
     stock: integer("current_quantity").notNull().default(0),
     safetyStock: integer("safety_stock").notNull().default(0),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),

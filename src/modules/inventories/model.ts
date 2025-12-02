@@ -24,10 +24,11 @@ const addInventory = t.Object({
     minimum: 0,
     error: "Quantity cannot be empty",
   }),
+  unit: models.insert.inventories.unit,
   description: t.String({
     ...models.insert.inventories.description,
     minLength: 1,
-    error: "Inventory name cannot be empty",
+    error: "Inventory description cannot be empty",
   }),
   safetyStock: t.Numeric({
     ...models.insert.inventories.safetyStock,
@@ -37,8 +38,7 @@ const addInventory = t.Object({
 });
 
 const updateInventory = t.Composite([
-  t.Pick(addInventory, ["name", "price", "description"]),
-  t.Partial(t.Pick(addInventory, ["reorderPoint"])),
+  t.Pick(addInventory, ["name", "price", "description", "safetyStock", "unit"]),
 ]);
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);

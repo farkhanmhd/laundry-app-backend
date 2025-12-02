@@ -14,6 +14,7 @@ import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
 import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
+import { bundlingsController } from "./modules/bundlings";
 
 const port = Number(process.env.APP_PORT as string);
 
@@ -36,6 +37,7 @@ const app = new Elysia()
           { name: "Member", description: "Member API endpoints" },
           { name: "Service", description: "Service API endpoints" },
           { name: "Voucher", description: "Voucher API endpoints" },
+          { name: "Bundlings", description: "Bundlings API endpoints" },
           { name: "Staff", description: "Staff API endpoints" },
           { name: "Uploads", description: "Uploads API endpoints" },
         ],
@@ -57,6 +59,7 @@ const app = new Elysia()
   .use(membersController)
   .use(servicesController)
   .use(vouchersController)
+  .use(bundlingsController)
   .use(staffsController)
   .use(
     staticPlugin({

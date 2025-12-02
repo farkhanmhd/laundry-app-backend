@@ -1,20 +1,21 @@
 import { relations } from "drizzle-orm";
-import { integer, pgTable, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { user } from "./auth";
 import { orders } from "./orders";
 import { redemptionHistory } from "./redemption-history";
 
 export const members = pgTable("members", {
-  id: varchar("id", { length: 6 })
+  id: varchar("id")
     .primaryKey()
-    .$defaultFn(() => `c-${nanoid()}`),
+    .$defaultFn(() => `m-${nanoid(6)}`),
   name: varchar("name", { length: 50 }).notNull(),
   userId: varchar("user_id")
     .references(() => user.id, { onDelete: "set null" })
     .unique(),
   phone: varchar("phone", { length: 24 }).unique().notNull(),
   points: integer("points").default(0).notNull(),
+  createdAt: timestamp('created_at', { mode: 'string', withTimezone: true}).defaultNow()
 });
 
 export const membersRelations = relations(members, ({ many, one }) => ({

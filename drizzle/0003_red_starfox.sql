@@ -1,0 +1,1 @@
+ALTER TABLE "inventories" ALTER COLUMN "unit" SET NOT NULL;

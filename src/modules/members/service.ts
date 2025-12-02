@@ -1,4 +1,4 @@
-import { count, ilike, or } from "drizzle-orm";
+import { count, desc, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { members as membersTable } from "@/db/schema/members";
 import { InternalError } from "@/exceptions";
@@ -14,27 +14,34 @@ export abstract class Members {
 
     const whereQuery = or(searchById, searchByName, searchByPhone);
 
-    const result = await db.transaction(async (tx) => {
-      const total = (
-        await tx.select({ count: count() }).from(membersTable).where(whereQuery)
-      )[0]?.count;
-      const members = await tx
-        .select()
-        .from(membersTable)
-        .where(whereQuery)
-        .limit(rows)
-        .offset((page - 1) * rows);
+    const membersQuery = db
+      .select()
+      .from(membersTable)
+      .where(whereQuery)
+      .limit(rows)
+      .offset((page - 1) * rows)
+      .orderBy(desc(membersTable.createdAt));
 
-      return { total, members };
-    });
+    const totalQuery = db
+      .select({ count: count() })
+      .from(membersTable)
+      .where(whereQuery);
 
-    return result;
+    const [members, totalResult] = await Promise.all([
+      membersQuery,
+      totalQuery,
+    ]);
+
+    return { members, total: totalResult[0]?.count ?? 0 };
   }
 
   static async addMember(data: AddMemberBody) {
     const result = await db
       .insert(membersTable)
-      .values(data)
+      .values({
+        ...data,
+        phone: `+62${data.phone}`
+      })
       .returning({ id: membersTable.id });
 
     if (!result.length) {

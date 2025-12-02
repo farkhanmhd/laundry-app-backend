@@ -1,7 +1,6 @@
 import { db } from "..";
 import { members } from "../schema/members";
-
-console.log("Seeding users");
+import { fakerID_ID as faker } from '@faker-js/faker'
 
 const randomNames = [
   "John",
@@ -15,14 +14,16 @@ const randomNames = [
 ];
 
 const seedMembers = async () => {
-  const randomUsers = Array.from({ length: 50 }).map(() => ({
-    name: randomNames[Math.floor(Math.random() * 7)] as string,
+  console.log("Seeding users");
+  const randomUsers = Array.from({ length: 300 }).map(() => ({
+    name: faker.person.fullName(),
     phone: `+62${Math.floor(Math.random() * 10_000_000)}`,
   }));
 
-  await db.insert(members).values(randomUsers);
+  await db.transaction(async (tx) => {
+    await tx.insert(members).values(randomUsers);
+  });
+  console.log("finished");
 };
 
 seedMembers();
-
-console.log("finished");
