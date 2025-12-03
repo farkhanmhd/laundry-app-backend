@@ -127,4 +127,53 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
       body: "updateBundlingData",
       parse: "application/json",
     }
+  )
+  .patch(
+    "/:id/items",
+    async ({ params: { id }, body, status }) => {
+      await Bundlings.updateBundlingItems(id, body);
+      return status(200, {
+        status: "success",
+        message: "Bundling Items Updated.",
+        data: {
+          id,
+          body,
+        },
+      });
+    },
+    {
+      body: "updateBundlingItemBody",
+      parse: "application/json",
+    }
+  )
+  .patch(
+    "/:id/image",
+    async ({ params: { id }, body, status }) => {
+      try {
+        await Bundlings.updateBundlingImage(id, body);
+        return status(200, {
+          status: "success",
+          message: "Bundling image updated",
+        });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotFoundError"
+        ) {
+          return status(404, {
+            status: "error",
+            message: "inventory not found",
+          });
+        }
+        return status(500, {
+          status: "error",
+          message: "Internal server error",
+        });
+      }
+    },
+    {
+      body: "updateBundlingImage",
+    }
   );

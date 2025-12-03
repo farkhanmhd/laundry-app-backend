@@ -7,6 +7,7 @@ import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
+import { bundlingsController } from "./modules/bundlings";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { servicesController } from "./modules/services";
@@ -14,7 +15,6 @@ import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
 import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
-import { bundlingsController } from "./modules/bundlings";
 
 const port = Number(process.env.APP_PORT as string);
 

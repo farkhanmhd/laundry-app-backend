@@ -14,7 +14,7 @@ export const bundlingItems = pgTable("bundling_items", {
   bundlingId: varchar("bundling_id")
     .references(() => bundlings.id, { onDelete: "cascade" })
     .notNull(),
-  itemType: bundlingType().notNull(),
+  itemType: bundlingType("item_type").notNull(),
   serviceId: varchar("service_id").references(() => services.id),
   inventoryId: varchar("inventory_id").references(() => inventories.id),
   quantity: integer("quantity").notNull(),

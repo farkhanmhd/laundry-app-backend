@@ -3,17 +3,12 @@ import { models } from "@/db/models";
 
 const bundling = t.Object(models.select.bundlings);
 const bundlingItem = t.Object(models.select.bundlingItems);
-const bundlingWithItems = t.Union([
+const bundlingWithItems = t.Composite([
   bundling,
   t.Object({ items: t.Array(bundlingItem) }),
 ]);
 
 const bundlingItemInsert = t.Object(models.insert.bundlingItems);
-
-export type Bundling = typeof bundling.static;
-export type BundlingItem = typeof bundlingItem.static;
-
-export type BundlingWithItem = typeof bundlingWithItems.static;
 
 const addBundling = t.Object({
   name: t.String({
@@ -39,14 +34,32 @@ const addBundling = t.Object({
 });
 
 const updateBundlingData = t.Composite([
-  t.Pick(bundling, ["name", "price", "description", "isActive"]),
+  t.Pick(bundling, ["name", "price", "description"]),
 ]);
 
-export type AddBundlingBody = typeof addBundling.static;
+const updateBundlingItemBody = t.Array(
+  t.Composite([
+    t.Omit(bundlingItemInsert, ["id", "bundlingId"]),
+    t.Object({
+      id: t.Optional(t.Nullable(t.String())),
+      bundlingId: t.Optional(t.Nullable(t.String())),
+    }),
+  ])
+);
 
+const updateBundlingImage = t.Pick(addBundling, ["image"]);
+
+export type Bundling = typeof bundling.static;
+export type BundlingItem = typeof bundlingItem.static;
+export type BundlingWithItem = typeof bundlingWithItems.static;
+export type AddBundlingBody = typeof addBundling.static;
 export type UpdateBundlingData = typeof updateBundlingData.static;
+export type UpdateBundlingItemBody = typeof updateBundlingItemBody.static;
+export type UpdateBundlingImageBody = typeof updateBundlingImage.static;
 
 export const bundlingsModel = new Elysia({ name: "inventories/model" }).model({
   addBundling,
   updateBundlingData,
+  updateBundlingItemBody,
+  updateBundlingImage,
 });

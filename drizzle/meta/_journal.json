@@ -71,6 +71,20 @@
       "when": 1764562910419,
       "tag": "0009_worthless_molecule_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1764754338693,
+      "tag": "0010_milky_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1764754393047,
+      "tag": "0011_fantastic_franklin_storm",
+      "breakpoints": true
     }
   ]
 }
