@@ -21,7 +21,7 @@ export const payments = pgTable("payment_detail", {
     .notNull(),
   paymentType: paymentTypeEnum(),
 
-  discountAmount: integer("discount_amount").notNull(),
+  discountAmount: integer("discount_amount").notNull(), // 0 if none
   amountPaid: integer("amount_paid").notNull(), // if not cash then amountPaid === total
   change: integer("change"), // possible if cash. if not cash then 0
   total: integer("total").notNull(), // customer total payment

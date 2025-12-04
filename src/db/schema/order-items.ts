@@ -21,7 +21,7 @@ export const orderItems = pgTable("order_items", {
   orderId: varchar("order_id")
     .references(() => orders.id)
     .notNull(),
-  itemType: itemTypeEnum().notNull(),
+  itemType: itemTypeEnum("item_type").notNull(),
   serviceId: varchar("service_id").references(() => services.id),
   inventoryId: varchar("inventory_id").references(() => inventories.id),
   bundlingId: varchar("bundling_id").references(() => bundlings.id),

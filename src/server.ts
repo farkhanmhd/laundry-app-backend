@@ -10,6 +10,7 @@ import { exceptionHandler } from "./exceptions";
 import { bundlingsController } from "./modules/bundlings";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
+import { posController } from "./modules/pos";
 import { servicesController } from "./modules/services";
 import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
@@ -39,6 +40,7 @@ const app = new Elysia()
           { name: "Voucher", description: "Voucher API endpoints" },
           { name: "Bundlings", description: "Bundlings API endpoints" },
           { name: "Staff", description: "Staff API endpoints" },
+          { name: "Pos", description: "Point of Sales API endpoints" },
           { name: "Uploads", description: "Uploads API endpoints" },
         ],
       },
@@ -61,6 +63,7 @@ const app = new Elysia()
   .use(vouchersController)
   .use(bundlingsController)
   .use(staffsController)
+  .use(posController)
   .use(
     staticPlugin({
       assets: "public",
