@@ -6,6 +6,7 @@ type OrderItem = {
   inventoryId?: string | null | undefined;
   bundlingId?: string | null | undefined;
   voucherId?: string | null | undefined;
+  note?: string | null | undefined;
   quantity: number;
 };
 
@@ -14,7 +15,6 @@ export type NewOrderPayload = {
   memberId?: string | null | undefined;
   staffId: string;
   paymentType: "qris" | "cash";
-  amountPaid?: number | null | undefined; // cash only
-  change?: number | null | undefined; // cash only
+  amountPaid?: number | null | undefined;
   items: OrderItem[];
 };

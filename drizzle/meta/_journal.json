@@ -113,6 +113,27 @@
       "when": 1764841391246,
       "tag": "0015_fair_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1765515668720,
+      "tag": "0016_spotty_vulcan",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1765764225171,
+      "tag": "0017_busy_roland_deschain",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1765785375108,
+      "tag": "0018_pale_crystal",
+      "breakpoints": true
     }
   ]
 }

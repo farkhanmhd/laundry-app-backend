@@ -36,13 +36,6 @@ export abstract class Bundlings {
   }
 
   static async getBundlingById(id: string) {
-    const cacheKey = `bundlings:${id}`;
-    const json = await redis.get(cacheKey);
-
-    if (json) {
-      return JSON.parse(json) as BundlingWithItem;
-    }
-
     const dataQuery = db
       .select()
       .from(bundlings)
@@ -66,8 +59,6 @@ export abstract class Bundlings {
       ...bundlingData,
       items: itemRows,
     };
-
-    await redis.set(cacheKey, JSON.stringify(result), "EX", 3600);
 
     return result;
   }
@@ -128,7 +119,6 @@ export abstract class Bundlings {
     }
 
     await redis.del(BUNDLINGS_CACHE_KEY);
-    await redis.del(`bundlings:${id}`);
 
     return result[0]?.id as string;
   }
@@ -174,7 +164,6 @@ export abstract class Bundlings {
           });
 
         await redis.del(BUNDLINGS_CACHE_KEY);
-        await redis.del(`bundlings:${id}`);
       }
     });
   }
@@ -200,7 +189,6 @@ export abstract class Bundlings {
     }
 
     await redis.del(BUNDLINGS_CACHE_KEY);
-    await redis.del(`bundlings:${id}`);
 
     return result[0]?.id as string;
   }

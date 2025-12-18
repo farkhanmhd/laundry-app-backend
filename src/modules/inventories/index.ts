@@ -35,32 +35,12 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/:id",
     async ({ params, status }) => {
-      try {
-        const inventory = await Inventories.getInventoryById(
-          params.id as string
-        );
-        return status(200, {
-          status: "success",
-          message: "Inventory Retrieved",
-          data: inventory,
-        });
-      } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
-          return status(404, {
-            status: "error",
-            message: "Inventory not found",
-          });
-        }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
-      }
+      const inventory = await Inventories.getInventoryById(params.id as string);
+      return status(200, {
+        status: "success",
+        message: "Inventory Retrieved",
+        data: inventory,
+      });
     },
     { auth: true }
   )

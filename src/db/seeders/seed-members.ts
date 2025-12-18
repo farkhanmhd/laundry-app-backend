@@ -1,17 +1,6 @@
+import { fakerID_ID as faker } from "@faker-js/faker";
 import { db } from "..";
 import { members } from "../schema/members";
-import { fakerID_ID as faker } from '@faker-js/faker'
-
-const randomNames = [
-  "John",
-  "Jane",
-  "James",
-  "Frank",
-  "Josh",
-  "Michael",
-  "Donny",
-  "Chris",
-];
 
 const seedMembers = async () => {
   console.log("Seeding users");

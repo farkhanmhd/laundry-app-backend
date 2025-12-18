@@ -26,6 +26,18 @@ export const servicesController = new Elysia({ prefix: "/services" })
       auth: true,
     }
   )
+  .get(
+    "/:id",
+    async ({ params, status }) => {
+      const service = await Services.getServiceById(params.id as string);
+      return status(200, {
+        status: "success",
+        message: "Service Retrieved",
+        data: service,
+      });
+    },
+    { auth: true }
+  )
   .guard({
     isSuperAdmin: true,
   })

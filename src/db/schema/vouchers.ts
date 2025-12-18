@@ -25,6 +25,7 @@ export const vouchers = pgTable("vouchers", {
     withTimezone: true,
     mode: "string",
   }).defaultNow(),
+  deletedAt: timestamp("deleted_at", { mode: "string" }),
 });
 
 export const vouchersRelations = relations(vouchers, ({ many }) => ({

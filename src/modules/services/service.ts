@@ -1,8 +1,8 @@
 import { write } from "bun";
-import { desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { services } from "@/db/schema/services";
-import { InternalError } from "@/exceptions";
+import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type {
   AddServiceBody,
@@ -30,6 +30,25 @@ export abstract class Services {
     await redis.set(SERVICE_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
+  }
+
+  static async getServiceById(id: string) {
+    const cacheKey = `service:${id}`;
+    const json = await redis.get(cacheKey);
+    if (json) {
+      return JSON.parse(json) as Service;
+    }
+    const row = await db
+      .select()
+      .from(services)
+      .where(and(eq(services.id, id), isNull(services.deletedAt)))
+      .limit(1);
+    if (!row.length) {
+      throw new NotFoundError("Inventory not found");
+    }
+
+    await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
+    return row[0] as Service;
   }
 
   static async addService(formData: AddServiceBody) {

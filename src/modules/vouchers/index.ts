@@ -26,6 +26,18 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
       auth: true, // Requires authentication to view vouchers
     }
   )
+  .get(
+    "/:id",
+    async ({ params, status }) => {
+      const inventory = await Vouchers.getVoucherById(params.id as string);
+      return status(200, {
+        status: "success",
+        message: "Inventory Retrieved",
+        data: inventory,
+      });
+    },
+    { auth: true }
+  )
   // Guard subsequent routes to ensure only admins can modify vouchers.
   .guard({
     isSuperAdmin: true,

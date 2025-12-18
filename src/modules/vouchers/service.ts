@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
@@ -57,6 +57,25 @@ export abstract class Vouchers {
     }
   }
 
+  static async getVoucherById(id: string) {
+    const cacheKey = `voucher:${id}`;
+    const json = await redis.get(cacheKey);
+    if (json) {
+      return JSON.parse(json) as Voucher;
+    }
+    const row = await db
+      .select()
+      .from(vouchers)
+      .where(and(eq(vouchers.id, id), isNull(vouchers.deletedAt)))
+      .limit(1);
+    if (!row.length) {
+      throw new NotFoundError("Inventory not found");
+    }
+
+    await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
+    return row[0] as Voucher;
+  }
+
   /**
    * Adds a new voucher to the database.
    * @param data - The data for the new voucher.
@@ -97,6 +116,7 @@ export abstract class Vouchers {
     }
 
     await redis.del(VOUCHER_CACHE_KEY);
+    await redis.del(`voucher:${id}`);
 
     return result[0].id;
   }
@@ -120,6 +140,7 @@ export abstract class Vouchers {
     }
 
     await redis.del(VOUCHER_CACHE_KEY);
+    await redis.del(`voucher:${id}`);
 
     return result[0].id;
   }

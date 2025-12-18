@@ -5,11 +5,10 @@ import { addresses } from "./addresses";
 import { user } from "./auth";
 import { orders } from "./orders";
 
-export const deliveryTypeEnum = pgEnum("deliveryType", ["pickup", "dropoff"]);
+export const deliveryTypeEnum = pgEnum("deliveryType", ["pickup", "delivery"]);
 
 export const deliveryStatusEnum = pgEnum("deliveryStatus", [
   "requested",
-  "assigned",
   "in_progress",
   "completed",
   "cancelled",

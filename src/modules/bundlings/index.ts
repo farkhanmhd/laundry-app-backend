@@ -92,6 +92,15 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         ) {
           body.items = JSON.parse(body.items);
         }
+
+        if (
+          body &&
+          typeof body === "object" &&
+          "price" in body &&
+          typeof body.price === "string"
+        ) {
+          body.price = Number(body.price);
+        }
       },
     }
   )
