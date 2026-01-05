@@ -20,9 +20,7 @@ export const orders = pgTable("orders", {
     .$defaultFn(() => `o-${nanoid(5)}`),
   customerName: varchar("customer_name", { length: 50 }),
   memberId: varchar("member_id").references(() => members.id),
-  staffId: varchar("staff_id")
-    .references(() => user.id)
-    .notNull(),
+  userId: varchar("user_id").references(() => user.id),
   status: orderStatusEnum().notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -33,7 +31,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [members.id],
   }),
   user: one(user, {
-    fields: [orders.staffId],
+    fields: [orders.userId],
     references: [user.id],
   }),
   payment: one(payments, {
