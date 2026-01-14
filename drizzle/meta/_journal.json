@@ -148,6 +148,41 @@
       "when": 1766388625524,
       "tag": "0020_smiling_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1768191752389,
+      "tag": "0021_bright_scarlet_spider",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1768194420866,
+      "tag": "0022_huge_purple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1768207881117,
+      "tag": "0023_parched_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1768208265951,
+      "tag": "0024_youthful_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1768366777330,
+      "tag": "0025_fantastic_glorian",
+      "breakpoints": true
     }
   ]
 }

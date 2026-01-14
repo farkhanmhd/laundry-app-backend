@@ -13,7 +13,7 @@ import type {
   UpdateInventoryImage,
 } from "./model";
 
-const INVENTORIES_CACHE_KEY = "inventories:all";
+export const INVENTORIES_CACHE_KEY = "inventories:all";
 
 export abstract class Inventories {
   static async getInventories() {

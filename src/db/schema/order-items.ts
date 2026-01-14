@@ -7,7 +7,7 @@ import { orders } from "./orders";
 import { services } from "./services";
 import { vouchers } from "./vouchers";
 
-export const itemTypeEnum = pgEnum("itemType", [
+export const itemTypeEnum = pgEnum("orderItemType", [
   "service",
   "inventory",
   "bundling",
@@ -30,6 +30,8 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   subtotal: integer("subtotal").notNull(),
 });
+
+export type OrderItemInsert = typeof orderItems.$inferInsert;
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, {

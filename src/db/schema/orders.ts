@@ -22,7 +22,7 @@ export const orders = pgTable("orders", {
   memberId: varchar("member_id").references(() => members.id),
   userId: varchar("user_id").references(() => user.id),
   status: orderStatusEnum().notNull().default("pending"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: 'string', withTimezone: true }).defaultNow().notNull(),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({

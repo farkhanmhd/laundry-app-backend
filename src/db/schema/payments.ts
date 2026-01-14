@@ -21,17 +21,17 @@ export const payments = pgTable("payment_detail", {
     .notNull(),
   paymentType: paymentTypeEnum(),
 
-  discountAmount: integer("discount_amount").notNull(), // 0 if none
+  discountAmount: integer("discount_amount").notNull().default(0), // 0 if none
   amountPaid: integer("amount_paid").notNull(), // if not cash then amountPaid === total
-  change: integer("change"), // possible if cash. if not cash then 0
+  change: integer("change").default(0), // possible if cash. if not cash then 0
   total: integer("total").notNull(), // customer total payment
 
-  transactionStatus: varchar("transaction_status"),
+  transactionStatus: varchar("transaction_status").notNull(),
   transactionTime: timestamp("transaction_time", { mode: "string" })
     .defaultNow()
     .notNull(),
-  fraudStatus: varchar("fraud_status", { length: 20 }).notNull(),
-  expiryTime: timestamp("expiry_time", { mode: "string" }).notNull(),
+  fraudStatus: varchar("fraud_status", { length: 20 }),
+  expiryTime: timestamp("expiry_time", { mode: "string" }),
 
   // QRIS specific fields
   qrString: varchar("qr_string", { length: 500 }),
@@ -42,6 +42,8 @@ export const payments = pgTable("payment_detail", {
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
 });
+
+export type PaymentInsert = typeof payments.$inferInsert;
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   order: one(orders, {

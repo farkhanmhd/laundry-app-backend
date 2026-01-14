@@ -31,7 +31,7 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
-        if (session.user.role !== "user") {
+        if (session.user.role === "user") {
           throw new AuthorizationError();
         }
 

@@ -5,7 +5,7 @@ import { bundlings } from "./bundlings";
 import { inventories } from "./inventories";
 import { services } from "./services";
 
-export const bundlingType = pgEnum("itemType", ["service", "inventory"]);
+export const bundlingType = pgEnum("bundlingType", ["service", "inventory"]);
 
 export const bundlingItems = pgTable("bundling_items", {
   id: varchar("id")
