@@ -10,13 +10,14 @@ import { exceptionHandler } from "./exceptions";
 import { bundlingsController } from "./modules/bundlings";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
+import { ordersController } from "./modules/orders";
 import { posController } from "./modules/pos";
 import { servicesController } from "./modules/services";
 import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
+import { usersController } from "./modules/users";
 import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
-import { ordersController } from "./modules/orders";
 
 const port = Number(process.env.APP_PORT as string);
 
@@ -67,6 +68,7 @@ const app = new Elysia()
   .use(staffsController)
   .use(posController)
   .use(ordersController)
+  .use(usersController)
   .use(
     staticPlugin({
       assets: "public",

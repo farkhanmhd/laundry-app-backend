@@ -12,6 +12,7 @@ export const membersController = new Elysia({ prefix: "/members" })
     detail: {
       tags: ["Member"],
     },
+    isAdmin: true,
   })
   .get(
     "/",

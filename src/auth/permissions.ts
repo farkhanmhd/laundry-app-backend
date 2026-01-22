@@ -15,6 +15,10 @@ const statement = {
 
 export const accessControl = createAccessControl(statement);
 
+export const user = accessControl.newRole({
+  user: ["create", "list", "set-password"],
+});
+
 export const admin = accessControl.newRole({
   user: ["create", "list", "set-password"],
 });

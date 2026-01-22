@@ -2,9 +2,14 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin as adminPlugin, openAPI, username } from "better-auth/plugins";
-import { account, session, user, verification } from "@/db/schema/auth";
+import {
+  account,
+  session,
+  user as userTable,
+  verification,
+} from "@/db/schema/auth";
 import { db } from "../db";
-import { accessControl, admin, superadmin } from "./permissions";
+import { accessControl, admin, superadmin, user } from "./permissions";
 
 export const auth = betterAuth({
   basePath: "/api",
@@ -15,7 +20,7 @@ export const auth = betterAuth({
     schema: {
       account,
       session,
-      user,
+      user: userTable,
       verification,
     },
   }),
@@ -28,6 +33,7 @@ export const auth = betterAuth({
     adminPlugin({
       ac: accessControl,
       roles: {
+        user,
         admin,
         superadmin,
       },
