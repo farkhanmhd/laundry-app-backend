@@ -1,4 +1,4 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { bundlings } from "@/db/schema/bundlings";
@@ -10,13 +10,22 @@ import { orders as ordersTable } from "@/db/schema/orders";
 import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { NotFoundError } from "@/exceptions";
+import type { SearchQuery } from "@/search-query";
 
 export abstract class Orders {
-  static async getOrders() {
+  static async getOrders(query: SearchQuery) {
+    const { search = "", rows = 50, page = 1 } = query;
+    const searchByOrderId = ilike(ordersTable.id, `%${search}%`);
+    const searchByName = ilike(ordersTable.customerName, `%${search}%`);
+    const searchByPhone = ilike(members.phone, `%${search}%`);
+
+    const whereQuery = or(searchByOrderId, searchByName, searchByPhone);
+
     const orders = await db
       .select({
         id: ordersTable.id,
         customerName: ordersTable.customerName,
+        phone: members.phone,
         total: paymentsTable.total,
         status: ordersTable.status,
         totalItems: count(orderItems.id),
@@ -25,13 +34,18 @@ export abstract class Orders {
       .from(ordersTable)
       .innerJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
       .innerJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
+      .leftJoin(members, eq(ordersTable.memberId, members.id))
       .groupBy(
         ordersTable.id,
         ordersTable.customerName,
         paymentsTable.total,
+        members.phone,
         ordersTable.status,
         ordersTable.createdAt
       )
+      .where(whereQuery)
+      .limit(rows)
+      .offset((page - 1) * rows)
       .orderBy(desc(ordersTable.createdAt));
 
     return orders;

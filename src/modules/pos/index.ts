@@ -1,11 +1,13 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { searchQueryModel } from "@/search-query";
 import { posModel } from "./model";
 import { Pos } from "./service";
 
 export const posController = new Elysia({ prefix: "/pos" })
   .use(posModel)
   .use(betterAuth)
+  .use(searchQueryModel)
   .guard({
     detail: {
       tags: ["Pos"],
@@ -38,5 +40,19 @@ export const posController = new Elysia({ prefix: "/pos" })
     {
       body: "newPosOrderSchema",
       parse: "application/json",
+    }
+  )
+  .get(
+    "/members",
+    async ({ status, query }) => {
+      const members = await Pos.getPosMembers(query);
+      return status(200, {
+        status: "success",
+        message: "Member search success",
+        data: { members },
+      });
+    },
+    {
+      query: "searchQuery",
     }
   );

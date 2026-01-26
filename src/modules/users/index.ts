@@ -12,12 +12,18 @@ export const usersController = new Elysia({ prefix: "/users" })
     },
     isSuperAdmin: true,
   })
-  .get("/", async ({ status, query }) => {
-    const result = await UserService.getUser(query);
+  .get(
+    "/",
+    async ({ status, query }) => {
+      const result = await UserService.getUser(query);
 
-    return status(200, {
-      status: "success",
-      message: "Users retrieved",
-      data: result,
-    });
-  });
+      return status(200, {
+        status: "success",
+        message: "Users retrieved",
+        data: result,
+      });
+    },
+    {
+      query: "searchQuery",
+    }
+  );

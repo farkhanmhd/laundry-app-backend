@@ -1,22 +1,35 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { searchQueryModel } from "@/search-query";
 import { Orders } from "./service";
 
 export const ordersController = new Elysia({ prefix: "/orders" })
   .use(betterAuth)
+  .use(searchQueryModel)
   .guard({
     detail: {
       tags: ["Orders"],
     },
     isAdmin: true,
   })
-  .get("/", async ({ status }) => {
-    const orders = await Orders.getOrders();
-    return status(201, {
-      status: "success",
-      message: "Orders Retrieved",
-      data: orders,
-    });
+  .get(
+    "/",
+    async ({ status, query }) => {
+      const orders = await Orders.getOrders(query);
+      return status(201, {
+        status: "success",
+        message: "Orders Retrieved",
+        data: orders,
+      });
+    },
+    {
+      query: "searchQuery",
+    }
+  )
+  .guard({
+    params: t.Object({
+      id: t.String(),
+    }),
   })
   .get("/:id/status", async ({ status, params }) => {
     const orderStatus = await Orders.getOrderStatus(params.id);

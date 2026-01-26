@@ -1,11 +1,13 @@
-import { sql } from "drizzle-orm";
+import { ilike, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
 import { inventories as inventoriesTable } from "@/db/schema/inventories";
+import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { services as servicesTable } from "@/db/schema/services";
 import { redis } from "@/redis";
+import type { SearchQuery } from "@/search-query";
 import {
   getPricesQuery,
   type ItemPrice,
@@ -37,6 +39,7 @@ export abstract class Pos {
         itemType: sql<string>`'inventory'`.as("item_type"),
       })
       .from(inventoriesTable);
+
     const services = db
       .select({
         id: servicesTable.id,
@@ -48,6 +51,7 @@ export abstract class Pos {
         itemType: sql<string>`'service'`.as("item_type"),
       })
       .from(servicesTable);
+
     const bundlings = db
       .select({
         id: bundlingsTable.id,
@@ -67,8 +71,37 @@ export abstract class Pos {
     return rows;
   }
 
+  static async getPosMembers(query: SearchQuery) {
+    const { search } = query;
+
+    if (!search) {
+      return [];
+    }
+
+    const members = await db
+      .select({
+        id: membersTable.id,
+        name: membersTable.name,
+        phone: membersTable.phone,
+        points: membersTable.points,
+      })
+      .from(membersTable)
+      .where(ilike(membersTable.phone, `%${search}%`))
+      .orderBy(membersTable.name)
+      .limit(5);
+
+    return members;
+  }
+
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
     const { customerName, items, ...restBody } = body;
+
+    const onlyInventoryItems = !items.find(
+      (item) =>
+        item.itemType === "service" ||
+        item.itemType === "bundling" ||
+        item.itemType === "voucher"
+    );
 
     const newOrderId = await db.transaction(async (tx) => {
       // insert and return order id
@@ -79,7 +112,7 @@ export abstract class Pos {
             customerName,
             memberId: restBody.memberId ? restBody.memberId : null,
             userId,
-            status: "processing",
+            status: onlyInventoryItems ? "completed" : "processing",
           })
           .returning({ id: orders.id })
       )[0]?.id as string;
@@ -91,10 +124,11 @@ export abstract class Pos {
         getPricesQuery(tx, bundlingsTable, items, "bundlingId"),
       ].filter((q): q is NonNullable<typeof q> => q !== null);
 
-      // execute all price query at once
-      const itemPrices: ItemPrice[] = await unionAll(
-        ...(priceQueries as unknown as Parameters<typeof unionAll>)
-      );
+      const itemPrices = (await Promise.all(priceQueries))
+        .flat()
+        .filter(
+          (price): price is NonNullable<typeof price> => price !== null
+        ) as ItemPrice[];
 
       // insert order items to database
       const orderItemsResult = await insertOrderItemsQuery(
@@ -103,6 +137,8 @@ export abstract class Pos {
         items,
         itemPrices
       );
+
+      console.log(orderItemsResult);
 
       // total price of an order
       const totalPrice = orderItemsResult.reduce(

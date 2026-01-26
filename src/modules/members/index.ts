@@ -26,7 +26,7 @@ export const membersController = new Elysia({ prefix: "/members" })
       });
     },
     {
-      auth: true,
+      isAdmin: true,
       query: "searchQuery",
     }
   )
@@ -44,7 +44,7 @@ export const membersController = new Elysia({ prefix: "/members" })
       });
     },
     {
-      auth: true,
+      isAdmin: true,
       body: "addMember",
       parse: "application/json",
     }

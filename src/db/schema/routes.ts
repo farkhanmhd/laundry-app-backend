@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import { pgTable, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { user } from "./auth";
+import { deliveries } from "./deliveries";
 
 export const routes = pgTable("routes", {
   id: varchar("id")
@@ -12,9 +13,10 @@ export const routes = pgTable("routes", {
   }),
 });
 
-export const routesRelations = relations(routes, ({ one }) => ({
+export const routesRelations = relations(routes, ({ one, many }) => ({
   user: one(user, {
     fields: [routes.userId],
     references: [user.id],
   }),
+  deliveries: many(deliveries),
 }));

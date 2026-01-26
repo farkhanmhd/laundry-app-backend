@@ -40,7 +40,7 @@ export abstract class Members {
       .insert(membersTable)
       .values({
         ...data,
-        phone: `+62${data.phone}`
+        phone: `+62${data.phone}`,
       })
       .returning({ id: membersTable.id });
 

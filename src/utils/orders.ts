@@ -36,10 +36,12 @@ export const getPricesQuery = (
     return null;
   }
 
-  return tx
+  const priceQuery = tx
     .select({ id: table.id, price: table.price })
     .from(table)
     .where(inArray(table.id, itemIds));
+
+  return priceQuery;
 };
 
 export const insertOrderItemsQuery = (
@@ -82,6 +84,10 @@ export const insertPaymentQuery = (
     orderId,
     paymentType: restBody.paymentType,
   };
+
+  if (restBody.paymentType === "cash" && restBody.amountPaid < totalPrice) {
+    throw new InternalError("Payment Error");
+  }
 
   if (restBody.paymentType === "cash") {
     paymentData = {
