@@ -1,4 +1,4 @@
-import { ilike, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
@@ -6,6 +6,7 @@ import { inventories as inventoriesTable } from "@/db/schema/inventories";
 import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { services as servicesTable } from "@/db/schema/services";
+import { vouchers } from "@/db/schema/vouchers";
 import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import {
@@ -93,6 +94,27 @@ export abstract class Pos {
     return members;
   }
 
+  static async getPosVouchers() {
+    const whereQuery = and(
+      eq(vouchers.isActive, true),
+      eq(vouchers.isVisible, true),
+      gt(vouchers.expiresAt, sql`now()`)
+    );
+    const rows = await db
+      .select({
+        id: vouchers.id,
+        code: vouchers.code,
+        description: vouchers.name,
+        discountAmount: vouchers.discountAmount,
+        pointsCost: vouchers.pointsCost,
+        expiryDate: vouchers.expiresAt,
+      })
+      .from(vouchers)
+      .where(whereQuery);
+
+    return rows;
+  }
+
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
     const { customerName, items, ...restBody } = body;
 
@@ -104,13 +126,33 @@ export abstract class Pos {
     );
 
     const newOrderId = await db.transaction(async (tx) => {
+      // add new member
+      let newMemberId = "";
+      if (
+        restBody.newMember &&
+        customerName &&
+        restBody.phone &&
+        !restBody.memberId
+      ) {
+        newMemberId = (
+          await tx
+            .insert(membersTable)
+            .values({ name: customerName, phone: restBody.phone })
+            .returning({ id: membersTable.id })
+        )[0]?.id as string;
+      }
+
+      const selectedMemberId = restBody.newMember
+        ? newMemberId
+        : restBody.memberId;
+
       // insert and return order id
       const orderId = (
         await tx
           .insert(orders)
           .values({
             customerName,
-            memberId: restBody.memberId ? restBody.memberId : null,
+            memberId: selectedMemberId,
             userId,
             status: onlyInventoryItems ? "completed" : "processing",
           })
@@ -137,8 +179,6 @@ export abstract class Pos {
         items,
         itemPrices
       );
-
-      console.log(orderItemsResult);
 
       // total price of an order
       const totalPrice = orderItemsResult.reduce(

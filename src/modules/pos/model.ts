@@ -31,6 +31,8 @@ const newPosOrderBaseSchema = t.Object({
   }),
   items: t.Array(orderItemSchema),
   memberId: t.Optional(t.Nullable(t.String())),
+  newMember: t.Optional(t.Nullable(t.Boolean())),
+  phone: t.Optional(t.Nullable(t.String())),
 });
 
 const newPosOrderSchema = t.Union([
