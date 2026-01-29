@@ -85,7 +85,7 @@ export abstract class Vouchers {
   static async addVoucher(data: AddVoucherBody) {
     const result = await db
       .insert(vouchers)
-      .values({ ...data })
+      .values({ ...data, code: data.code.toLowerCase() })
       .returning({ id: vouchers.id });
 
     if (!(result.length && result[0]?.id)) {

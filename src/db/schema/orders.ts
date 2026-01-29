@@ -6,6 +6,7 @@ import { members } from "./members";
 import { orderItems } from "./order-items";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
+import { stockLogs } from "./stock-logs";
 
 export const orderStatusEnum = pgEnum("orderStatus", [
   "pending", // waiting for payment
@@ -22,7 +23,9 @@ export const orders = pgTable("orders", {
   memberId: varchar("member_id").references(() => members.id),
   userId: varchar("user_id").references(() => user.id),
   status: orderStatusEnum().notNull().default("pending"),
-  createdAt: timestamp("created_at", { mode: 'string', withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -44,4 +47,5 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
 
   orderItems: many(orderItems),
+  stockMovements: many(stockLogs),
 }));

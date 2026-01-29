@@ -1,5 +1,5 @@
 {
-  "id": "cca094bc-39a0-4b08-9d86-6dd7810dc395",
+  "id": "395a5f00-4772-4817-9d54-cc830fbb80d9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -20,12 +20,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "itemType": {
-          "name": "itemType",
-          "type": "itemType",
+        "item_type": {
+          "name": "item_type",
+          "type": "orderItemType",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
         },
         "service_id": {
           "name": "service_id",
@@ -70,8 +76,12 @@
           "name": "order_items_order_id_orders_id_fk",
           "tableFrom": "order_items",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -79,8 +89,12 @@
           "name": "order_items_service_id_services_id_fk",
           "tableFrom": "order_items",
           "tableTo": "services",
-          "columnsFrom": ["service_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -88,8 +102,12 @@
           "name": "order_items_inventory_id_inventories_id_fk",
           "tableFrom": "order_items",
           "tableTo": "inventories",
-          "columnsFrom": ["inventory_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "inventory_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -97,8 +115,12 @@
           "name": "order_items_bundling_id_bundlings_id_fk",
           "tableFrom": "order_items",
           "tableTo": "bundlings",
-          "columnsFrom": ["bundling_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "bundling_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -106,8 +128,12 @@
           "name": "order_items_voucher_id_vouchers_id_fk",
           "tableFrom": "order_items",
           "tableTo": "vouchers",
-          "columnsFrom": ["voucher_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "voucher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -134,11 +160,17 @@
           "primaryKey": false,
           "notNull": true
         },
+        "image": {
+          "name": "image",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
         "description": {
           "name": "description",
           "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "price": {
           "name": "price",
@@ -159,10 +191,62 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.routes": {
+      "name": "routes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routes_user_id_user_id_fk": {
+          "name": "routes_user_id_user_id_fk",
+          "tableFrom": "routes",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -185,30 +269,36 @@
           "primaryKey": false,
           "notNull": true
         },
-        "name": {
-          "name": "name",
-          "type": "varchar(128)",
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "points_cost": {
-          "name": "points_cost",
-          "type": "integer",
+        "discount_percentage": {
+          "name": "discount_percentage",
+          "type": "numeric(5, 2)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "discount_amount": {
           "name": "discount_amount",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
+        "min_spend": {
+          "name": "min_spend",
+          "type": "bigint",
           "primaryKey": false,
-          "notNull": true,
-          "default": true
+          "notNull": false,
+          "default": 0
+        },
+        "max_discount_amount": {
+          "name": "max_discount_amount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
         },
         "is_visible": {
           "name": "is_visible",
@@ -229,6 +319,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -238,9 +334,238 @@
         "vouchers_code_unique": {
           "name": "vouchers_code_unique",
           "nullsNotDistinct": false,
-          "columns": ["code"]
+          "columns": [
+            "code"
+          ]
         }
       },
+      "policies": {},
+      "checkConstraints": {
+        "one_discount_type_only": {
+          "name": "one_discount_type_only",
+          "value": "\n        (\n            (\"vouchers\".\"discount_percentage\" IS NOT NULL AND \"vouchers\".\"discount_amount\" IS NULL)\n        ) OR\n        (\n            (\"vouchers\".\"discount_amount\" IS NULL AND \"vouchers\".\"discount_amount\" IS NOT NULL)\n        )\n    "
+        },
+        "percentage_requires_cap": {
+          "name": "percentage_requires_cap",
+          "value": "\n        (\"vouchers\".\"discount_percentage\" IS NULL OR \"vouchers\".\"max_discount_amount\" IS NOT NULL)\n      "
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stock_logs": {
+      "name": "stock_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "inventory_id": {
+          "name": "inventory_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "log_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "change_amount": {
+          "name": "change_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stock_remaining": {
+          "name": "stock_remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bundling_id": {
+          "name": "bundling_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stock_logs_inventory_id_inventories_id_fk": {
+          "name": "stock_logs_inventory_id_inventories_id_fk",
+          "tableFrom": "stock_logs",
+          "tableTo": "inventories",
+          "columnsFrom": [
+            "inventory_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "stock_logs_order_id_orders_id_fk": {
+          "name": "stock_logs_order_id_orders_id_fk",
+          "tableFrom": "stock_logs",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "stock_logs_bundling_id_bundlings_id_fk": {
+          "name": "stock_logs_bundling_id_bundlings_id_fk",
+          "tableFrom": "stock_logs",
+          "tableTo": "bundlings",
+          "columnsFrom": [
+            "bundling_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "stock_logs_actor_id_user_id_fk": {
+          "name": "stock_logs_actor_id_user_id_fk",
+          "tableFrom": "stock_logs",
+          "tableTo": "user",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.bundling_items": {
+      "name": "bundling_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "bundling_id": {
+          "name": "bundling_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_type": {
+          "name": "item_type",
+          "type": "bundlingType",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inventory_id": {
+          "name": "inventory_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bundling_items_bundling_id_bundlings_id_fk": {
+          "name": "bundling_items_bundling_id_bundlings_id_fk",
+          "tableFrom": "bundling_items",
+          "tableTo": "bundlings",
+          "columnsFrom": [
+            "bundling_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "bundling_items_service_id_services_id_fk": {
+          "name": "bundling_items_service_id_services_id_fk",
+          "tableFrom": "bundling_items",
+          "tableTo": "services",
+          "columnsFrom": [
+            "service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "bundling_items_inventory_id_inventories_id_fk": {
+          "name": "bundling_items_inventory_id_inventories_id_fk",
+          "tableFrom": "bundling_items",
+          "tableTo": "inventories",
+          "columnsFrom": [
+            "inventory_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -255,12 +580,6 @@
           "primaryKey": true,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
         "address_id": {
           "name": "address_id",
           "type": "varchar",
@@ -272,6 +591,18 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
+        },
+        "route_id": {
+          "name": "route_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "index": {
+          "name": "index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "type": {
           "name": "type",
@@ -310,21 +641,16 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "deliveries_user_id_user_id_fk": {
-          "name": "deliveries_user_id_user_id_fk",
-          "tableFrom": "deliveries",
-          "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "deliveries_address_id_addresses_id_fk": {
           "name": "deliveries_address_id_addresses_id_fk",
           "tableFrom": "deliveries",
           "tableTo": "addresses",
-          "columnsFrom": ["address_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "address_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -332,9 +658,26 @@
           "name": "deliveries_order_id_orders_id_fk",
           "tableFrom": "deliveries",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "deliveries_route_id_routes_id_fk": {
+          "name": "deliveries_route_id_routes_id_fk",
+          "tableFrom": "deliveries",
+          "tableTo": "routes",
+          "columnsFrom": [
+            "route_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -404,84 +747,13 @@
           "name": "addresses_user_id_user_id_fk",
           "tableFrom": "addresses",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.stock_adjustments": {
-      "name": "stock_adjustments",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "inventory_id": {
-          "name": "inventory_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "previous_quantity": {
-          "name": "previous_quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "new_quantity": {
-          "name": "new_quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "stock_adjustments_inventory_id_inventories_id_fk": {
-          "name": "stock_adjustments_inventory_id_inventories_id_fk",
-          "tableFrom": "stock_adjustments",
-          "tableTo": "inventories",
-          "columnsFrom": ["inventory_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_adjustments_user_id_user_id_fk": {
-          "name": "stock_adjustments_user_id_user_id_fk",
-          "tableFrom": "stock_adjustments",
-          "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -519,12 +791,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "points_spent": {
-          "name": "points_spent",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -539,8 +805,12 @@
           "name": "redemption_history_member_id_members_id_fk",
           "tableFrom": "redemption_history",
           "tableTo": "members",
-          "columnsFrom": ["member_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -548,8 +818,12 @@
           "name": "redemption_history_voucher_id_vouchers_id_fk",
           "tableFrom": "redemption_history",
           "tableTo": "vouchers",
-          "columnsFrom": ["voucher_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "voucher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -557,8 +831,12 @@
           "name": "redemption_history_order_id_orders_id_fk",
           "tableFrom": "redemption_history",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -595,7 +873,7 @@
           "name": "user_id",
           "type": "varchar",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -607,7 +885,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -619,8 +897,12 @@
           "name": "orders_member_id_members_id_fk",
           "tableFrom": "orders",
           "tableTo": "members",
-          "columnsFrom": ["member_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -628,86 +910,12 @@
           "name": "orders_user_id_user_id_fk",
           "tableFrom": "orders",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.bundling_items": {
-      "name": "bundling_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "bundling_id": {
-          "name": "bundling_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "itemType": {
-          "name": "itemType",
-          "type": "itemType",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "service_id": {
-          "name": "service_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "inventory_id": {
-          "name": "inventory_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "bundling_items_bundling_id_bundlings_id_fk": {
-          "name": "bundling_items_bundling_id_bundlings_id_fk",
-          "tableFrom": "bundling_items",
-          "tableTo": "bundlings",
-          "columnsFrom": ["bundling_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "bundling_items_service_id_services_id_fk": {
-          "name": "bundling_items_service_id_services_id_fk",
-          "tableFrom": "bundling_items",
-          "tableTo": "services",
-          "columnsFrom": ["service_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "bundling_items_inventory_id_inventories_id_fk": {
-          "name": "bundling_items_inventory_id_inventories_id_fk",
-          "tableFrom": "bundling_items",
-          "tableTo": "inventories",
-          "columnsFrom": ["inventory_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -724,7 +932,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "varchar(6)",
+          "type": "varchar",
           "primaryKey": true,
           "notNull": true
         },
@@ -752,6 +960,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -760,8 +975,12 @@
           "name": "members_user_id_user_id_fk",
           "tableFrom": "members",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -771,12 +990,16 @@
         "members_user_id_unique": {
           "name": "members_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["user_id"]
+          "columns": [
+            "user_id"
+          ]
         },
         "members_phone_unique": {
           "name": "members_phone_unique",
           "nullsNotDistinct": false,
-          "columns": ["phone"]
+          "columns": [
+            "phone"
+          ]
         }
       },
       "policies": {},
@@ -822,10 +1045,10 @@
           "type": "inventoryUnit",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "current_quantity": {
-          "name": "current_quantity",
+        "stock": {
+          "name": "stock",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -867,7 +1090,7 @@
       "checkConstraints": {
         "current_quantity_check": {
           "name": "current_quantity_check",
-          "value": "\"inventories\".\"current_quantity\" >= 0"
+          "value": "\"inventories\".\"stock\" >= 0"
         },
         "price_check": {
           "name": "price_check",
@@ -903,7 +1126,8 @@
           "name": "discount_amount",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": 0
         },
         "amount_paid": {
           "name": "amount_paid",
@@ -915,7 +1139,8 @@
           "name": "change",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": 0
         },
         "total": {
           "name": "total",
@@ -927,7 +1152,7 @@
           "name": "transaction_status",
           "type": "varchar",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "transaction_time": {
           "name": "transaction_time",
@@ -940,13 +1165,13 @@
           "name": "fraud_status",
           "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "expiry_time": {
           "name": "expiry_time",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "qr_string": {
           "name": "qr_string",
@@ -987,8 +1212,12 @@
           "name": "payment_detail_order_id_orders_id_fk",
           "tableFrom": "payment_detail",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1156,8 +1385,12 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1233,8 +1466,12 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1244,7 +1481,9 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {},
@@ -1310,6 +1549,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "phone_number": {
+          "name": "phone_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "role": {
           "name": "role",
           "type": "role",
@@ -1345,12 +1590,23 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         },
         "user_username_unique": {
           "name": "user_username_unique",
           "nullsNotDistinct": false,
-          "columns": ["username"]
+          "columns": [
+            "username"
+          ]
+        },
+        "user_phone_number_unique": {
+          "name": "user_phone_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "phone_number"
+          ]
         }
       },
       "policies": {},
@@ -1408,17 +1664,39 @@
     }
   },
   "enums": {
-    "public.itemType": {
-      "name": "itemType",
+    "public.orderItemType": {
+      "name": "orderItemType",
       "schema": "public",
-      "values": ["service", "inventory"]
+      "values": [
+        "service",
+        "inventory",
+        "bundling",
+        "voucher"
+      ]
+    },
+    "public.log_type": {
+      "name": "log_type",
+      "schema": "public",
+      "values": [
+        "order",
+        "adjustment",
+        "restock",
+        "waste"
+      ]
+    },
+    "public.bundlingType": {
+      "name": "bundlingType",
+      "schema": "public",
+      "values": [
+        "service",
+        "inventory"
+      ]
     },
     "public.deliveryStatus": {
       "name": "deliveryStatus",
       "schema": "public",
       "values": [
         "requested",
-        "assigned",
         "in_progress",
         "completed",
         "cancelled"
@@ -1427,27 +1705,48 @@
     "public.deliveryType": {
       "name": "deliveryType",
       "schema": "public",
-      "values": ["pickup", "dropoff"]
+      "values": [
+        "pickup",
+        "delivery"
+      ]
     },
     "public.orderStatus": {
       "name": "orderStatus",
       "schema": "public",
-      "values": ["pending", "processing", "ready", "completed"]
+      "values": [
+        "pending",
+        "processing",
+        "ready",
+        "completed"
+      ]
     },
     "public.inventoryUnit": {
       "name": "inventoryUnit",
       "schema": "public",
-      "values": ["kilogram", "gram", "litre", "milliliter", "pieces"]
+      "values": [
+        "kilogram",
+        "gram",
+        "litre",
+        "milliliter",
+        "pieces"
+      ]
     },
     "public.paymentType": {
       "name": "paymentType",
       "schema": "public",
-      "values": ["qris", "cash"]
+      "values": [
+        "qris",
+        "cash"
+      ]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": ["superadmin", "admin", "user"]
+      "values": [
+        "superadmin",
+        "admin",
+        "user"
+      ]
     }
   },
   "schemas": {},

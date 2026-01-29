@@ -64,4 +64,19 @@ export const posController = new Elysia({ prefix: "/pos" })
       message: "Pos Vouchers Retrieved",
       data,
     });
-  });
+  })
+  .get(
+    "/voucher",
+    async ({ status, query }) => {
+      const { search = "" } = query;
+      const voucher = await Pos.getVoucherByCode(search.toLowerCase());
+      return status(200, {
+        status: "success",
+        message: "Voucher Added",
+        data: voucher,
+      });
+    },
+    {
+      query: "searchQuery",
+    }
+  );

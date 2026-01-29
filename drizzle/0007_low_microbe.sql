@@ -1,1 +1,0 @@
-ALTER TABLE "bundlings" ADD COLUMN "image" varchar;

@@ -63,19 +63,10 @@ const getInventories = t.Composite([succesResponse, inventoriesArray]);
 
 export type GetInventories = typeof getInventories.static;
 
-const adjustQuantity = t.Object({
-  newQuantity: t.Number({
-    ...models.insert.stockAdjustments.newQuantity,
-    minimum: 1,
-    error: "New Quantity must be a postitive number",
-  }),
-  reason: t.String({
-    ...models.insert.stockAdjustments.reason,
-    minLength: 3,
-    error: "Reason is required",
-  }),
-});
-
+const adjustQuantity = t.Pick(t.Object(models.insert.stockLogs), [
+  "note",
+  "changeAmount",
+]);
 export type AdjustQuantitySchema = typeof adjustQuantity.static;
 
 export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(

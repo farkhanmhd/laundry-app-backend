@@ -2,7 +2,7 @@ import { write } from "bun";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { inventories } from "@/db/schema/inventories";
-import { stockAdjustments } from "@/db/schema/stock-adjustments";
+import { stockLogs } from "@/db/schema/stock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type {
@@ -123,59 +123,44 @@ export abstract class Inventories {
     inventoryId: string,
     body: AdjustQuantitySchema
   ) {
-    const stockAdjustmentId = await db.transaction(async (tx) => {
-      const selectedInventory = (
-        await tx
-          .select({
-            inventoryId: inventories.id,
-            previousQuantity: inventories.stock,
-          })
-          .from(inventories)
-          .where(eq(inventories.id, inventoryId))
-          .limit(1)
-      )[0];
+    const stockLogId = await db.transaction(async (tx) => {
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({
+          stock: sql`${inventories.stock} + ${body.changeAmount}`,
+        })
+        .where(eq(inventories.id, inventoryId))
+        .returning({ stock: inventories.stock });
 
-      if (!selectedInventory) {
-        tx.rollback();
+      if (!updatedInventory) {
         throw new NotFoundError("Inventory Id not found");
       }
 
-      const stockAdjustment = (
+      const stockLogQuery = (
         await tx
-          .insert(stockAdjustments)
+          .insert(stockLogs)
           .values({
-            ...selectedInventory,
-            newQuantity: body.newQuantity,
-            reason: body.reason,
-            userId,
+            ...body,
+            inventoryId,
+            actorId: userId,
+            type: "adjustment",
+            stockRemaining: updatedInventory.stock,
           })
-          .returning({ id: stockAdjustments.id })
+          .returning({ id: stockLogs.id })
       )[0];
 
-      if (!stockAdjustment?.id) {
+      if (!stockLogQuery?.id) {
         tx.rollback();
         throw new InternalError();
       }
 
-      const updateInventory = (
-        await tx
-          .update(inventories)
-          .set({ stock: body.newQuantity })
-          .where(eq(inventories.id, inventoryId))
-          .returning({ id: inventories.id })
-      )[0];
-
-      if (!updateInventory?.id) {
-        throw new InternalError();
-      }
-
-      return stockAdjustment.id;
+      return stockLogQuery.id;
     });
 
     await redis.del(INVENTORIES_CACHE_KEY);
     await redis.del(`inventories:${inventoryId}`);
 
-    return stockAdjustmentId;
+    return stockLogId;
   }
 
   static async deleteInventory(id: string) {

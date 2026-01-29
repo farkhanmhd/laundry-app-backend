@@ -116,7 +116,7 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
     "/:id/image",
     async ({ params: { id }, body, status }) => {
       try {
-        await Inventories.updateInventoryImage(id as string, body);
+        await Inventories.updateInventoryImage(id, body);
         return status(200, {
           status: "success",
           message: "inventory updated",
@@ -147,7 +147,7 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
     "/:id/stock",
     async ({ params: { id }, status, body, user }) => {
       try {
-        await Inventories.adjustQuantity(user.id, id as string, body);
+        await Inventories.adjustQuantity(user.id, id, body);
         return status(200, {
           status: "success",
           message: "Quantity Updated",

@@ -1,1 +1,0 @@
-ALTER TABLE "bundlings" ALTER COLUMN "description" SET NOT NULL;

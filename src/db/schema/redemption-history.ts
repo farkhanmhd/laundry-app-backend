@@ -1,4 +1,4 @@
-import { integer, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { members } from "./members";
 import { orders } from "./orders";
@@ -15,7 +15,6 @@ export const redemptionHistory = pgTable("redemption_history", {
   orderId: varchar("order_id")
     .references(() => orders.id)
     .notNull(),
-  pointsSpent: integer("points_spent").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -1,1 +1,0 @@
-ALTER TABLE "vouchers" ADD COLUMN "deleted_at" timestamp;

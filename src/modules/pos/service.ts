@@ -7,6 +7,7 @@ import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { services as servicesTable } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
+import { NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import {
@@ -96,7 +97,6 @@ export abstract class Pos {
 
   static async getPosVouchers() {
     const whereQuery = and(
-      eq(vouchers.isActive, true),
       eq(vouchers.isVisible, true),
       gt(vouchers.expiresAt, sql`now()`)
     );
@@ -104,15 +104,41 @@ export abstract class Pos {
       .select({
         id: vouchers.id,
         code: vouchers.code,
-        description: vouchers.name,
+        description: vouchers.description,
+        discountPercentage: vouchers.discountPercentage,
         discountAmount: vouchers.discountAmount,
-        pointsCost: vouchers.pointsCost,
         expiryDate: vouchers.expiresAt,
       })
       .from(vouchers)
       .where(whereQuery);
 
     return rows;
+  }
+
+  static async getVoucherByCode(voucherCode: string) {
+    const whereQuery = and(
+      eq(vouchers.code, voucherCode),
+      gt(vouchers.expiresAt, sql`now()`)
+    );
+
+    const rows = await db
+      .select({
+        id: vouchers.id,
+        code: vouchers.code,
+        description: vouchers.description,
+        discountPercentage: vouchers.discountPercentage,
+        discountAmount: vouchers.discountAmount,
+        expiryDate: vouchers.expiresAt,
+      })
+      .from(vouchers)
+      .where(whereQuery)
+      .limit(1);
+
+    if (!rows.length) {
+      throw new NotFoundError("Voucher Code Not Found");
+    }
+
+    return rows[0];
   }
 
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
@@ -128,6 +154,7 @@ export abstract class Pos {
     const newOrderId = await db.transaction(async (tx) => {
       // add new member
       let newMemberId = "";
+
       if (
         restBody.newMember &&
         customerName &&
@@ -189,7 +216,7 @@ export abstract class Pos {
       await insertPaymentQuery(tx, totalPrice, orderId, restBody);
 
       // reduce quantity after making orders
-      await reduceOrderInventoryQty(tx, items);
+      await reduceOrderInventoryQty(tx, items, orderId, userId);
 
       return orderId;
     });

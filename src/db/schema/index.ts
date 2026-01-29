@@ -10,7 +10,7 @@ import { orders } from "./orders";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
 import { services } from "./services";
-import { stockAdjustments } from "./stock-adjustments";
+import { stockLogs } from "./stock-logs";
 import { vouchers } from "./vouchers";
 
 export const table = {
@@ -29,6 +29,6 @@ export const table = {
   payments,
   redemptionHistory,
   services,
-  stockAdjustments,
+  stockLogs,
   vouchers,
 } as const;

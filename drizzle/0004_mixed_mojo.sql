@@ -1,1 +1,0 @@
-ALTER TABLE "members" ALTER COLUMN "id" SET DATA TYPE varchar;

@@ -1,1 +1,0 @@
-ALTER TABLE "order_items" RENAME COLUMN "itemType" TO "item_type";

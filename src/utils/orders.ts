@@ -1,11 +1,11 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { bundlingItems } from "@/db/schema/bundling-items";
-import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
-import { inventories as inventoriesTable } from "@/db/schema/inventories";
+import { inventories } from "@/db/schema/inventories";
 import { orderItems } from "@/db/schema/order-items";
 import { type PaymentInsert, payments } from "@/db/schema/payments";
-import { InternalError } from "@/exceptions";
+import { stockLogs } from "@/db/schema/stock-logs";
+import { InternalError, NotFoundError } from "@/exceptions";
 import type { NewPosOrderSchema, OrderItem } from "@/modules/pos/model";
 import type { TableColumn, Transaction } from "@/utils";
 
@@ -113,43 +113,90 @@ export const insertPaymentQuery = (
   return tx.insert(payments).values(paymentData);
 };
 
+type StockLogInsert = {
+  inventoryId: string;
+  quantity: number;
+  bundlingId: string | null;
+};
+
 export const reduceOrderInventoryQty = async (
   tx: Transaction,
-  items: OrderItem[]
+  items: OrderItem[],
+  orderId: string,
+  userId: string
 ) => {
-  const inventoryQty = new Map<string, number>();
+  const stockLogData: StockLogInsert[] = [];
   for (const item of items) {
     if (item.inventoryId) {
-      const currentQty = inventoryQty.get(item.inventoryId) ?? 0;
-      inventoryQty.set(item.inventoryId, currentQty + item.quantity);
+      // stock log data for inventory only
+      stockLogData.push({
+        inventoryId: item.inventoryId,
+        quantity: item.quantity,
+        bundlingId: null,
+      });
     }
   }
 
-  const bundlingItemQty = await tx
-    .select({
-      inventoryId: bundlingItems.inventoryId,
-      quantity: bundlingItems.quantity,
+  const bundlingIds = getOrderItemIds(items, "bundlingId");
+
+  if (bundlingIds.length > 0) {
+    // fetching quantity used on a bundle with inventory
+    const bundlingInvQty = await tx
+      .select({
+        inventoryId: bundlingItems.inventoryId,
+        qtyPerBundle: bundlingItems.quantity,
+        bundlingId: bundlingItems.bundlingId,
+      })
+      .from(bundlingItems)
+      .where(
+        and(
+          isNotNull(bundlingItems.inventoryId),
+          inArray(bundlingItems.bundlingId, bundlingIds)
+        )
+      );
+
+    for (const bundlingInv of bundlingInvQty) {
+      const orderItem = items.find(
+        (item) => item.bundlingId === bundlingInv.bundlingId
+      );
+
+      if (orderItem && bundlingInv.inventoryId && bundlingInv.bundlingId) {
+        stockLogData.push({
+          inventoryId: bundlingInv.inventoryId,
+          quantity: bundlingInv.qtyPerBundle * orderItem.quantity,
+          bundlingId: bundlingInv.bundlingId,
+        });
+      }
+    }
+  }
+
+  stockLogData.sort((a, b) => a.inventoryId.localeCompare(b.inventoryId));
+
+  await Promise.all(
+    stockLogData.map(async (stockLog) => {
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({
+          stock: sql`${inventories.stock} - ${stockLog.quantity}`,
+        })
+        .where(eq(inventories.id, stockLog.inventoryId))
+        .returning({
+          stock: inventories.stock,
+        });
+
+      if (!updatedInventory) {
+        throw new NotFoundError("Inventory Id not found");
+      }
+
+      await tx.insert(stockLogs).values({
+        type: "order",
+        actorId: userId,
+        inventoryId: stockLog.inventoryId,
+        stockRemaining: updatedInventory.stock,
+        changeAmount: -1 * stockLog.quantity,
+        bundlingId: stockLog.bundlingId || null,
+        orderId,
+      });
     })
-    .from(bundlingItems)
-    .innerJoin(bundlingsTable, eq(bundlingItems.bundlingId, bundlingsTable.id))
-    .where(
-      and(
-        isNotNull(bundlingItems.inventoryId),
-        inArray(bundlingsTable.id, getOrderItemIds(items, "bundlingId"))
-      )
-    );
-
-  for (const item of bundlingItemQty) {
-    if (item.inventoryId) {
-      const currentQty = inventoryQty.get(item.inventoryId) ?? 0;
-      inventoryQty.set(item.inventoryId, currentQty + item.quantity);
-    }
-  }
-
-  for (const item of inventoryQty.entries()) {
-    await tx
-      .update(inventoriesTable)
-      .set({ stock: sql`${inventoriesTable.stock} - ${item[1]}` })
-      .where(eq(inventoriesTable.id, item[0]));
-  }
+  );
 };

@@ -4,7 +4,7 @@ import { addresses } from "./addresses";
 import { members } from "./members";
 import { orders } from "./orders";
 import { routes } from "./routes";
-import { stockAdjustments } from "./stock-adjustments";
+import { stockLogs } from "./stock-logs";
 
 export const roleEnum = pgEnum("role", ["superadmin", "admin", "user"]);
 
@@ -91,6 +91,6 @@ export const usersRelations = relations(user, ({ many, one }) => ({
   }),
   orders: many(orders),
   addresses: many(addresses),
-  stockAdjustments: many(stockAdjustments),
+  stockAdjustments: many(stockLogs),
   routes: many(routes),
 }));
