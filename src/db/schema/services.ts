@@ -17,7 +17,7 @@ export const services = pgTable(
       .primaryKey()
       .$default(() => `s-${nanoid()}`),
     name: varchar("name", { length: 128 }).notNull(),
-    image: varchar("image"),
+    image: varchar("image").notNull(),
     description: varchar("description", { length: 512 }).notNull(),
     price: integer("price").notNull(),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),

@@ -15,7 +15,7 @@ export const bundlings = pgTable("bundlings", {
     .primaryKey()
     .$defaultFn(() => `bnd-${nanoid()}`),
   name: varchar("name", { length: 100 }).notNull(),
-  image: varchar("image"),
+  image: varchar("image").notNull(),
   description: varchar("description", { length: 255 }).notNull(),
   price: integer("price").notNull(),
   isActive: boolean("is_active").default(true),

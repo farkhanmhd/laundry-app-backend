@@ -40,7 +40,7 @@ const newPosOrderSchema = t.Union([
     newPosOrderBaseSchema,
     t.Object({
       paymentType: t.Literal("cash"),
-      amountPaid: t.Integer({ minimum: 1 }),
+      amountPaid: t.Integer({ minimum: 0 }),
     }),
   ]),
   t.Composite([

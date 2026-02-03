@@ -1,10 +1,12 @@
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { bundlingItems } from "@/db/schema/bundling-items";
 import { inventories } from "@/db/schema/inventories";
+import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
 import { type PaymentInsert, payments } from "@/db/schema/payments";
 import { stockLogs } from "@/db/schema/stock-logs";
+import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
 import type { NewPosOrderSchema, OrderItem } from "@/modules/pos/model";
 import type { TableColumn, Transaction } from "@/utils";
@@ -69,15 +71,94 @@ export const insertOrderItemsQuery = (
     .returning({ id: orderItems.id, subtotal: orderItems.subtotal });
 };
 
+export const getVoucherData = async (tx: Transaction, voucherId: string) => {
+  const whereQuery = and(
+    eq(vouchers.id, voucherId),
+    gt(vouchers.expiresAt, sql`now()`)
+  );
+  const [voucher] = await tx
+    .select({
+      id: vouchers.id,
+      discountPercentage: vouchers.discountPercentage,
+      discountAmount: vouchers.discountAmount,
+      minSpend: vouchers.discountPercentage,
+      maxDiscountAmount: vouchers.maxDiscountAmount,
+    })
+    .from(vouchers)
+    .where(whereQuery)
+    .limit(1);
+
+  if (!voucher) {
+    throw new NotFoundError("Voucher not found or expired");
+  }
+
+  return voucher;
+};
+
+type PosVoucher = Awaited<ReturnType<typeof getVoucherData>>;
+
+export const getMaxDiscount = (voucher: PosVoucher, totalAmount: number) => {
+  const voucherType =
+    voucher.discountPercentage && voucher.discountPercentage !== null
+      ? "percentage"
+      : "fixed";
+
+  const percentageDiscount =
+    voucherType === "percentage" &&
+    voucher.discountPercentage &&
+    Number(voucher.discountPercentage) > 0
+      ? Number(voucher.discountPercentage)
+      : 0;
+
+  const fixedDiscount =
+    voucherType === "fixed" &&
+    voucher.discountAmount &&
+    voucher.discountAmount > 0
+      ? voucher.discountAmount
+      : 0;
+
+  const totalPercentageDiscount =
+    totalAmount - Math.floor(totalAmount * (percentageDiscount / 100));
+
+  const maxDiscountAmount = {
+    percentage:
+      totalPercentageDiscount >= voucher.maxDiscountAmount
+        ? voucher.maxDiscountAmount
+        : totalPercentageDiscount,
+    fixed:
+      fixedDiscount > voucher.maxDiscountAmount
+        ? voucher.maxDiscountAmount
+        : fixedDiscount,
+  };
+
+  return maxDiscountAmount[voucherType];
+};
+
+export const insertOrderVoucher = async (
+  tx: Transaction,
+  voucher: PosVoucher,
+  discountAmount: number,
+  orderId: string
+) => {
+  await tx.insert(orderItems).values({
+    orderId,
+    voucherId: voucher.id,
+    itemType: "voucher",
+    quantity: 1,
+    subtotal: -1 * discountAmount,
+  });
+};
+
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>
   : never;
 
 export const insertPaymentQuery = (
   tx: Transaction,
-  totalPrice: number,
   orderId: string,
-  restBody: DistributiveOmit<NewPosOrderSchema, "customerName" | "items">
+  restBody: DistributiveOmit<NewPosOrderSchema, "customerName" | "items">,
+  totalPrice: number,
+  totalDiscount = 0
 ) => {
   let paymentData: PaymentInsert;
   const basePaymentData = {
@@ -85,7 +166,10 @@ export const insertPaymentQuery = (
     paymentType: restBody.paymentType,
   };
 
-  if (restBody.paymentType === "cash" && restBody.amountPaid < totalPrice) {
+  if (
+    restBody.paymentType === "cash" &&
+    restBody.amountPaid < totalPrice - totalDiscount
+  ) {
     throw new InternalError("Payment Error");
   }
 
@@ -94,7 +178,8 @@ export const insertPaymentQuery = (
       ...basePaymentData,
       amountPaid: restBody.amountPaid,
       change: restBody.amountPaid - totalPrice,
-      total: totalPrice,
+      discountAmount: totalDiscount,
+      total: totalPrice - totalDiscount,
       transactionStatus: "settlement",
     };
   } else if (restBody.paymentType === "qris") {
@@ -103,7 +188,8 @@ export const insertPaymentQuery = (
       ...basePaymentData,
       amountPaid: totalPrice, // QRIS is always exact amount
       change: 0,
-      total: totalPrice,
+      discountAmount: totalDiscount,
+      total: totalPrice - totalDiscount,
       transactionStatus: "pending", // QRIS starts as pending
     };
   } else {
@@ -199,4 +285,15 @@ export const reduceOrderInventoryQty = async (
       });
     })
   );
+};
+
+export const updateEarnedPoints = async (
+  tx: Transaction,
+  memberId: string,
+  pointsEarned: number
+) => {
+  await tx
+    .update(members)
+    .set({ points: sql`${members.points} + ${pointsEarned}` })
+    .where(eq(members.id, memberId));
 };

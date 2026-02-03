@@ -3,37 +3,11 @@ import { models } from "@/db/models";
 import { succesResponse } from "@/responses";
 
 const inventory = t.Object(models.select.inventories);
-
 const addInventory = t.Object({
-  name: t.String({
-    ...models.insert.inventories.name,
-    minLength: 1,
-    error: "Inventory name cannot be empty",
-  }),
+  ...models.insert.inventories,
   image: t.File({
     type: "image/*",
     maxSize: "5m",
-  }),
-  price: t.Numeric({
-    ...models.insert.inventories.price,
-    minimum: 0,
-    error: "Inventory price cannot be empty",
-  }),
-  stock: t.Numeric({
-    ...models.insert.inventories.stock,
-    minimum: 0,
-    error: "Quantity cannot be empty",
-  }),
-  unit: models.insert.inventories.unit,
-  description: t.String({
-    ...models.insert.inventories.description,
-    minLength: 1,
-    error: "Inventory description cannot be empty",
-  }),
-  safetyStock: t.Numeric({
-    ...models.insert.inventories.safetyStock,
-    minimum: 0,
-    error: "Reorder point cannot be empty",
   }),
 });
 
@@ -63,10 +37,13 @@ const getInventories = t.Composite([succesResponse, inventoriesArray]);
 
 export type GetInventories = typeof getInventories.static;
 
-const adjustQuantity = t.Pick(t.Object(models.insert.stockLogs), [
-  "note",
-  "changeAmount",
-]);
+const allowedAdjustType = ["adjustment", "waste", "restock"] as const;
+const adjustQuantity = t.Object({
+  note: models.insert.stockLogs.note,
+  changeAmount: models.insert.stockLogs.changeAmount,
+  type: t.Union(allowedAdjustType.map((val) => t.Literal(val))),
+});
+
 export type AdjustQuantitySchema = typeof adjustQuantity.static;
 
 export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(

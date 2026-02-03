@@ -27,8 +27,10 @@ export const vouchers = pgTable(
       scale: 2,
     }),
     discountAmount: bigint("discount_amount", { mode: "number" }),
-    minSpend: bigint("min_spend", { mode: "number" }).default(0),
-    maxDiscountAmount: bigint("max_discount_amount", { mode: "number" }),
+    minSpend: bigint("min_spend", { mode: "number" }).notNull(),
+    maxDiscountAmount: bigint("max_discount_amount", {
+      mode: "number",
+    }).notNull(),
     isVisible: boolean("is_visible").default(true).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true, mode: "string" }),
     createdAt: timestamp("created_at", {
@@ -45,7 +47,7 @@ export const vouchers = pgTable(
             (${table.discountPercentage} IS NOT NULL AND ${table.discountAmount} IS NULL)
         ) OR
         (
-            (${table.discountAmount} IS NULL AND ${table.discountAmount} IS NOT NULL)
+            (${table.discountPercentage} IS NULL AND ${table.discountAmount} IS NOT NULL)
         )
     `
     ),

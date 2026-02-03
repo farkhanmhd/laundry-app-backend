@@ -7,20 +7,24 @@ import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { services as servicesTable } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
-import { NotFoundError } from "@/exceptions";
+import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import {
+  getMaxDiscount,
   getPricesQuery,
+  getVoucherData,
   type ItemPrice,
   insertOrderItemsQuery,
+  insertOrderVoucher,
   insertPaymentQuery,
   reduceOrderInventoryQty,
+  updateEarnedPoints,
 } from "@/utils/orders";
 import { INVENTORIES_CACHE_KEY } from "../inventories/service";
 import type { NewPosOrderSchema, PosItem } from "./model";
 
-const POS_CACHE_KEY = "pos:all";
+export const POS_CACHE_KEY = "pos:all";
 
 export abstract class Pos {
   static async getPosItems() {
@@ -107,7 +111,9 @@ export abstract class Pos {
         description: vouchers.description,
         discountPercentage: vouchers.discountPercentage,
         discountAmount: vouchers.discountAmount,
-        expiryDate: vouchers.expiresAt,
+        minSpend: vouchers.minSpend,
+        maxDiscountAmount: vouchers.maxDiscountAmount,
+        expiresAt: vouchers.expiresAt,
       })
       .from(vouchers)
       .where(whereQuery);
@@ -128,7 +134,9 @@ export abstract class Pos {
         description: vouchers.description,
         discountPercentage: vouchers.discountPercentage,
         discountAmount: vouchers.discountAmount,
-        expiryDate: vouchers.expiresAt,
+        minSpend: vouchers.minSpend,
+        maxDiscountAmount: vouchers.maxDiscountAmount,
+        expiresAt: vouchers.expiresAt,
       })
       .from(vouchers)
       .where(whereQuery)
@@ -143,6 +151,12 @@ export abstract class Pos {
 
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
     const { customerName, items, ...restBody } = body;
+
+    if (!items.length) {
+      throw new InternalError(
+        "Transaction Failed. There are no items selected"
+      );
+    }
 
     const onlyInventoryItems = !items.find(
       (item) =>
@@ -195,25 +209,53 @@ export abstract class Pos {
 
       const itemPrices = (await Promise.all(priceQueries))
         .flat()
+        .filter((price): price is NonNullable<typeof price> => price !== null)
         .filter(
-          (price): price is NonNullable<typeof price> => price !== null
-        ) as ItemPrice[];
+          (item): item is ItemPrice =>
+            item !== null && item.id !== null && item.price !== null
+        );
+
+      const orderItems = items.filter((item) => !item.voucherId);
 
       // insert order items to database
       const orderItemsResult = await insertOrderItemsQuery(
         tx,
         orderId,
-        items,
+        orderItems,
         itemPrices
       );
 
+      const voucherId = items.find((item) => item.voucherId)?.voucherId || "";
+
+      const voucher = await getVoucherData(tx, voucherId);
+
       // total price of an order
-      const totalPrice = orderItemsResult.reduce(
+      const totalItemPrice = orderItemsResult.reduce(
         (acc, curr) => curr.subtotal + acc,
         0
       );
 
-      await insertPaymentQuery(tx, totalPrice, orderId, restBody);
+      const maxDiscountAmount = getMaxDiscount(voucher, totalItemPrice) || 0;
+
+      if (voucher) {
+        await insertOrderVoucher(tx, voucher, maxDiscountAmount, orderId);
+      }
+
+      if (totalItemPrice >= 10_000 && selectedMemberId) {
+        await updateEarnedPoints(
+          tx,
+          selectedMemberId,
+          Math.ceil(totalItemPrice / 10)
+        );
+      }
+
+      await insertPaymentQuery(
+        tx,
+        orderId,
+        restBody,
+        totalItemPrice,
+        maxDiscountAmount
+      );
 
       // reduce quantity after making orders
       await reduceOrderInventoryQty(tx, items, orderId, userId);

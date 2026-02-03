@@ -1,9 +1,9 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
-import type { AddVoucherBody, UpdateVoucherBody, Voucher } from "./model";
+import type { Voucher, VoucherInsert } from "./model";
 
 /**
  * Abstract class for handling voucher-related database operations.
@@ -29,7 +29,9 @@ export abstract class Vouchers {
       const rows = await db
         .select()
         .from(vouchers)
-        .where(and(eq(vouchers.isActive, true), eq(vouchers.isVisible, true)))
+        .where(
+          and(gt(vouchers.expiresAt, sql`now()`), eq(vouchers.isVisible, true))
+        )
         .orderBy(desc(vouchers.createdAt));
 
       await redis.set(VOUCHER_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
@@ -82,7 +84,7 @@ export abstract class Vouchers {
    * @returns A promise that resolves to the ID of the newly created voucher.
    * @throws {InternalError} If the voucher creation fails.
    */
-  static async addVoucher(data: AddVoucherBody) {
+  static async addVoucher(data: VoucherInsert) {
     const result = await db
       .insert(vouchers)
       .values({ ...data, code: data.code.toLowerCase() })
@@ -104,7 +106,7 @@ export abstract class Vouchers {
    * @returns A promise that resolves to the ID of the updated voucher.
    * @throws {NotFoundError} If no voucher with the given ID is found.
    */
-  static async updateVoucher(id: string, data: UpdateVoucherBody) {
+  static async updateVoucher(id: string, data: VoucherInsert) {
     const result = await db
       .update(vouchers)
       .set(data)
@@ -131,7 +133,7 @@ export abstract class Vouchers {
   static async deleteVoucher(id: string) {
     const result = await db
       .update(vouchers)
-      .set({ isActive: false, isVisible: false })
+      .set({ isVisible: false })
       .where(eq(vouchers.id, id))
       .returning({ id: vouchers.id });
 

@@ -146,29 +146,11 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .patch(
     "/:id/stock",
     async ({ params: { id }, status, body, user }) => {
-      try {
-        await Inventories.adjustQuantity(user.id, id, body);
-        return status(200, {
-          status: "success",
-          message: "Quantity Updated",
-        });
-      } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
-          return status(404, {
-            status: "error",
-            message: "Inventory not found",
-          });
-        }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
-      }
+      await Inventories.adjustQuantity(user.id, id, body);
+      return status(200, {
+        status: "success",
+        message: "Quantity Updated",
+      });
     },
     {
       parse: "application/json",

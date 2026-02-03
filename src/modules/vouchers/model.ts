@@ -3,12 +3,10 @@ import { models } from "@/db/models";
 import { succesResponse } from "@/responses";
 
 const voucher = t.Object(models.select.vouchers);
-const addVoucher = t.Object(models.insert.vouchers);
-const updateVoucher = t.Partial(addVoucher);
+const voucherInsert = t.Object(models.insert.vouchers);
 
 export type Voucher = typeof voucher.static;
-export type AddVoucherBody = typeof addVoucher.static;
-export type UpdateVoucherBody = typeof updateVoucher.static;
+export type VoucherInsert = typeof voucherInsert.static;
 
 const addVoucherResponse = t.Composite([
   succesResponse,
@@ -27,8 +25,7 @@ const getVouchers = t.Composite([
 export type GetVouchers = typeof getVouchers.static;
 
 export const vouchersModel = new Elysia({ name: "vouchers/model" }).model({
-  addVoucher,
-  updateVoucher,
+  voucherInsert,
   addVoucherResponse,
   getVouchers,
 });

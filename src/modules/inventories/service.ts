@@ -50,18 +50,13 @@ export abstract class Inventories {
     if (result.length === 0) {
       throw new InternalError();
     }
-    const row = result[0]; // safe because result.length > 0
+    const row = result[0];
     await redis.del(INVENTORIES_CACHE_KEY);
     await redis.set(`inventories:${row?.id}`, JSON.stringify(row), "EX", 3600);
     return row;
   }
 
   static async getInventoryById(id: string) {
-    const cacheKey = `inventories:${id}`;
-    const json = await redis.get(cacheKey);
-    if (json) {
-      return JSON.parse(json) as Inventory;
-    }
     const row = await db
       .select()
       .from(inventories)
@@ -71,7 +66,6 @@ export abstract class Inventories {
       throw new NotFoundError("Inventory not found");
     }
 
-    await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
     return row[0] as Inventory;
   }
 
@@ -87,7 +81,6 @@ export abstract class Inventories {
     }
 
     await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }
@@ -113,7 +106,6 @@ export abstract class Inventories {
     }
 
     await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }
@@ -143,7 +135,6 @@ export abstract class Inventories {
             ...body,
             inventoryId,
             actorId: userId,
-            type: "adjustment",
             stockRemaining: updatedInventory.stock,
           })
           .returning({ id: stockLogs.id })
@@ -158,7 +149,6 @@ export abstract class Inventories {
     });
 
     await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(`inventories:${inventoryId}`);
 
     return stockLogId;
   }
@@ -175,7 +165,6 @@ export abstract class Inventories {
     }
 
     await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(`inventories:${id}`);
 
     return result[0]?.id as string;
   }

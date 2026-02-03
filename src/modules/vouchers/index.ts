@@ -56,7 +56,7 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
       });
     },
     {
-      body: "addVoucher",
+      body: "voucherInsert",
       parse: "application/json",
     }
   )
@@ -71,7 +71,7 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
       });
     },
     {
-      body: "updateVoucher",
+      body: "voucherInsert",
       parse: "application/json",
     }
   )

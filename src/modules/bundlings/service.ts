@@ -6,6 +6,7 @@ import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { InternalError } from "@/exceptions";
 import { redis } from "@/redis";
+import { POS_CACHE_KEY } from "../pos/service";
 import type {
   AddBundlingBody,
   Bundling,
@@ -95,6 +96,7 @@ export abstract class Bundlings {
       });
 
       await redis.del(BUNDLINGS_CACHE_KEY);
+      await redis.del(POS_CACHE_KEY);
       return newBundlingId;
     } catch (error) {
       console.error("Transaction failed ", error);
@@ -119,6 +121,7 @@ export abstract class Bundlings {
     }
 
     await redis.del(BUNDLINGS_CACHE_KEY);
+    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -164,6 +167,7 @@ export abstract class Bundlings {
           });
 
         await redis.del(BUNDLINGS_CACHE_KEY);
+        await redis.del(POS_CACHE_KEY);
       }
     });
   }
@@ -189,6 +193,7 @@ export abstract class Bundlings {
     }
 
     await redis.del(BUNDLINGS_CACHE_KEY);
+    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }

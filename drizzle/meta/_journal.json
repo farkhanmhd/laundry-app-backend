@@ -8,6 +8,13 @@
       "when": 1769674179380,
       "tag": "0000_swift_kitty_pryde",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769789628703,
+      "tag": "0001_charming_doctor_octopus",
+      "breakpoints": true
     }
   ]
 }

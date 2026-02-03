@@ -1,4 +1,4 @@
-import { count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { bundlings } from "@/db/schema/bundlings";
@@ -9,6 +9,7 @@ import { orderItems } from "@/db/schema/order-items";
 import { orders as ordersTable } from "@/db/schema/orders";
 import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
+import { vouchers } from "@/db/schema/vouchers";
 import { NotFoundError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
 
@@ -71,7 +72,7 @@ export abstract class Orders {
   }
 
   static async getOrderItems(orderId: string) {
-    const rows = await db
+    const orderItemsQuery = db
       .select({
         id: orderItems.id,
         itemtype: orderItems.itemType,
@@ -86,13 +87,36 @@ export abstract class Orders {
       .leftJoin(services, eq(orderItems.serviceId, services.id))
       .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
       .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
-      .where(eq(orderItems.orderId, orderId));
+      .where(
+        and(eq(orderItems.orderId, orderId), ne(orderItems.itemType, "voucher"))
+      );
 
-    if (!rows.length) {
-      throw new NotFoundError("Invalid order id");
+    const voucherQuery = db
+      .select({
+        code: vouchers.code,
+        description: vouchers.description,
+        discountAmount: orderItems.subtotal,
+      })
+      .from(orderItems)
+      .innerJoin(vouchers, eq(orderItems.voucherId, vouchers.id))
+      .where(
+        and(eq(orderItems.itemType, "voucher"), eq(orderItems.orderId, orderId))
+      )
+      .limit(1);
+
+    const [orders, [voucher]] = await Promise.all([
+      orderItemsQuery,
+      voucherQuery,
+    ]);
+
+    if (!orders.length) {
+      throw new NotFoundError("Order id not found");
     }
 
-    return rows;
+    return {
+      orders,
+      voucher,
+    };
   }
 
   static async getOrderPayment(orderId: string) {
