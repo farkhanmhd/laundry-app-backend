@@ -15,6 +15,20 @@
       "when": 1769789628703,
       "tag": "0001_charming_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770105490019,
+      "tag": "0002_big_wallow",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770106907450,
+      "tag": "0003_sour_multiple_man",
+      "breakpoints": true
     }
   ]
 }

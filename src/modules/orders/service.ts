@@ -1,4 +1,14 @@
-import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  ne,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { bundlings } from "@/db/schema/bundlings";
@@ -19,10 +29,18 @@ export abstract class Orders {
     const searchByOrderId = ilike(ordersTable.id, `%${search}%`);
     const searchByName = ilike(ordersTable.customerName, `%${search}%`);
     const searchByPhone = ilike(members.phone, `%${search}%`);
+    const notVoucher = ne(orderItems.itemType, "voucher");
 
-    const whereQuery = or(searchByOrderId, searchByName, searchByPhone);
+    const filters: SQL[] = [notVoucher];
+    const searchLogic = or(searchByOrderId, searchByName, searchByPhone);
 
-    const orders = await db
+    if (searchLogic) {
+      filters.push(searchLogic);
+    }
+
+    const whereQuery = and(...filters);
+
+    const ordersQuery = db
       .select({
         id: ordersTable.id,
         customerName: ordersTable.customerName,
@@ -49,7 +67,17 @@ export abstract class Orders {
       .offset((page - 1) * rows)
       .orderBy(desc(ordersTable.createdAt));
 
-    return orders;
+    const totalQuery = db
+      .select({ count: count() })
+      .from(ordersTable)
+      .innerJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
+      .innerJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
+      .leftJoin(members, eq(ordersTable.memberId, members.id))
+      .where(whereQuery);
+
+    const [orders, [total]] = await Promise.all([ordersQuery, totalQuery]);
+
+    return { orders, total: total?.count ?? 0 };
   }
 
   static async getOrderStatus(id: string) {
@@ -88,11 +116,16 @@ export abstract class Orders {
       .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
       .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
       .where(
-        and(eq(orderItems.orderId, orderId), ne(orderItems.itemType, "voucher"))
+        and(
+          ilike(orderItems.orderId, orderId),
+          ne(orderItems.itemType, "voucher"),
+          ne(orderItems.itemType, "points")
+        )
       );
 
     const voucherQuery = db
       .select({
+        id: orderItems.id,
         code: vouchers.code,
         description: vouchers.description,
         discountAmount: orderItems.subtotal,
@@ -100,22 +133,41 @@ export abstract class Orders {
       .from(orderItems)
       .innerJoin(vouchers, eq(orderItems.voucherId, vouchers.id))
       .where(
-        and(eq(orderItems.itemType, "voucher"), eq(orderItems.orderId, orderId))
+        and(
+          eq(orderItems.itemType, "voucher"),
+          ilike(orderItems.orderId, orderId)
+        )
       )
       .limit(1);
 
-    const [orders, [voucher]] = await Promise.all([
+    const pointsQuery = db
+      .select({
+        id: orderItems.id,
+        points: orderItems.subtotal,
+      })
+      .from(orderItems)
+      .where(
+        and(
+          ilike(orderItems.orderId, orderId),
+          eq(orderItems.itemType, "points")
+        )
+      )
+      .limit(1);
+
+    const [items, [voucher], [points]] = await Promise.all([
       orderItemsQuery,
       voucherQuery,
+      pointsQuery,
     ]);
 
-    if (!orders.length) {
+    if (!items.length) {
       throw new NotFoundError("Order id not found");
     }
 
     return {
-      orders,
+      items,
       voucher,
+      points,
     };
   }
 

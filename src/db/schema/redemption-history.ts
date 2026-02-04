@@ -1,11 +1,14 @@
 import { pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
+import { nanoid } from "../utils";
 import { members } from "./members";
 import { orders } from "./orders";
 import { vouchers } from "./vouchers";
 
 export const redemptionHistory = pgTable("redemption_history", {
-  id: varchar("id").primaryKey(),
+  id: varchar("id")
+    .primaryKey()
+    .$defaultFn(() => `rh-${nanoid()}`),
   memberId: varchar("member_id")
     .references(() => members.id)
     .notNull(),

@@ -12,6 +12,7 @@ export const itemTypeEnum = pgEnum("orderItemType", [
   "inventory",
   "bundling",
   "voucher",
+  "points",
 ]);
 
 export const orderItems = pgTable("order_items", {

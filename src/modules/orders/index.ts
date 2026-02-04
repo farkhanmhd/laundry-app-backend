@@ -16,7 +16,7 @@ export const ordersController = new Elysia({ prefix: "/orders" })
     "/",
     async ({ status, query }) => {
       const orders = await Orders.getOrders(query);
-      return status(201, {
+      return status(200, {
         status: "success",
         message: "Orders Retrieved",
         data: orders,

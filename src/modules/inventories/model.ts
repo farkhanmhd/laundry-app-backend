@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { models } from "@/db/models";
 import { succesResponse } from "@/responses";
+import { searchQuery } from "@/search-query";
 
 const inventory = t.Object(models.select.inventories);
 const addInventory = t.Object({
@@ -17,10 +18,20 @@ const updateInventory = t.Composite([
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);
 
+const category = t.Optional(t.Array(models.select.stockLogs.type));
+
+const adjustmentCategory = t.Object({
+  category,
+  inventoryIds: t.Optional(t.Array(t.String())),
+});
+
+const inventoryHistoryQuery = t.Composite([searchQuery, adjustmentCategory]);
+
 export type AddInventoryBody = typeof addInventory.static;
 export type UpdateInventoryBody = typeof updateInventory.static;
 export type UpdateInventoryImage = typeof updateInventoryImage.static;
 export type Inventory = typeof inventory.static;
+export type InventoryHistoryQuery = typeof inventoryHistoryQuery.static;
 
 const addInventoryResponse = t.Composite([
   succesResponse,
@@ -54,5 +65,6 @@ export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
     updateInventory,
     updateInventoryImage,
     adjustQuantity,
+    inventoryHistoryQuery,
   }
 );

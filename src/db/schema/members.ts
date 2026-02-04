@@ -15,7 +15,10 @@ export const members = pgTable("members", {
     .unique(),
   phone: varchar("phone", { length: 24 }).unique().notNull(),
   points: integer("points").default(0).notNull(),
-  createdAt: timestamp('created_at', { mode: 'string', withTimezone: true}).defaultNow()
+  createdAt: timestamp("created_at", {
+    mode: "string",
+    withTimezone: true,
+  }).defaultNow(),
 });
 
 export const membersRelations = relations(members, ({ many, one }) => ({

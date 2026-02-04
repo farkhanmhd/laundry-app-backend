@@ -15,9 +15,12 @@ import {
   getPricesQuery,
   getVoucherData,
   type ItemPrice,
+  insertOrderItemPoint,
   insertOrderItemsQuery,
   insertOrderVoucher,
   insertPaymentQuery,
+  insertRedemptionHistory,
+  reduceMemberPoint,
   reduceOrderInventoryQty,
   updateEarnedPoints,
 } from "@/utils/orders";
@@ -237,8 +240,21 @@ export abstract class Pos {
 
       const maxDiscountAmount = getMaxDiscount(voucher, totalItemPrice) || 0;
 
-      if (voucher) {
+      if (voucher && orderId && selectedMemberId) {
         await insertOrderVoucher(tx, voucher, maxDiscountAmount, orderId);
+        await insertRedemptionHistory(tx, {
+          memberId: selectedMemberId,
+          voucherId,
+          orderId,
+        });
+      }
+
+      if (restBody.points && selectedMemberId) {
+        await reduceMemberPoint(tx, {
+          memberId: selectedMemberId,
+          points: restBody.points,
+        });
+        await insertOrderItemPoint(tx, { orderId, points: restBody.points });
       }
 
       if (totalItemPrice >= 10_000 && selectedMemberId) {

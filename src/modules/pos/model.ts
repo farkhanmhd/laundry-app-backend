@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { models } from "@/db/models";
 
 const posItem = t.Object({
   id: t.String(),
@@ -12,15 +13,11 @@ const posItem = t.Object({
 
 export type PosItem = typeof posItem.static;
 
-const orderItemSchema = t.Object({
-  itemType: t.UnionEnum(["service", "inventory", "bundling", "voucher"]),
-  serviceId: t.Optional(t.Nullable(t.String())),
-  inventoryId: t.Optional(t.Nullable(t.String())),
-  bundlingId: t.Optional(t.Nullable(t.String())),
-  voucherId: t.Optional(t.Nullable(t.String())),
-  note: t.Optional(t.Nullable(t.String())),
-  quantity: t.Integer({ minimum: 1 }),
-});
+const orderItemSchema = t.Omit(t.Object(models.insert.orderItems), [
+  "orderId",
+  "id",
+  "subtotal",
+]);
 
 export type OrderItem = typeof orderItemSchema.static;
 
@@ -33,6 +30,7 @@ const newPosOrderBaseSchema = t.Object({
   memberId: t.Optional(t.Nullable(t.String())),
   newMember: t.Optional(t.Nullable(t.Boolean())),
   phone: t.Optional(t.Nullable(t.String())),
+  points: t.Optional(t.Nullable(t.Number())),
 });
 
 const newPosOrderSchema = t.Union([

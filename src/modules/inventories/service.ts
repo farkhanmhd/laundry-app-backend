@@ -1,6 +1,18 @@
 import { write } from "bun";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
+import { user } from "@/db/schema/auth";
 import { inventories } from "@/db/schema/inventories";
 import { stockLogs } from "@/db/schema/stock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
@@ -9,6 +21,7 @@ import type {
   AddInventoryBody,
   AdjustQuantitySchema,
   Inventory,
+  InventoryHistoryQuery,
   UpdateInventoryBody,
   UpdateInventoryImage,
 } from "./model";
@@ -31,6 +44,91 @@ export abstract class Inventories {
     await redis.set(INVENTORIES_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
+  }
+
+  static async getInventoryHistory(query: InventoryHistoryQuery) {
+    const {
+      search = "",
+      rows = 50,
+      page = 1,
+      category = [],
+      inventoryIds = [],
+    } = query;
+
+    const filters: SQL[] = [];
+
+    const searchByInventoryId = inArray(inventories.id, inventoryIds);
+    const searchByCategory = inArray(stockLogs.type, category);
+
+    if (inventoryIds.length > 0) {
+      filters.push(searchByInventoryId);
+    }
+
+    if (category.length > 0) {
+      filters.push(searchByCategory);
+    }
+
+    const searchByName = ilike(inventories.name, `%${search}%`);
+    const searchByOrderId = ilike(stockLogs.orderId, `%${search}%`);
+
+    if (search) {
+      const searchGroup = or(searchByName, searchByOrderId);
+      if (searchGroup) {
+        filters.push(searchGroup);
+      }
+    }
+
+    const whereQuery = and(...filters);
+
+    const inventoryHistoryQuery = db
+      .select({
+        id: stockLogs.id,
+        inventoryId: inventories.id,
+        image: inventories.image,
+        name: inventories.name,
+        category: stockLogs.type,
+        change: stockLogs.changeAmount,
+        stockRemaining: stockLogs.stockRemaining,
+        orderId: stockLogs.orderId,
+        note: stockLogs.note,
+        userId: stockLogs.actorId,
+        user: user.name,
+        createdAt: stockLogs.createdAt,
+      })
+      .from(stockLogs)
+      .leftJoin(inventories, eq(stockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(stockLogs.actorId, user.id))
+      .where(whereQuery)
+      .limit(rows)
+      .offset((page - 1) * rows)
+      .orderBy(desc(stockLogs.createdAt));
+
+    const totalQuery = db
+      .select({ count: count() })
+      .from(stockLogs)
+      .leftJoin(inventories, eq(stockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(stockLogs.actorId, user.id))
+      .where(whereQuery);
+
+    const [inventoryHistory, [total]] = await Promise.all([
+      inventoryHistoryQuery,
+      totalQuery,
+    ]);
+    return {
+      total: total?.count ?? 0,
+      inventoryHistory,
+    };
+  }
+
+  static async getInventoryOptions() {
+    const options = await db
+      .selectDistinct({
+        value: inventories.id,
+        label: inventories.name,
+      })
+      .from(inventories);
+
+    return options;
   }
 
   static async addInventory(formData: AddInventoryBody) {

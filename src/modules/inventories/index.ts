@@ -47,6 +47,29 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .guard({
     isSuperAdmin: true,
   })
+  .get(
+    "/history",
+    async ({ status, query }) => {
+      const result = await Inventories.getInventoryHistory(query);
+
+      return status(200, {
+        status: "success",
+        message: "Inventory history retrieved",
+        data: result,
+      });
+    },
+    {
+      query: "inventoryHistoryQuery",
+    }
+  )
+  .get("/options", async ({ status }) => {
+    const options = await Inventories.getInventoryOptions();
+    return status(200, {
+      status: "success",
+      message: "Inventory options retrieved",
+      data: options,
+    });
+  })
   .post(
     "/",
     async ({ body, status }) => {

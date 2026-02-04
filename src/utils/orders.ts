@@ -5,6 +5,7 @@ import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
 import { type PaymentInsert, payments } from "@/db/schema/payments";
+import { redemptionHistory } from "@/db/schema/redemption-history";
 import { stockLogs } from "@/db/schema/stock-logs";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
@@ -166,9 +167,11 @@ export const insertPaymentQuery = (
     paymentType: restBody.paymentType,
   };
 
+  console.log(restBody);
+
   if (
     restBody.paymentType === "cash" &&
-    restBody.amountPaid < totalPrice - totalDiscount
+    restBody.amountPaid < totalPrice - totalDiscount + (restBody.points ?? 0)
   ) {
     throw new InternalError("Payment Error");
   }
@@ -179,7 +182,7 @@ export const insertPaymentQuery = (
       amountPaid: restBody.amountPaid,
       change: restBody.amountPaid - totalPrice,
       discountAmount: totalDiscount,
-      total: totalPrice - totalDiscount,
+      total: totalPrice - totalDiscount + (restBody.points ?? 0),
       transactionStatus: "settlement",
     };
   } else if (restBody.paymentType === "qris") {
@@ -189,7 +192,7 @@ export const insertPaymentQuery = (
       amountPaid: totalPrice, // QRIS is always exact amount
       change: 0,
       discountAmount: totalDiscount,
-      total: totalPrice - totalDiscount,
+      total: totalPrice - totalDiscount - (restBody.points ?? 0),
       transactionStatus: "pending", // QRIS starts as pending
     };
   } else {
@@ -296,4 +299,51 @@ export const updateEarnedPoints = async (
     .update(members)
     .set({ points: sql`${members.points} + ${pointsEarned}` })
     .where(eq(members.id, memberId));
+};
+
+interface InsertRedemption {
+  memberId: string;
+  voucherId: string;
+  orderId: string;
+}
+
+export const insertRedemptionHistory = async (
+  tx: Transaction,
+  values: InsertRedemption
+) => {
+  await tx.insert(redemptionHistory).values(values);
+};
+
+interface ReduceMemberPoint {
+  points: number;
+  memberId: string;
+}
+
+export const reduceMemberPoint = async (
+  tx: Transaction,
+  values: ReduceMemberPoint
+) => {
+  await tx
+    .update(members)
+    .set({
+      points: sql`${members.points} + ${values.points}`,
+    })
+    .where(eq(members.id, values.memberId));
+};
+
+interface OrderItemPoint {
+  orderId: string;
+  points: number;
+}
+
+export const insertOrderItemPoint = async (
+  tx: Transaction,
+  values: OrderItemPoint
+) => {
+  await tx.insert(orderItems).values({
+    orderId: values.orderId,
+    itemType: "points",
+    subtotal: values.points,
+    quantity: 1,
+  });
 };
