@@ -4,17 +4,19 @@ import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
 import { inventories as inventoriesTable } from "@/db/schema/inventories";
 import { members as membersTable } from "@/db/schema/members";
-import { orders } from "@/db/schema/orders";
 import { services as servicesTable } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
+import type { Transaction } from "@/utils";
 import {
-  getMaxDiscount,
   getPricesQuery,
   getVoucherData,
+  getVoucherDiscountAmount,
   type ItemPrice,
+  insertNewMember,
+  insertNewOrder,
   insertOrderItemPoint,
   insertOrderItemsQuery,
   insertOrderVoucher,
@@ -28,6 +30,8 @@ import { INVENTORIES_CACHE_KEY } from "../inventories/service";
 import type { NewPosOrderSchema, PosItem } from "./model";
 
 export const POS_CACHE_KEY = "pos:all";
+
+type PosOrderBody = Omit<NewPosOrderSchema, "customerName" | "items">;
 
 export abstract class Pos {
   static async getPosItems() {
@@ -152,6 +156,115 @@ export abstract class Pos {
     return rows[0];
   }
 
+  private static async _determineMemberId(
+    tx: Transaction,
+    body: PosOrderBody,
+    customerName: string | undefined | null
+  ): Promise<string | null> {
+    const newMemberId =
+      body.newMember && customerName && body.phone && !body.memberId
+        ? ((await insertNewMember(tx, {
+            name: customerName,
+            phone: `+62${body.phone}`,
+          })) as string)
+        : null;
+
+    return body.newMember ? newMemberId : (body.memberId ?? null);
+  }
+
+  private static async _processOrderItems(
+    tx: Transaction,
+    items: NewPosOrderSchema["items"],
+    orderId: string
+  ): Promise<{ totalItemPrice: number }> {
+    const priceQueries = [
+      getPricesQuery(tx, inventoriesTable, items, "inventoryId"),
+      getPricesQuery(tx, servicesTable, items, "serviceId"),
+      getPricesQuery(tx, bundlingsTable, items, "bundlingId"),
+    ].filter((q): q is NonNullable<typeof q> => q !== null);
+
+    const itemPrices = (await Promise.all(priceQueries))
+      .flat()
+      .filter((price): price is NonNullable<typeof price> => price !== null)
+      .filter(
+        (item): item is ItemPrice =>
+          item !== null && item.id !== null && item.price !== null
+      );
+
+    const orderItems = items.filter((item) => !item.voucherId);
+
+    const orderItemsResult = await insertOrderItemsQuery(
+      tx,
+      orderId,
+      orderItems,
+      itemPrices
+    );
+
+    const totalItemPrice = orderItemsResult.reduce(
+      (acc, curr) => curr.subtotal + acc,
+      0
+    );
+
+    return { totalItemPrice };
+  }
+
+  private static async _handleVouchers(
+    tx: Transaction,
+    items: NewPosOrderSchema["items"],
+    orderId: string,
+    selectedMemberId: string | null | undefined,
+    totalItemPrice: number
+  ): Promise<number> {
+    const voucherId = items.find((item) => item.voucherId)?.voucherId || "";
+    if (!voucherId) {
+      return 0;
+    }
+    const voucher = await getVoucherData(tx, voucherId);
+    if (!voucher) {
+      return 0;
+    }
+
+    const voucherDiscountAmount = getVoucherDiscountAmount(
+      voucher,
+      totalItemPrice
+    );
+
+    if (voucher && orderId && selectedMemberId) {
+      await insertOrderVoucher(tx, voucher, voucherDiscountAmount, orderId);
+      await insertRedemptionHistory(tx, {
+        memberId: selectedMemberId,
+        voucherId,
+        orderId,
+      });
+    }
+
+    return voucherDiscountAmount;
+  }
+
+  private static async _handlePoints(
+    tx: Transaction,
+    restBody: PosOrderBody,
+    selectedMemberId: string | null | undefined,
+    orderId: string,
+    totalItemPrice: number
+  ): Promise<void> {
+    if (restBody.points && selectedMemberId) {
+      await reduceMemberPoint(tx, {
+        memberId: selectedMemberId,
+        points: restBody.points, // this is already negative
+      });
+      await insertOrderItemPoint(tx, { orderId, points: restBody.points });
+    }
+
+    if (totalItemPrice >= 10_000 && selectedMemberId) {
+      await updateEarnedPoints(
+        tx,
+        selectedMemberId,
+        Math.ceil(totalItemPrice / 10)
+      );
+    }
+  }
+
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
     const { customerName, items, ...restBody } = body;
 
@@ -169,111 +282,56 @@ export abstract class Pos {
     );
 
     const newOrderId = await db.transaction(async (tx) => {
-      // add new member
-      let newMemberId = "";
-
-      if (
-        restBody.newMember &&
-        customerName &&
-        restBody.phone &&
-        !restBody.memberId
-      ) {
-        newMemberId = (
-          await tx
-            .insert(membersTable)
-            .values({ name: customerName, phone: restBody.phone })
-            .returning({ id: membersTable.id })
-        )[0]?.id as string;
-      }
-
-      const selectedMemberId = restBody.newMember
-        ? newMemberId
-        : restBody.memberId;
-
-      // insert and return order id
-      const orderId = (
-        await tx
-          .insert(orders)
-          .values({
-            customerName,
-            memberId: selectedMemberId,
-            userId,
-            status: onlyInventoryItems ? "completed" : "processing",
-          })
-          .returning({ id: orders.id })
-      )[0]?.id as string;
-
-      // get price query of each item based on item id of order item
-      const priceQueries = [
-        getPricesQuery(tx, inventoriesTable, items, "inventoryId"),
-        getPricesQuery(tx, servicesTable, items, "serviceId"),
-        getPricesQuery(tx, bundlingsTable, items, "bundlingId"),
-      ].filter((q): q is NonNullable<typeof q> => q !== null);
-
-      const itemPrices = (await Promise.all(priceQueries))
-        .flat()
-        .filter((price): price is NonNullable<typeof price> => price !== null)
-        .filter(
-          (item): item is ItemPrice =>
-            item !== null && item.id !== null && item.price !== null
-        );
-
-      const orderItems = items.filter((item) => !item.voucherId);
-
-      // insert order items to database
-      const orderItemsResult = await insertOrderItemsQuery(
+      // Step 1: Determine member ID. Creates a new member if requested, otherwise uses existing.
+      const selectedMemberId = await Pos._determineMemberId(
         tx,
+        restBody,
+        customerName
+      );
+
+      // Step 2: Create the core order record with customer and status.
+      const orderId = (await insertNewOrder(tx, {
+        customerName,
+        memberId: selectedMemberId ? selectedMemberId : null,
+        userId,
+        status: onlyInventoryItems ? "completed" : "processing",
+      })) as string;
+
+      // Step 3: Process items to calculate total price before discounts.
+      const { totalItemPrice } = await Pos._processOrderItems(
+        tx,
+        items,
+        orderId
+      );
+
+      // Step 4: Apply voucher if present and calculate the discount amount.
+      const voucherDiscountAmount = await Pos._handleVouchers(
+        tx,
+        items,
         orderId,
-        orderItems,
-        itemPrices
+        selectedMemberId,
+        totalItemPrice
       );
 
-      const voucherId = items.find((item) => item.voucherId)?.voucherId || "";
-
-      const voucher = await getVoucherData(tx, voucherId);
-
-      // total price of an order
-      const totalItemPrice = orderItemsResult.reduce(
-        (acc, curr) => curr.subtotal + acc,
-        0
+      // Step 5: Redeem and earn member points for the transaction.
+      await Pos._handlePoints(
+        tx,
+        restBody,
+        selectedMemberId,
+        orderId,
+        totalItemPrice
       );
 
-      const maxDiscountAmount = getMaxDiscount(voucher, totalItemPrice) || 0;
-
-      if (voucher && orderId && selectedMemberId) {
-        await insertOrderVoucher(tx, voucher, maxDiscountAmount, orderId);
-        await insertRedemptionHistory(tx, {
-          memberId: selectedMemberId,
-          voucherId,
-          orderId,
-        });
-      }
-
-      if (restBody.points && selectedMemberId) {
-        await reduceMemberPoint(tx, {
-          memberId: selectedMemberId,
-          points: restBody.points,
-        });
-        await insertOrderItemPoint(tx, { orderId, points: restBody.points });
-      }
-
-      if (totalItemPrice >= 10_000 && selectedMemberId) {
-        await updateEarnedPoints(
-          tx,
-          selectedMemberId,
-          Math.ceil(totalItemPrice / 10)
-        );
-      }
-
+      // Step 6: Record the final payment after all discounts are applied.
       await insertPaymentQuery(
         tx,
         orderId,
         restBody,
         totalItemPrice,
-        maxDiscountAmount
+        voucherDiscountAmount
       );
 
-      // reduce quantity after making orders
+      // Step 7: Update inventory by reducing stock for items sold.
       await reduceOrderInventoryQty(tx, items, orderId, userId);
 
       return orderId;

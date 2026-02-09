@@ -4,6 +4,7 @@ import { bundlingItems } from "@/db/schema/bundling-items";
 import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
+import { orders } from "@/db/schema/orders";
 import { type PaymentInsert, payments } from "@/db/schema/payments";
 import { redemptionHistory } from "@/db/schema/redemption-history";
 import { stockLogs } from "@/db/schema/stock-logs";
@@ -98,7 +99,10 @@ export const getVoucherData = async (tx: Transaction, voucherId: string) => {
 
 type PosVoucher = Awaited<ReturnType<typeof getVoucherData>>;
 
-export const getMaxDiscount = (voucher: PosVoucher, totalAmount: number) => {
+export const getVoucherDiscountAmount = (
+  voucher: PosVoucher,
+  totalAmount: number
+) => {
   const voucherType =
     voucher.discountPercentage && voucher.discountPercentage !== null
       ? "percentage"
@@ -167,8 +171,6 @@ export const insertPaymentQuery = (
     paymentType: restBody.paymentType,
   };
 
-  console.log(restBody);
-
   if (
     restBody.paymentType === "cash" &&
     restBody.amountPaid < totalPrice - totalDiscount + (restBody.points ?? 0)
@@ -180,8 +182,12 @@ export const insertPaymentQuery = (
     paymentData = {
       ...basePaymentData,
       amountPaid: restBody.amountPaid,
-      change: restBody.amountPaid - totalPrice,
-      discountAmount: totalDiscount,
+      change:
+        restBody.amountPaid -
+        totalPrice +
+        totalDiscount -
+        (restBody.points ?? 0),
+      discountAmount: totalDiscount - (restBody.points ?? 0),
       total: totalPrice - totalDiscount + (restBody.points ?? 0),
       transactionStatus: "settlement",
     };
@@ -191,7 +197,7 @@ export const insertPaymentQuery = (
       ...basePaymentData,
       amountPaid: totalPrice, // QRIS is always exact amount
       change: 0,
-      discountAmount: totalDiscount,
+      discountAmount: totalDiscount - (restBody.points ?? 0),
       total: totalPrice - totalDiscount - (restBody.points ?? 0),
       transactionStatus: "pending", // QRIS starts as pending
     };
@@ -323,6 +329,19 @@ export const reduceMemberPoint = async (
   tx: Transaction,
   values: ReduceMemberPoint
 ) => {
+  const [member] = await tx
+    .select({ points: members.points })
+    .from(members)
+    .where(eq(members.id, values.memberId));
+
+  if (!member) {
+    throw new NotFoundError("Member not found");
+  }
+
+  if (member.points + values.points < 0) {
+    throw new InternalError("Insufficient points");
+  }
+
   await tx
     .update(members)
     .set({
@@ -346,4 +365,35 @@ export const insertOrderItemPoint = async (
     subtotal: values.points,
     quantity: 1,
   });
+};
+
+export const insertNewMember = async (
+  tx: Transaction,
+  data: { name: string; phone: string }
+) => {
+  const [member] = await tx
+    .insert(members)
+    .values(data)
+    .returning({ id: members.id });
+
+  return member?.id;
+};
+
+type OrderStatus = typeof orders.$inferSelect.status;
+
+export const insertNewOrder = async (
+  tx: Transaction,
+  data: {
+    customerName: string;
+    memberId?: string | null;
+    userId: string;
+    status: OrderStatus;
+  }
+) => {
+  const [newOrder] = await tx
+    .insert(orders)
+    .values(data)
+    .returning({ id: orders.id });
+
+  return newOrder?.id;
 };

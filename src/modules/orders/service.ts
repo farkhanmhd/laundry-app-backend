@@ -67,13 +67,7 @@ export abstract class Orders {
       .offset((page - 1) * rows)
       .orderBy(desc(ordersTable.createdAt));
 
-    const totalQuery = db
-      .select({ count: count() })
-      .from(ordersTable)
-      .innerJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
-      .innerJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
-      .leftJoin(members, eq(ordersTable.memberId, members.id))
-      .where(whereQuery);
+    const totalQuery = db.select({ count: count() }).from(ordersTable);
 
     const [orders, [total]] = await Promise.all([ordersQuery, totalQuery]);
 
