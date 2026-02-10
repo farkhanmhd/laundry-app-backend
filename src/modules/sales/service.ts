@@ -170,7 +170,7 @@ export abstract class SalesService {
     from,
     to,
     page = 1,
-    rows = 1,
+    rows = 50,
     search,
     item_id,
     item_type,
@@ -280,7 +280,7 @@ export abstract class SalesService {
     to,
     payment_type,
     page = 1,
-    rows = 10,
+    rows = 50,
   }: GetSalesByOrderParams) {
     const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
     const parsedTo = parse(to, "dd-MM-yyyy", new Date());
@@ -291,11 +291,19 @@ export abstract class SalesService {
 
     if (payment_type) {
       if (Array.isArray(payment_type)) {
+        const filteredPaymentType = payment_type.filter(
+          (type) => type !== null
+        );
         filters.push(
-          inArray(payments.paymentType, payment_type as PaymentType[])
+          inArray(
+            payments.paymentType,
+            filteredPaymentType as NonNullable<PaymentType>[]
+          )
         );
       } else {
-        filters.push(eq(payments.paymentType, payment_type as PaymentType));
+        filters.push(
+          eq(payments.paymentType, payment_type as NonNullable<PaymentType>)
+        );
       }
     }
 
@@ -329,7 +337,22 @@ export abstract class SalesService {
       .limit(rows)
       .offset((page - 1) * rows);
 
-    const totalRowsPromise = db.select({ count: count() }).from(orders);
+    const totalRowsPromise = db
+      .select({ count: count() })
+      .from(orders)
+      .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+      .innerJoin(payments, eq(orders.id, payments.orderId))
+      .leftJoin(members, eq(orders.memberId, members.id))
+      .groupBy(
+        orders.id,
+        payments.total,
+        payments.paymentType,
+        payments.amountPaid,
+        payments.discountAmount,
+        payments.change,
+        payments.createdAt
+      )
+      .where(and(...filters));
 
     const [data, totalRowsResult] = await Promise.all([
       dataPromise,
@@ -337,6 +360,103 @@ export abstract class SalesService {
     ]);
 
     const total = totalRowsResult[0]?.count ?? 0;
+
+    return {
+      items: data,
+      meta: {
+        total,
+        page,
+        rows,
+        totalPages: Math.ceil(total / rows),
+      },
+    };
+  }
+
+  static async getItemLogs({
+    from,
+    to,
+    page = 1,
+    rows = 50,
+    search,
+    item_id,
+    item_type,
+  }: GetBestSellerParams) {
+    // 1. Parse Dates
+    const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+    const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+    const startString = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+    const endString = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+
+    // 2. Define SQL Definitions
+    const itemIdSQL = sql<string>`COALESCE(${services.id}, ${inventories.id}, ${bundlings.id})`;
+    const itemNameSQL = sql<string>`COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})`;
+
+    // 3. Build Shared Filters
+    const filters = [
+      between(orders.createdAt, startString, endString),
+      inArray(orders.status, ["processing", "ready", "completed"]),
+    ];
+
+    if (search) {
+      filters.push(ilike(itemNameSQL, `%${search}%`));
+    }
+
+    if (item_type) {
+      if (Array.isArray(item_type)) {
+        filters.push(inArray(orderItems.itemType, item_type as ItemType[]));
+      } else {
+        filters.push(eq(orderItems.itemType, item_type as ItemType));
+      }
+    } else {
+      // Default to not showing points/voucher redemptions as "items"
+      filters.push(notInArray(orderItems.itemType, ["points", "voucher"]));
+    }
+
+    if (item_id) {
+      if (Array.isArray(item_id)) {
+        filters.push(inArray(itemIdSQL, item_id));
+      } else {
+        filters.push(eq(itemIdSQL, item_id));
+      }
+    }
+
+    // 4. Construct the Base Query (Subquery for safe counting)
+    const dataQuery = db
+      .select({
+        id: orderItems.id,
+        orderId: orders.id,
+        itemName: itemNameSQL.as("itemName"), // Use alias here
+        itemType: orderItems.itemType,
+        quantity: orderItems.quantity,
+        subtotal: orderItems.subtotal,
+        createdAt: orders.createdAt,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .leftJoin(services, eq(orderItems.serviceId, services.id))
+      .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
+      .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+      .where(and(...filters))
+      .orderBy(desc(orders.createdAt))
+      .limit(rows)
+      .offset((page - 1) * rows);
+
+    // 6. Execute Count Query
+    const countQueryPromise = db
+      .select({ total: count() })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .leftJoin(services, eq(orderItems.serviceId, services.id))
+      .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
+      .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+      .where(and(...filters));
+
+    const [data, countResult] = await Promise.all([
+      dataQuery,
+      countQueryPromise,
+    ]);
+
+    const total = countResult[0]?.total ?? 0;
 
     return {
       items: data,

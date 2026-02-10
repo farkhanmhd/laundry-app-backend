@@ -164,4 +164,18 @@ export const salesController = new Elysia({ prefix: "/sales" })
     {
       query: "salesByOrderQuery",
     }
+  )
+  .get(
+    "/item-logs",
+    async ({ query, status }) => {
+      const result = await SalesService.getItemLogs(query);
+      return status(200, {
+        status: "success",
+        message: "Item logs retrieved",
+        data: result,
+      });
+    },
+    {
+      query: "bestSellersQuery",
+    }
   );
