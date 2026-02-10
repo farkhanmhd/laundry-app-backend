@@ -44,7 +44,6 @@ const salesByOrderQuery = t.Composite([
 ]);
 
 export type GetSalesByOrderParams = typeof salesByOrderQuery.static;
-
 export type GetBestSellerParams = typeof bestSellersQuery.static;
 
 // 2. Individual Response Schemas

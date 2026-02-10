@@ -428,7 +428,6 @@ export abstract class SalesService {
         itemName: itemNameSQL.as("itemName"), // Use alias here
         itemType: orderItems.itemType,
         quantity: orderItems.quantity,
-        subtotal: orderItems.subtotal,
         createdAt: orders.createdAt,
       })
       .from(orderItems)
