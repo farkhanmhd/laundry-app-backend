@@ -20,6 +20,8 @@ import { inventories } from "@/db/schema/inventories";
 import { stockLogs } from "@/db/schema/stock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
+import { BUNDLINGS_CACHE_KEY } from "../bundlings/service";
+import { POS_CACHE_KEY } from "../pos/service";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
@@ -28,8 +30,8 @@ import type {
   UpdateInventoryBody,
   UpdateInventoryImage,
 } from "./model";
-
 export const INVENTORIES_CACHE_KEY = "inventories:all";
+const TOTAL_INVENTORIES = "inventories:total";
 
 export abstract class Inventories {
   static async getInventories() {
@@ -52,7 +54,7 @@ export abstract class Inventories {
   static async getInventoryHistory(query: InventoryHistoryQuery) {
     const {
       search = "",
-      rows = 50,
+      rows = 10,
       page = 1,
       category = [],
       inventoryIds = [],
@@ -153,7 +155,8 @@ export abstract class Inventories {
     }
     const row = result[0];
     await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.set(`inventories:${row?.id}`, JSON.stringify(row), "EX", 3600);
+    await redis.del(TOTAL_INVENTORIES);
+    await redis.del(POS_CACHE_KEY);
     return row;
   }
 
@@ -207,6 +210,8 @@ export abstract class Inventories {
     }
 
     await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(POS_CACHE_KEY);
+    await redis.del(BUNDLINGS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -250,6 +255,7 @@ export abstract class Inventories {
     });
 
     await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(POS_CACHE_KEY);
 
     return stockLogId;
   }
@@ -266,6 +272,8 @@ export abstract class Inventories {
     }
 
     await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(TOTAL_INVENTORIES);
+    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -284,7 +292,13 @@ export abstract class Inventories {
   }
 
   static async getTotalItems(): Promise<number> {
+    const json = await redis.get(TOTAL_INVENTORIES);
+    if (json) {
+      return JSON.parse(json);
+    }
+
     const result = await db.select({ count: count() }).from(inventories);
+    await redis.set(TOTAL_INVENTORIES, JSON.stringify(result[0]?.count ?? 0));
     return result[0]?.count ?? 0;
   }
 

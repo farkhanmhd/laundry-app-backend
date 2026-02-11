@@ -15,7 +15,7 @@ export const usersController = new Elysia({ prefix: "/users" })
   .get(
     "/",
     async ({ status, query }) => {
-      const result = await UserService.getUser(query);
+      const result = await UserService.getUsers(query);
 
       return status(200, {
         status: "success",

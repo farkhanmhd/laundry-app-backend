@@ -34,21 +34,10 @@ const addInventory = t.Object({
     minimum: 0,
     error: "Reorder point cannot be empty",
   }),
-  supplierPrice: t.Numeric({
-    ...models.insert.inventories.supplierPrice,
-    minimum: 0,
-    error: "Supplier price cannot be empty",
-  }),
 });
 
 const updateInventory = t.Composite([
-  t.Pick(addInventory, [
-    "name",
-    "price",
-    "description",
-    "safetyStock",
-    "supplierPrice",
-  ]),
+  t.Pick(addInventory, ["name", "price", "description", "safetyStock"]),
 ]);
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);

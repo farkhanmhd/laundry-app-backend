@@ -32,7 +32,6 @@ export const inventories = pgTable(
     price: integer("price").notNull(),
     stock: integer("stock").notNull(),
     safetyStock: integer("safety_stock").notNull(),
-    supplierPrice: integer("supplier_price").notNull(),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
     deletedAt: timestamp("deleted_at", { mode: "string" }),

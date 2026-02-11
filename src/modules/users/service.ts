@@ -4,8 +4,8 @@ import { user } from "@/db/schema/auth";
 import type { SearchQuery } from "@/search-query";
 
 export abstract class UserService {
-  static async getUser(query: SearchQuery) {
-    const { search = "", rows = 50, page = 1 } = query;
+  static async getUsers(query: SearchQuery) {
+    const { search = "", rows = 10, page = 1 } = query;
     const searchByName = ilike(user.name, `%${search}%`);
     const searchByUsername = ilike(user.username, `%${search}%`);
     const searchByPhone = ilike(user.phoneNumber, `%${search}%`);

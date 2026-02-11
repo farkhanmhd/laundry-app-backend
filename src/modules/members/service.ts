@@ -22,7 +22,7 @@ import type { AddMemberBody } from "./model";
 
 export abstract class Members {
   static async getMembers(query: SearchQuery) {
-    const { search = "", rows = 50, page = 1 } = query;
+    const { search = "", rows = 10, page = 1 } = query;
     const searchById = ilike(membersTable.id, `%${search}%`);
     const searchByName = ilike(membersTable.name, `%${search}%`);
     const searchByPhone = ilike(membersTable.phone, `%${search}%`);

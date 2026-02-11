@@ -16,7 +16,7 @@ import type {
   UpdateBundlingItemBody,
 } from "./model";
 
-const BUNDLINGS_CACHE_KEY = "bundlings:all";
+export const BUNDLINGS_CACHE_KEY = "bundlings:all";
 
 export abstract class Bundlings {
   static async getBundlings() {
