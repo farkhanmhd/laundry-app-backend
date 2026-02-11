@@ -1,12 +1,15 @@
 import { write } from "bun";
+import { endOfDay, format, parse, startOfDay } from "date-fns";
 import {
   and,
   count,
+  countDistinct,
   desc,
   eq,
   ilike,
   inArray,
   isNull,
+  lt,
   or,
   type SQL,
   sql,
@@ -265,5 +268,57 @@ export abstract class Inventories {
     await redis.del(INVENTORIES_CACHE_KEY);
 
     return result[0]?.id as string;
+  }
+
+  private static getDateFilter(from: string, to: string) {
+    // Parse dates for filtering
+    const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+    const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+    const startDate = startOfDay(parsedFrom);
+    const endDate = endOfDay(parsedTo);
+    const startString = format(startDate, "yyyy-MM-dd HH:mm:ss");
+    const endString = format(endDate, "yyyy-MM-dd HH:mm:ss");
+
+    // Create base date filter condition
+    return sql`${stockLogs.createdAt} BETWEEN ${startString} AND ${endString}`;
+  }
+
+  static async getTotalItems(): Promise<number> {
+    const result = await db.select({ count: count() }).from(inventories);
+    return result[0]?.count ?? 0;
+  }
+
+  static async getLowStockItems() {
+    const result = await db
+      .select({
+        id: inventories.id,
+        name: inventories.name,
+        stock: inventories.stock,
+      })
+      .from(inventories)
+      .where(lt(inventories.stock, inventories.safetyStock));
+    return result;
+  }
+
+  static async getTotalUsage(from: string, to: string): Promise<number> {
+    const dateFilter = Inventories.getDateFilter(from, to);
+    const result = await db
+      .select({
+        totalUsage: sql<number>`sum(abs(${stockLogs.changeAmount}))`.as(
+          "totalUsage"
+        ),
+      })
+      .from(stockLogs)
+      .where(and(eq(stockLogs.type, "order"), dateFilter));
+    return result[0]?.totalUsage ?? 0;
+  }
+
+  static async getUniqueOrderCount(from: string, to: string): Promise<number> {
+    const dateFilter = Inventories.getDateFilter(from, to);
+    const result = await db
+      .select({ count: countDistinct(stockLogs.orderId) })
+      .from(stockLogs)
+      .where(and(eq(stockLogs.type, "order"), dateFilter));
+    return result[0]?.count ?? 0;
   }
 }

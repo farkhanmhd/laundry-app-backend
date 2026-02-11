@@ -1,3 +1,4 @@
+import { endOfDay, format, startOfMonth } from "date-fns";
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { inventoriesModel } from "./model";
@@ -29,6 +30,81 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       }
     },
     {
+      auth: true,
+    }
+  )
+  .get(
+    "/report/total-items",
+    async ({ status }) => {
+      const totalItems = await Inventories.getTotalItems();
+      return status(200, {
+        status: "success",
+        message: "Total items retrieved",
+        data: { totalItems },
+      });
+    },
+    {
+      auth: true,
+    }
+  )
+  .get(
+    "/report/low-stock",
+    async ({ status }) => {
+      const result = await Inventories.getLowStockItems();
+      return status(200, {
+        status: "success",
+        message: "Low stock items retrieved",
+        data: result,
+      });
+    },
+    {
+      auth: true,
+    }
+  )
+  .get(
+    "/report/usage",
+    async ({ status, query }) => {
+      let { from, to } = query;
+      if (!from) {
+        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+      }
+      if (!to) {
+        to = format(endOfDay(new Date()), "dd-MM-yyyy");
+      }
+      const totalUsage = await Inventories.getTotalUsage(from, to);
+      return status(200, {
+        status: "success",
+        message: "Total usage retrieved",
+        data: { totalUsage, from, to },
+      });
+    },
+    {
+      query: "inventoryReportQuery",
+      auth: true,
+    }
+  )
+  .get(
+    "/report/average-usage",
+    async ({ status, query }) => {
+      let { from, to } = query;
+      if (!from) {
+        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+      }
+      if (!to) {
+        to = format(endOfDay(new Date()), "dd-MM-yyyy");
+      }
+      const totalUsage = await Inventories.getTotalUsage(from, to);
+      const uniqueOrderCount = await Inventories.getUniqueOrderCount(from, to);
+      const averageUsagePerOrder =
+        uniqueOrderCount > 0 ? totalUsage / uniqueOrderCount : 0;
+      return status(200, {
+        status: "success",
+        message: "Average usage per order retrieved",
+        data: { averageUsagePerOrder, from, to },
+      });
+    },
+    {
+      query: "inventoryReportQuery",
       auth: true,
     }
   )

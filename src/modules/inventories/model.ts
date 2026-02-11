@@ -5,15 +5,50 @@ import { searchQuery } from "@/search-query";
 
 const inventory = t.Object(models.select.inventories);
 const addInventory = t.Object({
-  ...models.insert.inventories,
+  name: t.String({
+    ...models.insert.inventories.name,
+    minLength: 1,
+    error: "Inventory name cannot be empty",
+  }),
   image: t.File({
     type: "image/*",
     maxSize: "5m",
   }),
+  price: t.Numeric({
+    ...models.insert.inventories.price,
+    minimum: 0,
+    error: "Inventory price cannot be empty",
+  }),
+  stock: t.Numeric({
+    ...models.insert.inventories.stock,
+    minimum: 0,
+    error: "Quantity cannot be empty",
+  }),
+  description: t.String({
+    ...models.insert.inventories.description,
+    minLength: 1,
+    error: "Inventory description cannot be empty",
+  }),
+  safetyStock: t.Numeric({
+    ...models.insert.inventories.safetyStock,
+    minimum: 0,
+    error: "Reorder point cannot be empty",
+  }),
+  supplierPrice: t.Numeric({
+    ...models.insert.inventories.supplierPrice,
+    minimum: 0,
+    error: "Supplier price cannot be empty",
+  }),
 });
 
 const updateInventory = t.Composite([
-  t.Pick(addInventory, ["name", "price", "description", "safetyStock", "unit"]),
+  t.Pick(addInventory, [
+    "name",
+    "price",
+    "description",
+    "safetyStock",
+    "supplierPrice",
+  ]),
 ]);
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);
@@ -27,11 +62,27 @@ const adjustmentCategory = t.Object({
 
 const inventoryHistoryQuery = t.Composite([searchQuery, adjustmentCategory]);
 
+const inventoryReportQuery = t.Object({
+  from: t.Optional(
+    t.String({
+      pattern: "^\\d{2}-\\d{2}-\\d{4}$",
+      error: "From date must be in DD-MM-YYYY format",
+    })
+  ),
+  to: t.Optional(
+    t.String({
+      pattern: "^\\d{2}-\\d{2}-\\d{4}$",
+      error: "To date must be in DD-MM-YYYY format",
+    })
+  ),
+});
+
 export type AddInventoryBody = typeof addInventory.static;
 export type UpdateInventoryBody = typeof updateInventory.static;
 export type UpdateInventoryImage = typeof updateInventoryImage.static;
 export type Inventory = typeof inventory.static;
 export type InventoryHistoryQuery = typeof inventoryHistoryQuery.static;
+export type InventoryReportQuery = typeof inventoryReportQuery.static;
 
 const addInventoryResponse = t.Composite([
   succesResponse,
@@ -66,5 +117,6 @@ export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
     updateInventoryImage,
     adjustQuantity,
     inventoryHistoryQuery,
+    inventoryReportQuery,
   }
 );
