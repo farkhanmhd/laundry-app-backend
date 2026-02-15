@@ -13,7 +13,6 @@ export const membersController = new Elysia({ prefix: "/members" })
     detail: {
       tags: ["Member"],
     },
-    isAdmin: true,
   })
   .get(
     "/",
@@ -27,7 +26,6 @@ export const membersController = new Elysia({ prefix: "/members" })
       });
     },
     {
-      isAdmin: true,
       query: "searchQuery",
     }
   )
@@ -175,7 +173,7 @@ export const membersController = new Elysia({ prefix: "/members" })
         description:
           "Get members with spending statistics (total spending, order count, average spending)",
       },
-      isSuperAdmin: true,
+      isAdmin: true,
       query: "searchQuery",
     }
   );

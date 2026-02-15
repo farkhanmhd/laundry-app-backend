@@ -87,12 +87,14 @@ const inventoriesArray = t.Object({
 const getInventories = t.Composite([succesResponse, inventoriesArray]);
 
 export type GetInventories = typeof getInventories.static;
-
-const allowedAdjustType = ["adjustment", "waste", "restock"] as const;
 const adjustQuantity = t.Object({
   note: models.insert.stockLogs.note,
   changeAmount: models.insert.stockLogs.changeAmount,
-  type: t.Union(allowedAdjustType.map((val) => t.Literal(val))),
+  type: t.Union([
+      t.Literal("adjustment" as const),
+      t.Literal("waste" as const),
+      t.Literal("restock" as const)
+    ]),
 });
 
 export type AdjustQuantitySchema = typeof adjustQuantity.static;
