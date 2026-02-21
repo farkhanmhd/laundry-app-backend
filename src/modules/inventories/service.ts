@@ -89,7 +89,6 @@ export abstract class Inventories {
       .select({
         id: stockLogs.id,
         inventoryId: inventories.id,
-        image: inventories.image,
         name: inventories.name,
         category: stockLogs.type,
         change: stockLogs.changeAmount,

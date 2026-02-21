@@ -203,4 +203,20 @@ export abstract class Members {
       total: totalResult[0]?.count ?? 0,
     };
   }
+
+  static async getMemberPoints(userId: string) {
+    const row = await db
+      .select({ points: membersTable.points })
+      .from(membersTable)
+      .where(eq(membersTable.userId, userId))
+      .limit(1);
+
+    if (!row[0]) {
+      throw new Error("Member not found");
+    }
+
+    const points = row[0].points ?? 0;
+
+    return points;
+  }
 }

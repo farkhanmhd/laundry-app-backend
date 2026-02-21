@@ -176,4 +176,22 @@ export const membersController = new Elysia({ prefix: "/members" })
       isAdmin: true,
       query: "searchQuery",
     }
+  )
+  .get(
+    "/points",
+    async ({ status, user }) => {
+      const userId = user.id;
+
+      const points = await Members.getMemberPoints(userId);
+      return status(200, {
+        status: "success",
+        message: "Member points retrieved successfully",
+        data: {
+          points,
+        },
+      });
+    },
+    {
+      auth: true,
+    }
   );

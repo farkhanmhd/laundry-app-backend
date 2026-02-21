@@ -22,9 +22,6 @@ export const posController = new Elysia({ prefix: "/pos" })
       data: result,
     });
   })
-  .guard({
-    isAdmin: true,
-  })
   .post(
     "/new",
     async ({ body, status, session }) => {
@@ -40,6 +37,7 @@ export const posController = new Elysia({ prefix: "/pos" })
     {
       body: "newPosOrderSchema",
       parse: "application/json",
+      isAdmin: true,
     }
   )
   .get(
@@ -54,17 +52,24 @@ export const posController = new Elysia({ prefix: "/pos" })
     },
     {
       query: "searchQuery",
+      isAdmin: true,
     }
   )
-  .get("/vouchers", async ({ status }) => {
-    const data = await Pos.getPosVouchers();
+  .get(
+    "/vouchers",
+    async ({ status }) => {
+      const data = await Pos.getPosVouchers();
 
-    return status(200, {
-      status: "success",
-      message: "Pos Vouchers Retrieved",
-      data,
-    });
-  })
+      return status(200, {
+        status: "success",
+        message: "Pos Vouchers Retrieved",
+        data,
+      });
+    },
+    {
+      auth: true,
+    }
+  )
   .get(
     "/voucher",
     async ({ status, query }) => {
@@ -78,5 +83,6 @@ export const posController = new Elysia({ prefix: "/pos" })
     },
     {
       query: "searchQuery",
+      auth: true,
     }
   );
