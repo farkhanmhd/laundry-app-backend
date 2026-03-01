@@ -42,10 +42,7 @@ const updateInventory = t.Composite([
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);
 
-const category = t.Optional(t.Array(models.select.stockLogs.type));
-
 const adjustmentCategory = t.Object({
-  category,
   inventoryIds: t.Optional(t.Array(t.String())),
 });
 
@@ -88,16 +85,21 @@ const getInventories = t.Composite([succesResponse, inventoriesArray]);
 
 export type GetInventories = typeof getInventories.static;
 const adjustQuantity = t.Object({
-  note: models.insert.stockLogs.note,
-  changeAmount: models.insert.stockLogs.changeAmount,
-  type: t.Union([
-      t.Literal("adjustment" as const),
-      t.Literal("waste" as const),
-      t.Literal("restock" as const)
-    ]),
+  note: t.Optional(t.String()),
+  changeAmount: t.Integer(),
+  adjustmentTime: t.Date(),
 });
 
 export type AdjustQuantitySchema = typeof adjustQuantity.static;
+
+const restockQuantity = t.Object({
+  supplier: t.String(),
+  restockQuantity: t.Integer(),
+  restockTime: t.Date(),
+  note: t.Optional(t.String()),
+});
+
+export type RestockQuantitySchema = typeof restockQuantity.static;
 
 export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
   {
@@ -109,5 +111,6 @@ export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
     adjustQuantity,
     inventoryHistoryQuery,
     inventoryReportQuery,
+    restockQuantity,
   }
 );

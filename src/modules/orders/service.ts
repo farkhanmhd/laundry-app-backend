@@ -22,6 +22,7 @@ import { services } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { NotFoundError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
+import type { MidtransNotification } from "../midtrans/model";
 
 export abstract class Orders {
   static async getOrders(query: SearchQuery) {
@@ -222,5 +223,90 @@ export abstract class Orders {
       .where(eq(deliveries.orderId, orderId));
 
     return rows;
+  }
+
+  static async getOrderPaymentDetails(orderId: string) {
+    const row = await db
+      .select({
+        id: paymentsTable.id,
+        orderId: paymentsTable.orderId,
+        paymentType: paymentsTable.paymentType,
+        discountAmount: paymentsTable.discountAmount,
+        amountPaid: paymentsTable.amountPaid,
+        change: paymentsTable.change,
+        total: paymentsTable.total,
+        transactionStatus: paymentsTable.transactionStatus,
+        transactionTime: paymentsTable.transactionTime,
+        fraudStatus: paymentsTable.fraudStatus,
+        expiryTime: paymentsTable.expiryTime,
+        qrString: paymentsTable.qrString,
+        acquirer: paymentsTable.acquirer,
+        actions: paymentsTable.actions,
+        createdAt: paymentsTable.createdAt,
+        updatedAt: paymentsTable.updatedAt,
+      })
+      .from(paymentsTable)
+      .where(eq(paymentsTable.orderId, orderId.toLowerCase()))
+      .limit(1);
+
+    if (!row[0]) {
+      throw new NotFoundError("Payment details not found");
+    }
+
+    return row[0];
+  }
+
+  static async handleMidtransNotification(body: MidtransNotification) {
+    if (body.transaction_status !== "settlement") {
+      await db
+        .update(ordersTable)
+        .set({ status: "cancelled" })
+        .where(eq(ordersTable.id, body.order_id));
+      return { updated: false, message: "Not a settlement status" };
+    }
+
+    const orderId = body.order_id.toLowerCase();
+    const settlementTime = body.settlement_time;
+
+    const transaction = await db.transaction(async (tx) => {
+      const orderItemsQuery = await tx
+        .select({ id: orderItems.id, itemType: orderItems.itemType })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+
+      const onlyInventory = !orderItemsQuery.some(
+        (item) => item.itemType !== "inventory"
+      );
+
+      await tx
+        .update(ordersTable)
+        .set({ status: onlyInventory ? "completed" : "processing" })
+        .where(eq(ordersTable.id, orderId));
+
+      const [paymentResult] = await tx
+        .update(paymentsTable)
+        .set({
+          updatedAt: settlementTime,
+          transactionStatus: body.transaction_status,
+          amountPaid: Number(body.gross_amount),
+        })
+        .where(eq(paymentsTable.orderId, orderId))
+        .returning({
+          transactionStatus: paymentsTable.transactionStatus,
+          updatedAt: paymentsTable.updatedAt,
+        });
+
+      if (!paymentResult) {
+        throw new Error("Payment details not found");
+      }
+
+      return paymentResult;
+    });
+
+    return {
+      updated: true,
+      message: "Order status updated to processing",
+      result: transaction,
+    };
   }
 }

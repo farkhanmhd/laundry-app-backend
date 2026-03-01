@@ -57,6 +57,83 @@
       "when": 1770830424719,
       "tag": "0007_talented_mystique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771782796110,
+      "tag": "0008_dashing_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771782899119,
+      "tag": "0009_lively_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771949895572,
+      "tag": "0010_massive_whirlwind",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772157193930,
+      "tag": "0011_amusing_peter_quill",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772157320549,
+      "tag": "0012_modern_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772166416902,
+      "tag": "0013_lumpy_songbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772166462554,
+      "tag": "0014_hard_ghost_rider",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1772167103027,
+      "tag": "0015_graceful_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1772168511866,
+      "tag": "0016_acoustic_slyde",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772168536175,
+      "tag": "0017_wide_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772210235984,
+      "tag": "0018_amused_true_believers",
+      "breakpoints": true
     }
   ]
 }

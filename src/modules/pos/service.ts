@@ -11,6 +11,7 @@ import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import type { Transaction } from "@/utils";
 import {
+  determineOrderStatus,
   getPricesQuery,
   getVoucherData,
   getVoucherDiscountAmount,
@@ -22,6 +23,7 @@ import {
   insertOrderVoucher,
   insertPaymentQuery,
   insertRedemptionHistory,
+  type PosVoucher,
   reduceMemberPoint,
   reduceOrderInventoryQty,
   updateEarnedPoints,
@@ -30,8 +32,6 @@ import { INVENTORIES_CACHE_KEY } from "../inventories/service";
 import type { NewPosOrderSchema, PosItem } from "./model";
 
 export const POS_CACHE_KEY = "pos:all";
-
-type PosOrderBody = Omit<NewPosOrderSchema, "customerName" | "items">;
 
 export abstract class Pos {
   static async getPosItems() {
@@ -158,13 +158,12 @@ export abstract class Pos {
 
   private static async _determineMemberId(
     tx: Transaction,
-    body: PosOrderBody,
-    customerName: string | undefined | null
+    body: NewPosOrderSchema
   ): Promise<string | null> {
     const newMemberId =
-      body.newMember && customerName && body.phone && !body.memberId
+      body.newMember && body.customerName && body.phone && !body.memberId
         ? ((await insertNewMember(tx, {
-            name: customerName,
+            name: body.customerName,
             phone: `+62${body.phone}`,
           })) as string)
         : null;
@@ -174,13 +173,20 @@ export abstract class Pos {
 
   private static async _processOrderItems(
     tx: Transaction,
-    items: NewPosOrderSchema["items"],
-    orderId: string
-  ): Promise<{ totalItemPrice: number }> {
+    data: {
+      items: NewPosOrderSchema["items"];
+      orderId: string;
+    }
+  ): Promise<{ totalItemPrice: number; itemPrices: ItemPrice[] }> {
+    const { items, orderId } = data;
     const priceQueries = [
-      getPricesQuery(tx, inventoriesTable, items, "inventoryId"),
-      getPricesQuery(tx, servicesTable, items, "serviceId"),
-      getPricesQuery(tx, bundlingsTable, items, "bundlingId"),
+      getPricesQuery(tx, {
+        table: inventoriesTable,
+        items,
+        key: "inventoryId",
+      }),
+      getPricesQuery(tx, { table: servicesTable, items, key: "serviceId" }),
+      getPricesQuery(tx, { table: bundlingsTable, items, key: "bundlingId" }),
     ].filter((q): q is NonNullable<typeof q> => q !== null);
 
     const itemPrices = (await Promise.all(priceQueries))
@@ -191,37 +197,44 @@ export abstract class Pos {
           item !== null && item.id !== null && item.price !== null
       );
 
-    const orderItems = items.filter((item) => !item.voucherId);
-
-    const orderItemsResult = await insertOrderItemsQuery(
-      tx,
-      orderId,
-      orderItems,
-      itemPrices
+    const orderItems = items.filter(
+      (item) => !(item.voucherId || item.itemType === "points")
     );
+
+    const orderItemsResult = await insertOrderItemsQuery(tx, {
+      orderId,
+      items: orderItems,
+      itemPrices,
+    });
 
     const totalItemPrice = orderItemsResult.reduce(
       (acc, curr) => curr.subtotal + acc,
       0
     );
 
-    return { totalItemPrice };
+    return { totalItemPrice, itemPrices };
   }
 
   private static async _handleVouchers(
     tx: Transaction,
-    items: NewPosOrderSchema["items"],
-    orderId: string,
-    selectedMemberId: string | null | undefined,
-    totalItemPrice: number
-  ): Promise<number> {
+    data: {
+      items: NewPosOrderSchema["items"];
+      orderId: string;
+      selectedMemberId: string | null | undefined;
+      totalItemPrice: number;
+    }
+  ): Promise<{
+    voucherDiscountAmount: number;
+    voucher?: PosVoucher | undefined;
+  }> {
+    const { items, orderId, selectedMemberId, totalItemPrice } = data;
     const voucherId = items.find((item) => item.voucherId)?.voucherId || "";
     if (!voucherId) {
-      return 0;
+      return { voucherDiscountAmount: 0 };
     }
     const voucher = await getVoucherData(tx, voucherId);
     if (!voucher) {
-      return 0;
+      return { voucherDiscountAmount: 0 };
     }
 
     const voucherDiscountAmount = getVoucherDiscountAmount(
@@ -230,7 +243,12 @@ export abstract class Pos {
     );
 
     if (voucher && orderId && selectedMemberId) {
-      await insertOrderVoucher(tx, voucher, voucherDiscountAmount, orderId);
+      await insertOrderVoucher(tx, {
+        voucher,
+        discountAmount: voucherDiscountAmount,
+        orderId,
+      });
+
       await insertRedemptionHistory(tx, {
         memberId: selectedMemberId,
         voucherId,
@@ -238,43 +256,44 @@ export abstract class Pos {
       });
     }
 
-    return voucherDiscountAmount;
+    return { voucherDiscountAmount, voucher };
   }
 
   private static async _handlePoints(
     tx: Transaction,
-    restBody: PosOrderBody,
-    selectedMemberId: string | null | undefined,
-    orderId: string,
-    totalItemPrice: number
+    data: {
+      body: NewPosOrderSchema;
+      selectedMemberId: string | null | undefined;
+      orderId: string;
+      totalItemPrice: number;
+    }
   ): Promise<void> {
-    if (restBody.points && selectedMemberId) {
+    const { body, selectedMemberId, orderId, totalItemPrice } = data;
+    if (body.points && selectedMemberId) {
       await reduceMemberPoint(tx, {
         memberId: selectedMemberId,
-        points: restBody.points, // this is already negative
+        points: body.points,
       });
-      await insertOrderItemPoint(tx, { orderId, points: restBody.points });
+
+      await insertOrderItemPoint(tx, { orderId, points: body.points });
     }
 
     if (totalItemPrice >= 10_000 && selectedMemberId) {
-      await updateEarnedPoints(
-        tx,
-        selectedMemberId,
-        Math.ceil(totalItemPrice / 10)
-      );
+      await updateEarnedPoints(tx, {
+        memberId: selectedMemberId,
+        pointsEarned: Math.ceil(totalItemPrice / 10),
+      });
     }
   }
 
   static async newPosOrder(body: NewPosOrderSchema, userId: string) {
-    const { customerName, items, ...restBody } = body;
-
-    if (!items.length) {
+    if (!body.items.length) {
       throw new InternalError(
         "Transaction Failed. There are no items selected"
       );
     }
 
-    const onlyInventoryItems = !items.find(
+    const onlyInventoryItems = !body.items.find(
       (item) =>
         item.itemType === "service" ||
         item.itemType === "bundling" ||
@@ -283,56 +302,55 @@ export abstract class Pos {
 
     const newOrderId = await db.transaction(async (tx) => {
       // Step 1: Determine member ID. Creates a new member if requested, otherwise uses existing.
-      const selectedMemberId = await Pos._determineMemberId(
-        tx,
-        restBody,
-        customerName
+      const selectedMemberId = await Pos._determineMemberId(tx, body);
+
+      const orderStatus = determineOrderStatus(
+        onlyInventoryItems,
+        body.paymentType
       );
 
       // Step 2: Create the core order record with customer and status.
       const orderId = (await insertNewOrder(tx, {
-        customerName,
+        customerName: body.customerName,
         memberId: selectedMemberId ? selectedMemberId : null,
         userId,
-        status: onlyInventoryItems ? "completed" : "processing",
+        status: orderStatus,
       })) as string;
 
       // Step 3: Process items to calculate total price before discounts.
-      const { totalItemPrice } = await Pos._processOrderItems(
-        tx,
-        items,
-        orderId
-      );
+      const { totalItemPrice, itemPrices } = await Pos._processOrderItems(tx, {
+        items: body.items,
+        orderId,
+      });
 
       // Step 4: Apply voucher if present and calculate the discount amount.
-      const voucherDiscountAmount = await Pos._handleVouchers(
-        tx,
-        items,
+      const { voucherDiscountAmount, voucher } = await Pos._handleVouchers(tx, {
+        items: body.items,
         orderId,
         selectedMemberId,
-        totalItemPrice
-      );
+        totalItemPrice,
+      });
 
       // Step 5: Redeem and earn member points for the transaction.
-      await Pos._handlePoints(
-        tx,
-        restBody,
+      await Pos._handlePoints(tx, {
+        body,
         selectedMemberId,
         orderId,
-        totalItemPrice
-      );
+        totalItemPrice,
+      });
 
       // Step 6: Record the final payment after all discounts are applied.
-      await insertPaymentQuery(
-        tx,
+      await insertPaymentQuery(tx, {
         orderId,
-        restBody,
-        totalItemPrice,
-        voucherDiscountAmount
-      );
+        body,
+        totalPrice: totalItemPrice,
+        voucherDiscountAmount,
+        itemPrices,
+        voucher,
+      });
 
       // Step 7: Update inventory by reducing stock for items sold.
-      await reduceOrderInventoryQty(tx, items, orderId, userId);
+      await reduceOrderInventoryQty(tx, { items: body.items, orderId, userId });
 
       return orderId;
     });

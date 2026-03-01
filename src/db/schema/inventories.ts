@@ -9,8 +9,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/relations";
 import { nanoid } from "../utils";
+import { adjustmentLogs } from "./adjustment-logs";
 import { orderItems } from "./order-items";
-import { stockLogs } from "./stock-logs";
+import { restockLogs } from "./restock-logs";
 
 export const inventoryUnitEnum = pgEnum("inventoryUnit", [
   "kilogram",
@@ -44,7 +45,8 @@ export const inventories = pgTable(
 
 export const inventoriesRelations = relations(inventories, ({ many }) => ({
   orderItems: many(orderItems),
-  logs: many(stockLogs),
+  logs: many(adjustmentLogs),
+  restockLogs: many(restockLogs),
 }));
 
 export type InventoryInsert = typeof inventories.$inferInsert;

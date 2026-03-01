@@ -20,10 +20,8 @@ import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { redis } from "@/redis";
+import type { ItemType, PaymentType } from "@/utils";
 import type { GetBestSellerParams, GetSalesByOrderParams } from "./model";
-
-type ItemType = (typeof orderItems.$inferSelect)["itemType"];
-type PaymentType = (typeof payments.$inferSelect)["paymentType"];
 
 export abstract class SalesService {
   /**
@@ -332,7 +330,12 @@ export abstract class SalesService {
         payments.change,
         payments.createdAt
       )
-      .where(and(...filters))
+      .where(
+        and(
+          ...filters,
+          inArray(orders.status, ["processing", "ready", "completed"])
+        )
+      )
       .orderBy(desc(payments.createdAt))
       .limit(rows)
       .offset((page - 1) * rows);
@@ -340,19 +343,13 @@ export abstract class SalesService {
     const totalRowsPromise = db
       .select({ count: count() })
       .from(orders)
-      .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
       .innerJoin(payments, eq(orders.id, payments.orderId))
-      .leftJoin(members, eq(orders.memberId, members.id))
-      .groupBy(
-        orders.id,
-        payments.total,
-        payments.paymentType,
-        payments.amountPaid,
-        payments.discountAmount,
-        payments.change,
-        payments.createdAt
-      )
-      .where(and(...filters));
+      .where(
+        and(
+          ...filters,
+          inArray(orders.status, ["processing", "ready", "completed"])
+        )
+      );
 
     const [data, totalRowsResult] = await Promise.all([
       dataPromise,

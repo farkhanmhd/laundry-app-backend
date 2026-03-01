@@ -109,7 +109,7 @@ export abstract class Members {
       .innerJoin(membersTable, eq(orders.memberId, membersTable.id))
       .where(Members.getBaseConditions(from, to));
 
-    return result.length;
+    return result.length ?? [];
   }
 
   /**

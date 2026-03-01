@@ -7,8 +7,8 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
+import { adjustmentLogs } from "./adjustment-logs";
 import { bundlingItems } from "./bundling-items";
-import { stockLogs } from "./stock-logs";
 
 export const bundlings = pgTable("bundlings", {
   id: varchar("id")
@@ -26,5 +26,5 @@ export const bundlings = pgTable("bundlings", {
 
 export const bundlingsRelations = relations(bundlings, ({ many }) => ({
   bundlingItems: many(bundlingItems),
-  stockLogs: many(stockLogs),
+  adjustmentLogs: many(adjustmentLogs),
 }));

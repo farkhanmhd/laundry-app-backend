@@ -1,14 +1,15 @@
 import { relations } from "drizzle-orm";
 import { pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
+import { adjustmentLogs } from "./adjustment-logs";
 import { user } from "./auth";
 import { members } from "./members";
 import { orderItems } from "./order-items";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
-import { stockLogs } from "./stock-logs";
 
 export const orderStatusEnum = pgEnum("orderStatus", [
+  "cancelled",
   "pending", // waiting for payment
   "processing", // paid and work in progress
   "ready", // finished working and ready to be pickedup by customer
@@ -47,5 +48,5 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
 
   orderItems: many(orderItems),
-  stockMovements: many(stockLogs),
+  stockMovements: many(adjustmentLogs),
 }));

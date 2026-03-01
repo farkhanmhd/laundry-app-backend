@@ -1,5 +1,7 @@
 import { and, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import midtransClient from "midtrans-client";
+import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { bundlingItems } from "@/db/schema/bundling-items";
 import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
@@ -7,14 +9,19 @@ import { orderItems } from "@/db/schema/order-items";
 import { orders } from "@/db/schema/orders";
 import { type PaymentInsert, payments } from "@/db/schema/payments";
 import { redemptionHistory } from "@/db/schema/redemption-history";
-import { stockLogs } from "@/db/schema/stock-logs";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
 import type { NewPosOrderSchema, OrderItem } from "@/modules/pos/model";
-import type { TableColumn, Transaction } from "@/utils";
+import type {
+  ChargeDetails,
+  ItemDetails,
+  QrisTransactionResponse,
+} from "@/types/midtrans";
+import type { PaymentType, TableColumn, Transaction } from "@/utils";
 
 type TableWithPriceAndId = PgTable & {
   id: PgColumn<TableColumn<string>>;
+  name: PgColumn<TableColumn<string>>;
   price: PgColumn<TableColumn<number>>;
 };
 
@@ -22,6 +29,7 @@ type OrderItemIdKey = "inventoryId" | "serviceId" | "bundlingId";
 
 export type ItemPrice = {
   id: string;
+  name: string;
   price: number;
 };
 
@@ -30,10 +38,13 @@ export const getOrderItemIds = (items: OrderItem[], key: OrderItemIdKey) =>
 
 export const getPricesQuery = (
   tx: Transaction,
-  table: TableWithPriceAndId,
-  items: OrderItem[],
-  key: OrderItemIdKey
+  data: {
+    table: TableWithPriceAndId;
+    items: OrderItem[];
+    key: OrderItemIdKey;
+  }
 ) => {
+  const { table, items, key } = data;
   const itemIds = getOrderItemIds(items, key);
 
   if (itemIds.length === 0) {
@@ -41,7 +52,7 @@ export const getPricesQuery = (
   }
 
   const priceQuery = tx
-    .select({ id: table.id, price: table.price })
+    .select({ id: table.id, name: table.name, price: table.price })
     .from(table)
     .where(inArray(table.id, itemIds));
 
@@ -50,10 +61,13 @@ export const getPricesQuery = (
 
 export const insertOrderItemsQuery = (
   tx: Transaction,
-  orderId: string,
-  items: OrderItem[],
-  itemPrices: ItemPrice[]
+  data: {
+    orderId: string;
+    items: OrderItem[];
+    itemPrices: ItemPrice[];
+  }
 ) => {
+  const { orderId, items, itemPrices } = data;
   const priceMap = new Map(itemPrices.map((p) => [p.id, p.price]));
 
   const orderItemsData = items.map((item) => {
@@ -97,7 +111,7 @@ export const getVoucherData = async (tx: Transaction, voucherId: string) => {
   return voucher;
 };
 
-type PosVoucher = Awaited<ReturnType<typeof getVoucherData>>;
+export type PosVoucher = Awaited<ReturnType<typeof getVoucherData>>;
 
 export const getVoucherDiscountAmount = (
   voucher: PosVoucher,
@@ -141,10 +155,13 @@ export const getVoucherDiscountAmount = (
 
 export const insertOrderVoucher = async (
   tx: Transaction,
-  voucher: PosVoucher,
-  discountAmount: number,
-  orderId: string
+  data: {
+    voucher: PosVoucher;
+    discountAmount: number;
+    orderId: string;
+  }
 ) => {
+  const { voucher, discountAmount, orderId } = data;
   await tx.insert(orderItems).values({
     orderId,
     voucherId: voucher.id,
@@ -154,55 +171,152 @@ export const insertOrderVoucher = async (
   });
 };
 
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
-  ? Omit<T, K>
-  : never;
+// type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+//   ? Omit<T, K>
+//   : never;
 
-export const insertPaymentQuery = (
+const chargeQris = async (
+  data: ChargeDetails
+): Promise<QrisTransactionResponse> => {
+  const core = new midtransClient.CoreApi({
+    isProduction: false,
+    serverKey: process.env.MIDTRANS_SERVER_KEY as string,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY as string,
+  });
+
+  const response = await core.charge(JSON.stringify(data));
+  return response;
+};
+
+export const insertPaymentQuery = async (
   tx: Transaction,
-  orderId: string,
-  restBody: DistributiveOmit<NewPosOrderSchema, "customerName" | "items">,
-  totalPrice: number,
-  totalDiscount = 0
+  data: {
+    orderId: string;
+    body: NewPosOrderSchema;
+    totalPrice: number;
+    voucherDiscountAmount: number;
+    itemPrices: ItemPrice[];
+    voucher?: PosVoucher | undefined;
+  }
 ) => {
-  let paymentData: PaymentInsert;
+  const {
+    orderId,
+    body,
+    totalPrice,
+    voucherDiscountAmount = 0,
+    itemPrices,
+    voucher,
+  } = data;
+  let paymentData: PaymentInsert | undefined;
   const basePaymentData = {
     orderId,
-    paymentType: restBody.paymentType,
+    paymentType: body.paymentType,
   };
 
   if (
-    restBody.paymentType === "cash" &&
-    restBody.amountPaid < totalPrice - totalDiscount + (restBody.points ?? 0)
+    body.paymentType === "cash" &&
+    body.amountPaid < totalPrice - voucherDiscountAmount - (body.points ?? 0)
   ) {
     throw new InternalError("Payment Error");
   }
 
-  if (restBody.paymentType === "cash") {
+  const total = totalPrice - voucherDiscountAmount - (body.points ?? 0);
+  const discountAmount = voucherDiscountAmount + (body.points ?? 0);
+
+  if (body.paymentType === "cash") {
     paymentData = {
       ...basePaymentData,
-      amountPaid: restBody.amountPaid,
+      amountPaid: body.amountPaid,
       change:
-        restBody.amountPaid -
+        body.amountPaid -
         totalPrice +
-        totalDiscount -
-        (restBody.points ?? 0),
-      discountAmount: totalDiscount - (restBody.points ?? 0),
-      total: totalPrice - totalDiscount + (restBody.points ?? 0),
+        voucherDiscountAmount -
+        (body.points ?? 0),
+      discountAmount,
+      total,
       transactionStatus: "settlement",
     };
-  } else if (restBody.paymentType === "qris") {
+  } else if (body.paymentType === "qris") {
     // You need to handle QRIS logic here to satisfy TypeScript
-    paymentData = {
-      ...basePaymentData,
-      amountPaid: totalPrice, // QRIS is always exact amount
-      change: 0,
-      discountAmount: totalDiscount - (restBody.points ?? 0),
-      total: totalPrice - totalDiscount - (restBody.points ?? 0),
-      transactionStatus: "pending", // QRIS starts as pending
+
+    // todos: get item details from itemPrices and its quantities from restbody
+    const item_details: ItemDetails[] = [];
+    const orderItems = body.items.filter(
+      (item) => !(item.itemType === "voucher" || item.itemType === "points")
+    );
+
+    orderItems.map((item) =>
+      item_details.push({
+        id: String(item.bundlingId || item.serviceId || item.inventoryId),
+        quantity: item.quantity,
+        name:
+          itemPrices.find(
+            (price) =>
+              price.id === item.bundlingId ||
+              price.id === item.serviceId ||
+              price.id === item.inventoryId
+          )?.name || "",
+        price:
+          itemPrices.find(
+            (price) =>
+              price.id === item.bundlingId ||
+              price.id === item.serviceId ||
+              price.id === item.inventoryId
+          )?.price || 0,
+      })
+    );
+
+    if (body.points) {
+      item_details.push({
+        price: -1 * body.points,
+        quantity: 1,
+        name: "Points",
+      });
+    }
+
+    if (voucher) {
+      item_details.push({
+        price: -1 * voucherDiscountAmount,
+        quantity: 1,
+        name: "Voucher",
+      });
+    }
+
+    const chargeQrisData: ChargeDetails = {
+      payment_type: "qris",
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: total,
+      },
+      qris: {
+        acquirer: "gopay",
+      },
+      item_details,
     };
+
+    const qrisResponse = await chargeQris(chargeQrisData);
+
+    if (qrisResponse.status_code === "201") {
+      paymentData = {
+        ...basePaymentData,
+        amountPaid: total,
+        discountAmount,
+        total,
+        transactionStatus: "pending", // QRIS starts as pending
+        transactionTime: qrisResponse.transaction_time,
+        fraudStatus: qrisResponse.fraud_status,
+        expiryTime: qrisResponse.expiry_time,
+        qrString: qrisResponse.qr_string,
+        acquirer: qrisResponse.acquirer,
+        actions: qrisResponse.actions,
+      };
+    }
   } else {
     throw new InternalError("Unsupported payment type");
+  }
+
+  if (!paymentData) {
+    throw new InternalError("Failed to create payment data");
   }
 
   return tx.insert(payments).values(paymentData);
@@ -216,10 +330,13 @@ type StockLogInsert = {
 
 export const reduceOrderInventoryQty = async (
   tx: Transaction,
-  items: OrderItem[],
-  orderId: string,
-  userId: string
+  data: {
+    items: OrderItem[];
+    orderId: string;
+    userId: string;
+  }
 ) => {
+  const { items, orderId, userId } = data;
   const stockLogData: StockLogInsert[] = [];
   for (const item of items) {
     if (item.inventoryId) {
@@ -283,13 +400,13 @@ export const reduceOrderInventoryQty = async (
         throw new NotFoundError("Inventory Id not found");
       }
 
-      await tx.insert(stockLogs).values({
-        type: "order",
+      await tx.insert(adjustmentLogs).values({
         actorId: userId,
         inventoryId: stockLog.inventoryId,
         stockRemaining: updatedInventory.stock,
         changeAmount: -1 * stockLog.quantity,
         bundlingId: stockLog.bundlingId || null,
+        adjustmentTime: new Date(),
         orderId,
       });
     })
@@ -298,9 +415,12 @@ export const reduceOrderInventoryQty = async (
 
 export const updateEarnedPoints = async (
   tx: Transaction,
-  memberId: string,
-  pointsEarned: number
+  data: {
+    memberId: string;
+    pointsEarned: number;
+  }
 ) => {
+  const { memberId, pointsEarned } = data;
   await tx
     .update(members)
     .set({ points: sql`${members.points} + ${pointsEarned}` })
@@ -332,20 +452,21 @@ export const reduceMemberPoint = async (
   const [member] = await tx
     .select({ points: members.points })
     .from(members)
-    .where(eq(members.id, values.memberId));
+    .where(eq(members.id, values.memberId))
+    .limit(1);
 
   if (!member) {
     throw new NotFoundError("Member not found");
   }
 
-  if (member.points + values.points < 0) {
+  if (member.points - values.points < 0) {
     throw new InternalError("Insufficient points");
   }
 
   await tx
     .update(members)
     .set({
-      points: sql`${members.points} + ${values.points}`,
+      points: sql`${members.points} - ${values.points}`,
     })
     .where(eq(members.id, values.memberId));
 };
@@ -362,7 +483,7 @@ export const insertOrderItemPoint = async (
   await tx.insert(orderItems).values({
     orderId: values.orderId,
     itemType: "points",
-    subtotal: values.points,
+    subtotal: -1 * values.points,
     quantity: 1,
   });
 };
@@ -379,7 +500,7 @@ export const insertNewMember = async (
   return member?.id;
 };
 
-type OrderStatus = typeof orders.$inferSelect.status;
+export type OrderStatus = typeof orders.$inferSelect.status;
 
 export const insertNewOrder = async (
   tx: Transaction,
@@ -396,4 +517,23 @@ export const insertNewOrder = async (
     .returning({ id: orders.id });
 
   return newOrder?.id;
+};
+
+export const determineOrderStatus = (
+  onlyInventoryItems: boolean,
+  paymentType: PaymentType
+): Exclude<OrderStatus, "ready"> => {
+  if (!paymentType) {
+    throw new InternalError("Payment type is required");
+  }
+
+  if (onlyInventoryItems && paymentType === "cash") {
+    return "completed";
+  }
+
+  if (!onlyInventoryItems && paymentType === "cash") {
+    return "processing";
+  }
+
+  return "pending";
 };

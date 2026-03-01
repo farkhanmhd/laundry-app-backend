@@ -8,6 +8,7 @@ import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { bundlingsController } from "./modules/bundlings";
+import { customerOrdersController } from "./modules/customer-orders";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { ordersController } from "./modules/orders";
@@ -52,7 +53,10 @@ const app = new Elysia()
   )
   .use(
     cors({
-      origin: [process.env.FRONTEND_URL as string],
+      origin: [
+        process.env.FRONTEND_URL as string,
+        process.env.MIDTRANS_URL as string,
+      ],
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
@@ -71,6 +75,7 @@ const app = new Elysia()
   .use(ordersController)
   .use(salesController)
   .use(usersController)
+  .use(customerOrdersController)
   .use(
     staticPlugin({
       assets: "public",

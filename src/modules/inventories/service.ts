@@ -8,6 +8,7 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   or,
@@ -15,9 +16,10 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
+import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { user } from "@/db/schema/auth";
 import { inventories } from "@/db/schema/inventories";
-import { stockLogs } from "@/db/schema/stock-logs";
+import { restockLogs } from "@/db/schema/restock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import { BUNDLINGS_CACHE_KEY } from "../bundlings/service";
@@ -27,6 +29,7 @@ import type {
   AdjustQuantitySchema,
   Inventory,
   InventoryHistoryQuery,
+  RestockQuantitySchema,
   UpdateInventoryBody,
   UpdateInventoryImage,
 } from "./model";
@@ -51,30 +54,19 @@ export abstract class Inventories {
     return rows;
   }
 
-  static async getInventoryHistory(query: InventoryHistoryQuery) {
-    const {
-      search = "",
-      rows = 10,
-      page = 1,
-      category = [],
-      inventoryIds = [],
-    } = query;
+  static async getAdjustmentHistory(query: InventoryHistoryQuery) {
+    const { search = "", rows = 10, page = 1, inventoryIds = [] } = query;
 
     const filters: SQL[] = [];
 
     const searchByInventoryId = inArray(inventories.id, inventoryIds);
-    const searchByCategory = inArray(stockLogs.type, category);
 
     if (inventoryIds.length > 0) {
       filters.push(searchByInventoryId);
     }
 
-    if (category.length > 0) {
-      filters.push(searchByCategory);
-    }
-
     const searchByName = ilike(inventories.name, `%${search}%`);
-    const searchByOrderId = ilike(stockLogs.orderId, `%${search}%`);
+    const searchByOrderId = ilike(adjustmentLogs.orderId, `%${search}%`);
 
     if (search) {
       const searchGroup = or(searchByName, searchByOrderId);
@@ -83,36 +75,33 @@ export abstract class Inventories {
       }
     }
 
-    const whereQuery = and(...filters);
+    const whereQuery = and(...filters, isNull(adjustmentLogs.orderId));
 
     const inventoryHistoryQuery = db
       .select({
-        id: stockLogs.id,
+        id: adjustmentLogs.id,
         inventoryId: inventories.id,
         name: inventories.name,
-        category: stockLogs.type,
-        change: stockLogs.changeAmount,
-        stockRemaining: stockLogs.stockRemaining,
-        orderId: stockLogs.orderId,
-        note: stockLogs.note,
-        userId: stockLogs.actorId,
+        change: adjustmentLogs.changeAmount,
+        stockRemaining: adjustmentLogs.stockRemaining,
+        note: adjustmentLogs.note,
+        userId: adjustmentLogs.actorId,
         user: user.name,
-        createdAt: stockLogs.createdAt,
+        createdAt: adjustmentLogs.createdAt,
       })
-      .from(stockLogs)
-      .leftJoin(inventories, eq(stockLogs.inventoryId, inventories.id))
-      .leftJoin(user, eq(stockLogs.actorId, user.id))
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
       .where(whereQuery)
       .limit(rows)
       .offset((page - 1) * rows)
-      .orderBy(desc(stockLogs.createdAt));
+      .orderBy(desc(adjustmentLogs.createdAt));
 
     const totalQuery = db
       .select({ count: count() })
-      .from(stockLogs)
-      .leftJoin(inventories, eq(stockLogs.inventoryId, inventories.id))
-      .leftJoin(user, eq(stockLogs.actorId, user.id))
-      .where(whereQuery);
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id));
 
     const [inventoryHistory, [total]] = await Promise.all([
       inventoryHistoryQuery,
@@ -121,6 +110,115 @@ export abstract class Inventories {
     return {
       total: total?.count ?? 0,
       inventoryHistory,
+    };
+  }
+
+  static async getUsageHistory(query: InventoryHistoryQuery) {
+    const { search = "", rows = 10, page = 1, inventoryIds = [] } = query;
+
+    const filters: SQL[] = [];
+
+    const searchByInventoryId = inArray(inventories.id, inventoryIds);
+
+    if (inventoryIds.length > 0) {
+      filters.push(searchByInventoryId);
+    }
+
+    const searchByName = ilike(inventories.name, `%${search}%`);
+    const searchByOrderId = ilike(adjustmentLogs.orderId, `%${search}%`);
+
+    if (search) {
+      const searchGroup = or(searchByName, searchByOrderId);
+      if (searchGroup) {
+        filters.push(searchGroup);
+      }
+    }
+
+    const whereQuery = and(...filters, isNotNull(adjustmentLogs.orderId));
+
+    const usageHistory = db
+      .select({
+        id: adjustmentLogs.id,
+        inventoryId: inventories.id,
+        orderId: adjustmentLogs.orderId,
+        name: inventories.name,
+        change: adjustmentLogs.changeAmount,
+        user: user.name,
+        stockRemaining: adjustmentLogs.stockRemaining,
+        createdAt: adjustmentLogs.createdAt,
+      })
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .where(whereQuery)
+      .limit(rows)
+      .offset((page - 1) * rows)
+      .orderBy(desc(adjustmentLogs.createdAt));
+
+    const totalQuery = db
+      .select({ count: count() })
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .where(whereQuery);
+
+    const [inventoryUsageHistory, [total]] = await Promise.all([
+      usageHistory,
+      totalQuery,
+    ]);
+    return {
+      total: total?.count ?? 0,
+      inventoryUsageHistory,
+    };
+  }
+
+  static async getRestockHistory(query: InventoryHistoryQuery) {
+    const { rows = 10, page = 1, inventoryIds = [] } = query;
+
+    const filters: SQL[] = [];
+
+    const searchByInventoryId = inArray(inventories.id, inventoryIds);
+
+    if (inventoryIds.length > 0) {
+      filters.push(searchByInventoryId);
+    }
+
+    const restockHistoryQuery = db
+      .select({
+        id: restockLogs.id,
+        inventoryId: restockLogs.inventoryId,
+        inventoryName: inventories.name,
+        restockQuantity: restockLogs.restockQuantity,
+        stockRemaining: restockLogs.stockRemaining,
+        supplier: restockLogs.supplier,
+        note: restockLogs.note,
+        userId: restockLogs.userId,
+        actorName: user.name,
+        restockTime: restockLogs.restockTime,
+        createdAt: restockLogs.createdAt,
+      })
+      .from(restockLogs)
+      .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(restockLogs.userId, user.id))
+      .where(and(...filters))
+      .limit(rows)
+      .offset((page - 1) * rows)
+      .orderBy(desc(restockLogs.createdAt));
+
+    const totalQuery = db
+      .select({ count: count() })
+      .from(restockLogs)
+      .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(restockLogs.userId, user.id))
+      .where(and(...filters));
+
+    const [restockHistory, [total]] = await Promise.all([
+      restockHistoryQuery,
+      totalQuery,
+    ]);
+    return {
+      total: total?.count ?? 0,
+      restockHistory,
     };
   }
 
@@ -235,14 +333,14 @@ export abstract class Inventories {
 
       const stockLogQuery = (
         await tx
-          .insert(stockLogs)
+          .insert(adjustmentLogs)
           .values({
             ...body,
             inventoryId,
             actorId: userId,
             stockRemaining: updatedInventory.stock,
           })
-          .returning({ id: stockLogs.id })
+          .returning({ id: adjustmentLogs.id })
       )[0];
 
       if (!stockLogQuery?.id) {
@@ -257,6 +355,53 @@ export abstract class Inventories {
     await redis.del(POS_CACHE_KEY);
 
     return stockLogId;
+  }
+
+  static async restockInventory(
+    userId: string,
+    inventoryId: string,
+    body: RestockQuantitySchema
+  ) {
+    const restockLogId = await db.transaction(async (tx) => {
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({
+          stock: sql`${inventories.stock} + ${body.restockQuantity}`,
+        })
+        .where(eq(inventories.id, inventoryId))
+        .returning({ stock: inventories.stock });
+
+      if (!updatedInventory) {
+        throw new NotFoundError("Inventory Id not found");
+      }
+
+      const restockLogQuery = (
+        await tx
+          .insert(restockLogs)
+          .values({
+            inventoryId,
+            supplier: body.supplier,
+            stockRemaining: updatedInventory.stock,
+            restockQuantity: body.restockQuantity,
+            note: body.note,
+            userId,
+            restockTime: body.restockTime,
+          })
+          .returning({ id: restockLogs.id })
+      )[0];
+
+      if (!restockLogQuery?.id) {
+        tx.rollback();
+        throw new InternalError();
+      }
+
+      return restockLogQuery.id;
+    });
+
+    await redis.del(INVENTORIES_CACHE_KEY);
+    await redis.del(POS_CACHE_KEY);
+
+    return restockLogId;
   }
 
   static async deleteInventory(id: string) {
@@ -287,7 +432,7 @@ export abstract class Inventories {
     const endString = format(endDate, "yyyy-MM-dd HH:mm:ss");
 
     // Create base date filter condition
-    return sql`${stockLogs.createdAt} BETWEEN ${startString} AND ${endString}`;
+    return sql`${adjustmentLogs.createdAt} BETWEEN ${startString} AND ${endString}`;
   }
 
   static async getTotalItems(): Promise<number> {
@@ -317,21 +462,21 @@ export abstract class Inventories {
     const dateFilter = Inventories.getDateFilter(from, to);
     const result = await db
       .select({
-        totalUsage: sql<number>`sum(abs(${stockLogs.changeAmount}))`.as(
+        totalUsage: sql<number>`sum(abs(${adjustmentLogs.changeAmount}))`.as(
           "totalUsage"
         ),
       })
-      .from(stockLogs)
-      .where(and(eq(stockLogs.type, "order"), dateFilter));
+      .from(adjustmentLogs)
+      .where(dateFilter);
     return result[0]?.totalUsage ?? 0;
   }
 
   static async getUniqueOrderCount(from: string, to: string): Promise<number> {
     const dateFilter = Inventories.getDateFilter(from, to);
     const result = await db
-      .select({ count: countDistinct(stockLogs.orderId) })
-      .from(stockLogs)
-      .where(and(eq(stockLogs.type, "order"), dateFilter));
+      .select({ count: countDistinct(adjustmentLogs.orderId) })
+      .from(adjustmentLogs)
+      .where(dateFilter);
     return result[0]?.count ?? 0;
   }
 }

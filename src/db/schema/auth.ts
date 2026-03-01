@@ -1,10 +1,11 @@
 import { relations } from "drizzle-orm";
 import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { addresses } from "./addresses";
+import { adjustmentLogs } from "./adjustment-logs";
 import { members } from "./members";
 import { orders } from "./orders";
+import { restockLogs } from "./restock-logs";
 import { routes } from "./routes";
-import { stockLogs } from "./stock-logs";
 
 export const roleEnum = pgEnum("role", ["superadmin", "admin", "user"]);
 
@@ -91,6 +92,7 @@ export const usersRelations = relations(user, ({ many, one }) => ({
   }),
   orders: many(orders),
   addresses: many(addresses),
-  stockAdjustments: many(stockLogs),
+  stockAdjustments: many(adjustmentLogs),
+  restockLogs: many(restockLogs),
   routes: many(routes),
 }));

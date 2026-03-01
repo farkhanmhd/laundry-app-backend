@@ -124,13 +124,43 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
     isSuperAdmin: true,
   })
   .get(
-    "/history",
+    "/adjustments",
     async ({ status, query }) => {
-      const result = await Inventories.getInventoryHistory(query);
+      const result = await Inventories.getAdjustmentHistory(query);
 
       return status(200, {
         status: "success",
         message: "Inventory history retrieved",
+        data: result,
+      });
+    },
+    {
+      query: "inventoryHistoryQuery",
+    }
+  )
+  .get(
+    "/usage",
+    async ({ status, query }) => {
+      const result = await Inventories.getUsageHistory(query);
+
+      return status(200, {
+        status: "success",
+        message: "Usage history retrieved",
+        data: result,
+      });
+    },
+    {
+      query: "inventoryHistoryQuery",
+    }
+  )
+  .get(
+    "/restock-history",
+    async ({ status, query }) => {
+      const result = await Inventories.getRestockHistory(query);
+
+      return status(200, {
+        status: "success",
+        message: "Restock history retrieved",
         data: result,
       });
     },
@@ -252,8 +282,20 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       });
     },
     {
-      parse: "application/json",
       body: "adjustQuantity",
+    }
+  )
+  .post(
+    "/:id/restock",
+    async ({ params: { id }, status, body, user }) => {
+      await Inventories.restockInventory(user.id, id, body);
+      return status(200, {
+        status: "success",
+        message: "Inventory restocked successfully",
+      });
+    },
+    {
+      body: "restockQuantity",
     }
   )
   .delete("/:id", async ({ params: { id }, status }) => {
