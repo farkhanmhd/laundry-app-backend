@@ -1,11 +1,13 @@
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { customerOrdersModel } from "./model";
 import { CustomerOrderService } from "./service";
 
 export const customerOrdersController = new Elysia({
   prefix: "/customerorders",
 })
   .use(betterAuth)
+  .use(customerOrdersModel)
   .guard({
     tags: ["Customer Orders"],
     isCustomer: true,
@@ -29,6 +31,25 @@ export const customerOrdersController = new Elysia({
       query: t.Object({
         page: t.Optional(t.Number()),
       }),
+    }
+  )
+  .post(
+    "/request-pickup",
+    async ({ status, body, user }) => {
+      const newOrderId = await CustomerOrderService.createPickupRequest(
+        body,
+        user.id
+      );
+
+      return status(201, {
+        status: "success",
+        message: "Pickup request submitted successfully",
+        data: { orderId: newOrderId },
+      });
+    },
+    {
+      body: "requestPickupSchema",
+      parse: "application/json",
     }
   )
   .guard({

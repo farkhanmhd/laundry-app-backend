@@ -13,7 +13,7 @@ const posItem = t.Object({
 
 export type PosItem = typeof posItem.static;
 
-const orderItemSchema = t.Omit(t.Object(models.insert.orderItems), [
+export const orderItemSchema = t.Omit(t.Object(models.insert.orderItems), [
   "orderId",
   "id",
   "subtotal",

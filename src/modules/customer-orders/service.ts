@@ -1,3 +1,4 @@
+import { sleep } from "bun";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
@@ -10,6 +11,7 @@ import { orders as ordersTable } from "@/db/schema/orders";
 import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { NotFoundError } from "@/exceptions";
+import type { RequestPickupSchema } from "./model";
 
 export abstract class CustomerOrderService {
   private static async verifyOrderOwnership(
@@ -143,5 +145,11 @@ export abstract class CustomerOrderService {
       .where(eq(deliveries.orderId, orderId));
 
     return deliveryData;
+  }
+
+  static async createPickupRequest(body: RequestPickupSchema, userId: string) {
+    await sleep(3000);
+    const newOrderId = "test";
+    return newOrderId;
   }
 }

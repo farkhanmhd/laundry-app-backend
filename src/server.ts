@@ -7,6 +7,7 @@ import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
+import { accountController } from "./modules/account";
 import { bundlingsController } from "./modules/bundlings";
 import { customerOrdersController } from "./modules/customer-orders";
 import { inventoriesController } from "./modules/inventories";
@@ -34,6 +35,7 @@ const app = new Elysia()
   )
   .use(
     openapi({
+      enabled: process.env.NODE_ENV !== "production",
       documentation: {
         components: await OpenAPI.components,
         paths: await OpenAPI.getPaths(),
@@ -76,6 +78,7 @@ const app = new Elysia()
   .use(salesController)
   .use(usersController)
   .use(customerOrdersController)
+  .use(accountController)
   .use(
     staticPlugin({
       assets: "public",
