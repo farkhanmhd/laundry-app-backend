@@ -9,6 +9,8 @@ import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { accountController } from "./modules/account";
 import { bundlingsController } from "./modules/bundlings";
+import { customerDashboardController } from "./modules/customer-dashboard";
+import { customerDeliveriesController } from "./modules/customer-deliveries";
 import { customerOrdersController } from "./modules/customer-orders";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
@@ -49,6 +51,10 @@ const app = new Elysia()
           { name: "Pos", description: "Point of Sales API endpoints" },
           { name: "Orders", description: "Orders API endpoints" },
           { name: "Uploads", description: "Uploads API endpoints" },
+          {
+            name: "Customer Dashboard",
+            description: "Customer Dashboard API endpoints",
+          },
         ],
       },
     })
@@ -79,6 +85,8 @@ const app = new Elysia()
   .use(usersController)
   .use(customerOrdersController)
   .use(accountController)
+  .use(customerDashboardController)
+  .use(customerDeliveriesController)
   .use(
     staticPlugin({
       assets: "public",
