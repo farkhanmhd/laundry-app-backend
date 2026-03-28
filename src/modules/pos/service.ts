@@ -156,7 +156,7 @@ export abstract class Pos {
     return rows[0];
   }
 
-  private static async _determineMemberId(
+  protected static async _determineMemberId(
     tx: Transaction,
     body: NewPosOrderSchema
   ): Promise<string | null> {
@@ -171,7 +171,7 @@ export abstract class Pos {
     return body.newMember ? newMemberId : (body.memberId ?? null);
   }
 
-  private static async _processOrderItems(
+  protected static async _processOrderItems(
     tx: Transaction,
     data: {
       items: NewPosOrderSchema["items"];
@@ -215,7 +215,7 @@ export abstract class Pos {
     return { totalItemPrice, itemPrices };
   }
 
-  private static async _handleVouchers(
+  protected static async _handleVouchers(
     tx: Transaction,
     data: {
       items: NewPosOrderSchema["items"];
@@ -259,7 +259,7 @@ export abstract class Pos {
     return { voucherDiscountAmount, voucher };
   }
 
-  private static async _handlePoints(
+  protected static async _handlePoints(
     tx: Transaction,
     data: {
       body: NewPosOrderSchema;

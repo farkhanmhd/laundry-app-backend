@@ -17,9 +17,9 @@ export const orderStatusEnum = pgEnum("orderStatus", [
 ]);
 
 export const orders = pgTable("orders", {
-  id: varchar("id", { length: 8 })
+  id: varchar("id", { length: 10 })
     .primaryKey()
-    .$defaultFn(() => `o-${nanoid(5)}`),
+    .$defaultFn(() => `o-${nanoid(7)}`),
   customerName: varchar("customer_name", { length: 50 }),
   memberId: varchar("member_id").references(() => members.id),
   userId: varchar("user_id").references(() => user.id),

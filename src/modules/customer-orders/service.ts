@@ -1,4 +1,4 @@
-import { sleep } from "bun";
+import type { User } from "better-auth/types";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
@@ -8,12 +8,24 @@ import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
 import { orders as ordersTable } from "@/db/schema/orders";
-import { payments as paymentsTable } from "@/db/schema/payments";
+import {
+  type PaymentInsert,
+  payments,
+  payments as paymentsTable,
+} from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
-import { NotFoundError } from "@/exceptions";
+import { InternalError, NotFoundError } from "@/exceptions";
+import type { ItemDetails } from "@/types/midtrans";
+import {
+  insertNewOrder,
+  insertOrderItemPoint,
+  reduceMemberPoint,
+  updateEarnedPoints,
+} from "@/utils/orders";
+import { Pos } from "../pos/service";
 import type { RequestPickupSchema } from "./model";
 
-export abstract class CustomerOrderService {
+export abstract class CustomerOrderService extends Pos {
   private static async verifyOrderOwnership(
     orderId: string,
     userId: string
@@ -147,9 +159,149 @@ export abstract class CustomerOrderService {
     return deliveryData;
   }
 
-  static async createPickupRequest(body: RequestPickupSchema, userId: string) {
-    await sleep(3000);
-    const newOrderId = "test";
+  static async createPickupRequest(body: RequestPickupSchema, user: User) {
+    if (!body.items.length) {
+      throw new InternalError(
+        "Transaction Failed. There are no items selected"
+      );
+    }
+
+    const onlyInventoryItems = !body.items.find(
+      (item) =>
+        item.itemType === "service" ||
+        item.itemType === "bundling" ||
+        item.itemType === "voucher"
+    );
+
+    if (onlyInventoryItems) {
+      throw new InternalError(
+        "Transaction must be at least have 1 service or bundling"
+      );
+    }
+
+    const newOrderId = await db.transaction(async (tx) => {
+      const memberId = (
+        await tx
+          .select({ id: members.id })
+          .from(members)
+          .where(eq(members.userId, user.id))
+          .limit(1)
+      )[0]?.id;
+
+      if (!memberId) {
+        throw new InternalError("User is not a member");
+      }
+
+      const orderId = await insertNewOrder(tx, {
+        customerName: user.name,
+        memberId,
+        userId: user.id,
+        status: "processing",
+      });
+
+      if (!orderId) {
+        throw new InternalError(
+          "Internal Server Error. Failed to create new Order ID"
+        );
+      }
+
+      const { totalItemPrice, itemPrices } =
+        await CustomerOrderService._processOrderItems(tx, {
+          items: body.items,
+          orderId,
+        });
+
+      const { voucherDiscountAmount, voucher } =
+        await CustomerOrderService._handleVouchers(tx, {
+          items: body.items,
+          orderId,
+          selectedMemberId: memberId,
+          totalItemPrice,
+        });
+
+      // handle points
+      if (body.points && memberId) {
+        await reduceMemberPoint(tx, {
+          memberId,
+          points: body.points,
+        });
+
+        await insertOrderItemPoint(tx, { orderId, points: body.points });
+      }
+
+      if (totalItemPrice >= 10_000 && memberId) {
+        await updateEarnedPoints(tx, {
+          memberId,
+          pointsEarned: Math.ceil(totalItemPrice / 10),
+        });
+      }
+
+      // handle payment
+      const total = totalItemPrice - voucherDiscountAmount - (body.points ?? 0);
+      const discountAmount = voucherDiscountAmount + (body.points ?? 0);
+      const item_details: ItemDetails[] = [];
+      const orderItems = body.items.filter(
+        (item) => !(item.itemType === "voucher" || item.itemType === "points")
+      );
+
+      orderItems.map((item) =>
+        item_details.push({
+          id: String(item.bundlingId || item.serviceId || item.inventoryId),
+          quantity: item.quantity,
+          name:
+            itemPrices.find(
+              (price) =>
+                price.id === item.bundlingId ||
+                price.id === item.serviceId ||
+                price.id === item.inventoryId
+            )?.name || "",
+          price:
+            itemPrices.find(
+              (price) =>
+                price.id === item.bundlingId ||
+                price.id === item.serviceId ||
+                price.id === item.inventoryId
+            )?.price || 0,
+        })
+      );
+
+      if (body.points) {
+        item_details.push({
+          price: -1 * body.points,
+          quantity: 1,
+          name: "Points",
+        });
+      }
+
+      if (voucher) {
+        item_details.push({
+          price: -1 * voucherDiscountAmount,
+          quantity: 1,
+          name: "Voucher",
+        });
+      }
+
+      const paymentData: PaymentInsert = {
+        orderId,
+        paymentType: "qris",
+        amountPaid: total,
+        discountAmount,
+        total,
+        transactionStatus: "pending",
+      };
+
+      await tx.insert(payments).values(paymentData);
+
+      // insert a delivery record
+      await tx.insert(deliveries).values({
+        addressId: body.addressId,
+        orderId,
+        type: "pickup",
+      });
+
+      return orderId;
+    });
+
     return newOrderId;
   }
 }

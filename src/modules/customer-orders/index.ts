@@ -38,7 +38,7 @@ export const customerOrdersController = new Elysia({
     async ({ status, body, user }) => {
       const newOrderId = await CustomerOrderService.createPickupRequest(
         body,
-        user.id
+        user
       );
 
       return status(201, {
