@@ -20,7 +20,6 @@ import {
   insertNewOrder,
   insertOrderItemPoint,
   reduceMemberPoint,
-  updateEarnedPoints,
 } from "@/utils/orders";
 import { Pos } from "../pos/service";
 import type { RequestPickupSchema } from "./model";
@@ -227,13 +226,6 @@ export abstract class CustomerOrderService extends Pos {
         });
 
         await insertOrderItemPoint(tx, { orderId, points: body.points });
-      }
-
-      if (totalItemPrice >= 10_000 && memberId) {
-        await updateEarnedPoints(tx, {
-          memberId,
-          pointsEarned: Math.ceil(totalItemPrice / 10),
-        });
       }
 
       // handle payment

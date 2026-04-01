@@ -8,10 +8,12 @@ import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { accountController } from "./modules/account";
+import { adminDashboardController } from "./modules/admin-dashboard";
 import { bundlingsController } from "./modules/bundlings";
 import { customerDashboardController } from "./modules/customer-dashboard";
 import { customerDeliveriesController } from "./modules/customer-deliveries";
 import { customerOrdersController } from "./modules/customer-orders";
+import { deliveriesController } from "./modules/deliveries";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { ordersController } from "./modules/orders";
@@ -55,6 +57,11 @@ const app = new Elysia()
             name: "Customer Dashboard",
             description: "Customer Dashboard API endpoints",
           },
+          { name: "Deliveries", description: "Deliveries API endpoints" },
+          {
+            name: "Admin Dashboard",
+            description: "Admin Dashboard API endpoints",
+          },
         ],
       },
     })
@@ -87,6 +94,8 @@ const app = new Elysia()
   .use(accountController)
   .use(customerDashboardController)
   .use(customerDeliveriesController)
+  .use(deliveriesController)
+  .use(adminDashboardController)
   .use(
     staticPlugin({
       assets: "public",
