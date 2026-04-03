@@ -42,31 +42,37 @@ export abstract class Orders {
     const whereQuery = and(...filters);
 
     const ordersQuery = db
-      .select({
-        id: ordersTable.id,
-        customerName: ordersTable.customerName,
-        phone: members.phone,
-        total: paymentsTable.total,
-        status: ordersTable.status,
-        totalItems: count(orderItems.id),
-        createdAt: ordersTable.createdAt,
-      })
-      .from(ordersTable)
-      .innerJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
-      .innerJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
-      .leftJoin(members, eq(ordersTable.memberId, members.id))
-      .groupBy(
-        ordersTable.id,
-        ordersTable.customerName,
-        paymentsTable.total,
-        members.phone,
-        ordersTable.status,
-        ordersTable.createdAt
-      )
-      .where(whereQuery)
-      .limit(rows)
-      .offset((page - 1) * rows)
-      .orderBy(desc(ordersTable.createdAt));
+          .select({
+            id: ordersTable.id,
+            customerName: ordersTable.customerName,
+            phone: members.phone,
+            total: paymentsTable.total,
+            status: ordersTable.status,
+            // count(orderItems.id) is smart: if using leftJoin and there are no items,
+            // the ID is null, and count() will correctly return 0 instead of 1.
+            totalItems: count(orderItems.id),
+            createdAt: ordersTable.createdAt,
+          })
+          .from(ordersTable)
+          // 1. CHANGE TO LEFT JOIN: So orders without items don't disappear
+          .leftJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
+          // 2. CHANGE TO LEFT JOIN: So orders without payments don't disappear
+          .leftJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
+          .leftJoin(members, eq(ordersTable.memberId, members.id))
+          .groupBy(
+            ordersTable.id,
+            ordersTable.customerName,
+            paymentsTable.total,
+            members.phone,
+            ordersTable.status,
+            ordersTable.createdAt
+          )
+          .where(whereQuery)
+          .limit(rows)
+          .offset((page - 1) * rows)
+          // Bonus tip: Add 'id' to orderBy to prevent pagination from skipping/duplicating
+          // rows if multiple orders have the exact same createdAt timestamp.
+      .orderBy(desc(ordersTable.createdAt), desc(ordersTable.id));
 
     const totalQuery = db.select({ count: count() }).from(ordersTable);
 

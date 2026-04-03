@@ -18,6 +18,9 @@ import { payments } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { orderItems } from "@/db/schema/order-items";
 import { bundlings } from "@/db/schema/bundlings";
+import { addresses } from "@/db/schema/addresses";
+import { deliveries } from "@/db/schema/deliveries";
+import { members } from "@/db/schema/members";
 
 export type OrderStatusData = {
   name: string;
@@ -41,6 +44,9 @@ export type BundlingStatsItem = {
   label: string;
   sales: number;
 };
+
+export type OperationalMetrics = Awaited<ReturnType<typeof AdminDashboardService.getOperationalMetrics>>;
+export type RecentDeliveryItem = Awaited<ReturnType<typeof AdminDashboardService.getRecentPickups>>[number];
 
 export abstract class AdminDashboardService {
   static async getLatestOrders(limit = 10) {
@@ -244,6 +250,94 @@ export abstract class AdminDashboardService {
       bundle: row.bundle,
       label: row.label,
       sales: Number(row.sales),
+    }));
+  }
+
+  static async getOperationalMetrics() {
+    const [ordersPendingResult, ordersProcessingResult, pickupsPendingResult, deliveriesPendingResult] =
+      await Promise.all([
+        db
+          .select({ count: count() })
+          .from(orders)
+          .where(eq(orders.status, "pending")),
+
+        db
+          .select({ count: count() })
+          .from(orders)
+          .where(eq(orders.status, "processing")),
+
+        db
+          .select({ count: count() })
+          .from(deliveries)
+          .where(
+            and(
+              eq(deliveries.type, "pickup"),
+              eq(deliveries.status, "requested")
+            )
+          ),
+
+        db
+          .select({ count: count() })
+          .from(deliveries)
+          .where(
+            and(
+              eq(deliveries.type, "delivery"),
+              eq(deliveries.status, "requested")
+            )
+          ),
+      ]);
+
+    return {
+      ordersPending: ordersPendingResult[0]?.count ?? 0,
+      ordersProcessing: ordersProcessingResult[0]?.count ?? 0,
+      pickupsPending: pickupsPendingResult[0]?.count ?? 0,
+      deliveriesPending: deliveriesPendingResult[0]?.count ?? 0,
+    };
+  }
+
+  static async getRecentPickups(limit = 3) {
+    const rows = await db
+      .select({
+        id: deliveries.id,
+        customer: members.name,
+        address: addresses.address,
+        requestedAt: deliveries.requestedAt,
+        status: deliveries.status,
+      })
+      .from(deliveries)
+      .innerJoin(orders, eq(deliveries.orderId, orders.id))
+      .innerJoin(members, eq(orders.memberId, members.id))
+      .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
+      .where(eq(deliveries.type, "pickup"))
+      .orderBy(desc(deliveries.requestedAt))
+      .limit(limit);
+
+    return rows.map((row) => ({
+      ...row,
+      requestedAt: row.requestedAt ?? new Date().toISOString(),
+    }));
+  }
+
+  static async getRecentDeliveries(limit = 3) {
+    const rows = await db
+      .select({
+        id: deliveries.id,
+        customer: members.name,
+        address: addresses.address,
+        requestedAt: deliveries.requestedAt,
+        status: deliveries.status,
+      })
+      .from(deliveries)
+      .innerJoin(orders, eq(deliveries.orderId, orders.id))
+      .innerJoin(members, eq(orders.memberId, members.id))
+      .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
+      .where(eq(deliveries.type, "delivery"))
+      .orderBy(desc(deliveries.requestedAt))
+      .limit(limit);
+
+    return rows.map((row) => ({
+      ...row,
+      requestedAt: row.requestedAt ?? new Date().toISOString(),
     }));
   }
 }

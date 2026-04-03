@@ -133,4 +133,45 @@ export const adminDashboardController = new Elysia({
     {
       isAdmin: true,
     }
+  ).get(
+    "/operational-metrics",
+    async ({ status }) => {
+      const data = await AdminDashboardService.getOperationalMetrics();
+      return status(200, {
+        status: "success",
+        message: "Operational metrics retrieved successfully",
+        data,
+      });
+    },
+    {
+      isAdmin: true,
+    }
+  )
+  .get(
+    "/recent-pickups",
+    async ({ status }) => {
+      const data = await AdminDashboardService.getRecentPickups(3);
+      return status(200, {
+        status: "success",
+        message: "Recent pickups retrieved successfully",
+        data,
+      });
+    },
+    {
+      isAdmin: true,
+    }
+  )
+  .get(
+    "/recent-deliveries",
+    async ({ status }) => {
+      const data = await AdminDashboardService.getRecentDeliveries(3);
+      return status(200, {
+        status: "success",
+        message: "Recent deliveries retrieved successfully",
+        data,
+      });
+    },
+    {
+      isAdmin: true,
+    }
   );
