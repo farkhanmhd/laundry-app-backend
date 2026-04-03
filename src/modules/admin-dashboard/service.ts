@@ -15,6 +15,32 @@ import { user } from "@/db/schema/auth";
 import { inventories } from "@/db/schema/inventories";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
+import { services } from "@/db/schema/services";
+import { orderItems } from "@/db/schema/order-items";
+import { bundlings } from "@/db/schema/bundlings";
+
+export type OrderStatusData = {
+  name: string;
+  value: number;
+};
+
+export type TopServiceItem = {
+  service: string;
+  label: string;
+  revenue: number;
+};
+
+export type InventoryUsageItem = {
+  item: string;
+  label: string;
+  usage: number;
+};
+
+export type BundlingStatsItem = {
+  bundle: string;
+  label: string;
+  sales: number;
+};
 
 export abstract class AdminDashboardService {
   static async getLatestOrders(limit = 10) {
@@ -105,5 +131,119 @@ export abstract class AdminDashboardService {
       activeMembers: activeMembersResult[0]?.count ?? 0,
       totalStaff: staffResult[0]?.count ?? 0,
     };
+  }
+
+  static async getOrderStatusData(
+    from?: string,
+    to?: string
+  ): Promise<OrderStatusData[]> {
+    const baseFilter =
+      from && to
+        ? AdminDashboardService.getBaseConditions(from, to)
+        : undefined;
+
+    const result = await db
+      .select({
+        name: orders.status,
+        value: count(),
+      })
+      .from(orders)
+      .where(baseFilter)
+      .groupBy(orders.status);
+
+    return result.map((row) => ({
+      name: row.name,
+      value: row.value,
+    }));
+  }
+
+  static async fetchTopServices(
+    from?: string,
+    to?: string
+  ): Promise<TopServiceItem[]> {
+    const baseFilter =
+      from && to
+        ? AdminDashboardService.getBaseConditions(from, to)
+        : undefined;
+
+    const result = await db
+      .select({
+        service: services.id,
+        label: services.name,
+        revenue: sql<number>`SUM(${orderItems.subtotal})`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(services, eq(orderItems.serviceId, services.id))
+      .where(and(baseFilter, eq(orderItems.itemType, "service")))
+      .groupBy(services.id, services.name)
+      .orderBy(desc(sql`SUM(${orderItems.subtotal})`))
+      .limit(5);
+
+    return result.map((row) => ({
+      service: row.service,
+      label: row.label,
+      revenue: Number(row.revenue),
+    }));
+  }
+
+  static async fetchInventoryUsage(
+    from?: string,
+    to?: string
+  ): Promise<InventoryUsageItem[]> {
+    const baseFilter =
+      from && to
+        ? AdminDashboardService.getBaseConditions(from, to)
+        : undefined;
+
+    const result = await db
+      .select({
+        item: inventories.id,
+        label: inventories.name,
+        usage: sql<number>`SUM(${orderItems.quantity})`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(inventories, eq(orderItems.inventoryId, inventories.id))
+      .where(and(baseFilter, eq(orderItems.itemType, "inventory")))
+      .groupBy(inventories.id, inventories.name)
+      .orderBy(desc(sql`SUM(${orderItems.quantity})`))
+      .limit(5);
+
+    return result.map((row) => ({
+      item: row.item,
+      label: row.label,
+      usage: Number(row.usage),
+    }));
+  }
+
+  static async fetchBundlingStats(
+    from?: string,
+    to?: string
+  ): Promise<BundlingStatsItem[]> {
+    const baseFilter =
+      from && to
+        ? AdminDashboardService.getBaseConditions(from, to)
+        : undefined;
+
+    const result = await db
+      .select({
+        bundle: bundlings.id,
+        label: bundlings.name,
+        sales: count(),
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+      .where(and(baseFilter, eq(orderItems.itemType, "bundling")))
+      .groupBy(bundlings.id, bundlings.name)
+      .orderBy(desc(count()))
+      .limit(5);
+
+    return result.map((row) => ({
+      bundle: row.bundle,
+      label: row.label,
+      sales: Number(row.sales),
+    }));
   }
 }

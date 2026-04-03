@@ -1,6 +1,9 @@
 {
   "formatter": "language_server",
   "format_on_save": "on",
+  "file_scan_inclusions": [
+    "prompt.md"
+  ],
   "languages": {
     "JavaScript": {
       "formatter": {
