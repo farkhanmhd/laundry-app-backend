@@ -11,7 +11,7 @@ export abstract class DeliveriesService {
     limit = 10,
     page = 1,
     status?: string
-  ){
+  ) {
     const offset = (page - 1) * limit;
 
     const conditions = [eq(deliveries.type, "pickup")];
@@ -34,6 +34,7 @@ export abstract class DeliveriesService {
         id: deliveries.id,
         orderId: deliveries.orderId,
         routeId: deliveries.routeId,
+        addressId: addresses.id,
         customerName: members.name,
         customerPhone: members.phone,
         address: addresses.address,
@@ -81,7 +82,7 @@ export abstract class DeliveriesService {
     limit = 10,
     page = 1,
     status?: string
-  ){
+  ) {
     const offset = (page - 1) * limit;
 
     const conditions = [eq(deliveries.type, "delivery")];
@@ -104,6 +105,7 @@ export abstract class DeliveriesService {
         id: deliveries.id,
         orderId: deliveries.orderId,
         routeId: deliveries.routeId,
+        addressId: addresses.id,
         customerName: members.name,
         customerPhone: members.phone,
         address: addresses.address,
@@ -140,7 +142,7 @@ export abstract class DeliveriesService {
       data: data.map((row) => ({
         ...row,
         requestedAt: row.requestedAt ?? new Date().toISOString(),
-      })) ,
+      })),
       totalData,
       totalPages,
     };

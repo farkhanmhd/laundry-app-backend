@@ -1,12 +1,25 @@
-import { Elysia, t } from "elysia";
+import { randomUUIDv7, sleep } from "bun";
+import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { deliveriesModel } from "./model";
 import { DeliveriesService } from "./service";
 
 export const deliveriesController = new Elysia({ prefix: "/deliveries" })
   .use(betterAuth)
+  .use(deliveriesModel)
   .guard({
     tags: ["Deliveries"],
     isAdmin: true,
+  })
+  .post("/pickups", async ({ status }) => {
+    await sleep(200);
+    return status(201, {
+      status: "success",
+      message: "New pickup route created",
+      data: {
+        routeId: randomUUIDv7(),
+      },
+    });
   })
   .get(
     "/pickups",
@@ -28,20 +41,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       });
     },
     {
-      query: t.Object({
-        search: t.Optional(t.String()),
-        rows: t.Optional(t.Number()),
-        page: t.Optional(t.Number()),
-        status: t.Optional(
-          t.Union([
-            t.Literal("requested"),
-            t.Literal("assigned"),
-            t.Literal("in_progress"),
-            t.Literal("completed"),
-            t.Literal("cancelled"),
-          ])
-        ),
-      }),
+      query: "deliveriesSearchQuery",
     }
   )
   .get(
@@ -64,19 +64,6 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       });
     },
     {
-      query: t.Object({
-        search: t.Optional(t.String()),
-        rows: t.Optional(t.Number()),
-        page: t.Optional(t.Number()),
-        status: t.Optional(
-          t.Union([
-            t.Literal("requested"),
-            t.Literal("assigned"),
-            t.Literal("in_progress"),
-            t.Literal("completed"),
-            t.Literal("cancelled"),
-          ])
-        ),
-      }),
+      query: "deliveriesSearchQuery",
     }
   );
