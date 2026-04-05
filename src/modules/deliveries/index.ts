@@ -1,4 +1,3 @@
-import { sleep } from "bun";
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { deliveriesModel } from "./model";
@@ -15,11 +14,10 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
     "/",
     async ({ status, body, user }) => {
       const newRouteId = await DeliveriesService.createDeliveryRoute({
-        orderIds: body.orderIds,
+        deliveryIds: body.deliveryIds,
         userId: user.id,
       });
 
-      await sleep(200);
       return status(201, {
         status: "success",
         message: "New pickup route created",

@@ -212,10 +212,10 @@ export abstract class DeliveriesService {
   }
 
   static async createDeliveryRoute({
-    orderIds,
+    deliveryIds,
     userId,
   }: {
-    orderIds: string[];
+    deliveryIds: string[];
     userId: string;
   }) {
     const newRouteId = await db.transaction(async (tx) => {
@@ -229,17 +229,17 @@ export abstract class DeliveriesService {
         })
         .from(addresses)
         .innerJoin(deliveries, eq(deliveries.addressId, addresses.id))
-        .innerJoin(orders, eq(orders.id, deliveries.orderId))
-        .where(inArray(orders.id, orderIds));
+        .where(inArray(deliveries.id, deliveryIds));
 
-      if (selectedAddresses.length !== orderIds.length) {
-        const foundOrderIds = new Set(selectedAddresses.map((a) => a.orderId));
-        const missingId = orderIds.find((id) => !foundOrderIds.has(id));
-        throw new NotFoundError(`No addresses found for order id ${missingId}`);
+      if (selectedAddresses.length !== deliveryIds.length) {
+        const foundDeliveryIds = new Set(
+          selectedAddresses.map((a) => a.deliveryId)
+        );
+        const missingId = deliveryIds.find((id) => !foundDeliveryIds.has(id));
+        throw new NotFoundError(
+          `No address found for delivery id ${missingId}`
+        );
       }
-
-      // create new optimized route with osrm
-      // url example 'http://router.project-osrm.org/route/v1/driving/13.388860,52.517037;13.397634,52.529407;13.428555,52.523219?overview=false'
 
       const customerAddresses = selectedAddresses.map((address) => {
         return `${address.longitude},${address.latitude}`;
@@ -276,7 +276,11 @@ export abstract class DeliveriesService {
           const optimizedIndex = osrmData.waypoints[i + 1]?.waypoint_index;
           return tx
             .update(deliveries)
-            .set({ routeId: newRoute.id, index: optimizedIndex })
+            .set({
+              routeId: newRoute.id,
+              index: optimizedIndex,
+              status: "in_progress",
+            })
             .where(eq(deliveries.id, address.deliveryId));
         })
       );

@@ -141,6 +141,13 @@
       "when": 1773325387164,
       "tag": "0019_worried_maddog",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775406019464,
+      "tag": "0020_first_vulture",
+      "breakpoints": true
     }
   ]
 }
