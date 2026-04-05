@@ -13,3 +13,5 @@ export type TableColumn<T> = ColumnBaseConfig<ColumnDataType, string> & {
 
 export type ItemType = (typeof orderItems.$inferSelect)["itemType"];
 export type PaymentType = (typeof payments.$inferSelect)["paymentType"];
+
+export const LAUNDRY_POINT_ZERO: string = "98.7525,3.5911";

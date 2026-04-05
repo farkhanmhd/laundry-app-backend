@@ -15,6 +15,13 @@ export const deliveriesSearchQuery = t.Object({
   ),
 });
 
+export const createRouteSchema = t.Object({
+  orderIds: t.Array(
+    t.String({ minLength: 1, error: "Order ID(s) Cannot be empty" })
+  ),
+});
+
 export const deliveriesModel = new Elysia({ name: "deliveries/model" }).model({
   deliveriesSearchQuery,
+  createRouteSchema,
 });
