@@ -224,7 +224,7 @@ export abstract class DeliveriesService {
           id: addresses.id,
           latitude: addresses.latitude,
           longitude: addresses.longitude,
-          orderId: orders.id,
+          orderId: deliveries.orderId,
           deliveryId: deliveries.id,
         })
         .from(addresses)

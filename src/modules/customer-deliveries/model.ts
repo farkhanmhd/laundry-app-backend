@@ -7,6 +7,7 @@ const deliveryListItem = t.Object({
   status: t.Union([
     t.Literal("requested"),
     t.Literal("in_progress"),
+    t.Literal("picked_up"),
     t.Literal("completed"),
     t.Literal("cancelled"),
   ]),
@@ -20,6 +21,7 @@ const deliveryDetail = t.Object({
   status: t.Union([
     t.Literal("requested"),
     t.Literal("in_progress"),
+    t.Literal("picked_up"),
     t.Literal("completed"),
     t.Literal("cancelled"),
   ]),

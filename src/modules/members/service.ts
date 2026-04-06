@@ -219,4 +219,20 @@ export abstract class Members {
 
     return points;
   }
+
+  static async getMemberByPhone(phone: string) {
+    const formattedPhone = `+62${phone}`;
+    const [member] = await db
+      .select({
+        memberId: membersTable.id,
+        name: membersTable.name,
+        phoneNumber: membersTable.phone,
+        userId: membersTable.userId,
+      })
+      .from(membersTable)
+      .where(eq(membersTable.phone, formattedPhone))
+      .limit(1);
+
+    return member;
+  }
 }

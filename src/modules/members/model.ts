@@ -26,10 +26,19 @@ const dateRangeQuery = t.Object({
   ),
 });
 
+const searchByPhoneQuery = t.Object({
+  phone: t.String({
+    pattern: "^[0-9]+$",
+    maxLength: 20,
+    error: "Phone must be numbers only and max 20 characters",
+  }),
+});
+
 export type AddMemberBody = typeof addMember.static;
 export type DateRangeQuery = typeof dateRangeQuery.static;
 
 export const membersModel = new Elysia({ name: "members/model" }).model({
   addMember,
   dateRangeQuery,
+  searchByPhoneQuery,
 });

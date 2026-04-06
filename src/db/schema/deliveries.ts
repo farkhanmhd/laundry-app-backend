@@ -16,6 +16,7 @@ export const deliveryTypeEnum = pgEnum("deliveryType", ["pickup", "delivery"]);
 export const deliveryStatusEnum = pgEnum("deliveryStatus", [
   "requested",
   "in_progress",
+  "picked_up",
   "completed",
   "cancelled",
 ]);

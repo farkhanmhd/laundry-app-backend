@@ -9,6 +9,28 @@ export const membersController = new Elysia({ prefix: "/members" })
   .use(betterAuth)
   .use(membersModel)
   .use(searchQueryModel)
+  .get(
+    "/search-by-phone",
+    async ({ query, status }) => {
+      const result = await Members.getMemberByPhone(query.phone);
+
+      if (!result) {
+        return status(404, {
+          status: "error",
+          message: "Member not found",
+        });
+      }
+
+      return status(200, {
+        status: "success",
+        message: "Member retrieved successfully",
+        data: result,
+      });
+    },
+    {
+      query: "searchByPhoneQuery",
+    }
+  )
   .guard({
     detail: {
       tags: ["Member"],
@@ -72,7 +94,6 @@ export const membersController = new Elysia({ prefix: "/members" })
     async ({ query, status }) => {
       let { from, to } = query;
 
-      // Set default values if not provided
       if (!from) {
         from = format(startOfMonth(new Date()), "dd-MM-yyyy");
       }
@@ -102,7 +123,6 @@ export const membersController = new Elysia({ prefix: "/members" })
     async ({ query, status }) => {
       let { from, to } = query;
 
-      // Set default values if not provided
       if (!from) {
         from = format(startOfMonth(new Date()), "dd-MM-yyyy");
       }
@@ -132,7 +152,6 @@ export const membersController = new Elysia({ prefix: "/members" })
     async ({ query, status }) => {
       let { from, to } = query;
 
-      // Set default values if not provided
       if (!from) {
         from = format(startOfMonth(new Date()), "dd-MM-yyyy");
       }

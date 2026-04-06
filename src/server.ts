@@ -18,6 +18,7 @@ import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { ordersController } from "./modules/orders";
 import { posController } from "./modules/pos";
+import { routesController } from "./modules/routes";
 import { salesController } from "./modules/sales";
 import { servicesController } from "./modules/services";
 import { staffsController } from "./modules/staffs";
@@ -95,6 +96,7 @@ const app = new Elysia()
   .use(customerDashboardController)
   .use(customerDeliveriesController)
   .use(deliveriesController)
+  .use(routesController)
   .use(adminDashboardController)
   .use(
     staticPlugin({

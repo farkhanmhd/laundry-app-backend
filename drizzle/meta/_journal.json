@@ -148,6 +148,13 @@
       "when": 1775406019464,
       "tag": "0020_first_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775474091931,
+      "tag": "0021_glamorous_speed",
+      "breakpoints": true
     }
   ]
 }
