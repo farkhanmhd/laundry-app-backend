@@ -133,7 +133,8 @@ export const adminDashboardController = new Elysia({
     {
       isAdmin: true,
     }
-  ).get(
+  )
+  .get(
     "/operational-metrics",
     async ({ status }) => {
       const data = await AdminDashboardService.getOperationalMetrics();

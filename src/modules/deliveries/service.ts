@@ -71,7 +71,7 @@ export type OSRMTripWaypoint = {
 export abstract class DeliveriesService {
   static async getPickups(
     search?: string,
-    limit = 10,
+    limit = 50,
     page = 1,
     status?: string
   ) {
@@ -289,5 +289,43 @@ export abstract class DeliveriesService {
     });
 
     return newRouteId;
+  }
+
+  static async updateDeliveryStatus(deliveryId: string) {
+    return await db.transaction(async (tx) => {
+      const [delivery] = await tx
+        .select({ status: deliveries.status })
+        .from(deliveries)
+        .where(eq(deliveries.id, deliveryId))
+        .limit(1);
+
+      if (!delivery) {
+        throw new NotFoundError("Delivery ID not found");
+      }
+
+      const currentStatus = delivery.status;
+      let newStatus: typeof currentStatus;
+
+      if (currentStatus === "in_progress") {
+        newStatus = "picked_up" as typeof currentStatus;
+      } else if (currentStatus === "picked_up") {
+        newStatus = "completed" as typeof currentStatus;
+      } else {
+        throw new InternalError(
+          `Cannot update delivery status from ${currentStatus}`
+        );
+      }
+
+      await tx
+        .update(deliveries)
+        .set({ status: newStatus })
+        .where(eq(deliveries.id, deliveryId));
+
+      return {
+        id: deliveryId,
+        oldStatus: currentStatus,
+        newStatus,
+      };
+    });
   }
 }

@@ -21,7 +21,18 @@ export const createRouteSchema = t.Object({
   ),
 });
 
+export const updateDeliveryStatusSchema = t.Object({
+  status: t.Union([
+    t.Literal("requested"),
+    t.Literal("in_progress"),
+    t.Literal("picked_up"),
+    t.Literal("completed"),
+    t.Literal("cancelled"),
+  ]),
+});
+
 export const deliveriesModel = new Elysia({ name: "deliveries/model" }).model({
   deliveriesSearchQuery,
   createRouteSchema,
+  updateDeliveryStatusSchema,
 });

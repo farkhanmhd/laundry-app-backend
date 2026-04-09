@@ -90,6 +90,21 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       isAdmin: true,
     }
   )
+  .patch(
+    "/:id/status",
+    async ({ status, params }) => {
+      const result = await Orders.updateOrderStatus(params.id);
+
+      return status(200, {
+        status: "success",
+        message: "Order Status Updated",
+        data: result,
+      });
+    },
+    {
+      isAdmin: true,
+    }
+  )
 
   .get(
     "/:id/items",

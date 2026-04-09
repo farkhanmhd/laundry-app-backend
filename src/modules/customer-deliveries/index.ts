@@ -12,14 +12,26 @@ export const customerDeliveriesController = new Elysia({
     tags: ["Customer Deliveries"],
     isCustomer: true,
   })
-  .get("/", async ({ status, user }) => {
-    const data = await CustomerDeliveriesService.getDeliveries(user.id);
-    return status(200, {
-      status: "success",
-      message: "Deliveries retrieved successfully",
-      data,
-    });
-  })
+  .get(
+    "/",
+    async ({ status, user, query }) => {
+      const { data, totalData, totalPages } =
+        await CustomerDeliveriesService.getDeliveries(user.id, query.page);
+
+      return status(200, {
+        status: "success",
+        message: "Deliveries retrieved successfully",
+        data,
+        totalData,
+        totalPages,
+      });
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.Number()),
+      }),
+    }
+  )
   .get(
     "/:id",
     async ({ status, user, params }) => {

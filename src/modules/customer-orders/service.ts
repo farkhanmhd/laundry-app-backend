@@ -195,7 +195,7 @@ export abstract class CustomerOrderService extends Pos {
         customerName: user.name,
         memberId,
         userId: user.id,
-        status: "processing",
+        status: "pending",
       });
 
       if (!orderId) {

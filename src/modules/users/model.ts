@@ -5,8 +5,38 @@ const updateUserRoleSchema = t.Object({
   role: t.Union([t.Literal("admin"), t.Literal("user")]),
 });
 
+const registerUserSchema = t.Object({
+  phoneNumber: t.String({
+    minLength: 7,
+    maxLength: 20,
+    pattern: "^\\+?[0-9\\s\\-()]+$",
+    error: "Invalid phone number format",
+  }),
+  name: t.String({
+    minLength: 2,
+    error: "Name must be at least 2 characters",
+  }),
+  username: t.String({
+    minLength: 3,
+    maxLength: 32,
+    pattern: "^[a-zA-Z0-9_]+$",
+    error: "Only letters, numbers, and underscores",
+  }),
+  email: t.String({
+    format: "email",
+    error: "Invalid email address",
+  }),
+  password: t.String({
+    minLength: 8,
+    error: "Password must be at least 8 characters",
+  }),
+  memberId: t.Optional(t.Nullable(t.String())),
+});
+
 export type UpdateUserRoleSchema = typeof updateUserRoleSchema.static;
+export type RegisterSchema = typeof registerUserSchema.static;
 
 export const usersModel = new Elysia({ name: "users/model" }).model({
   updateUserRoleSchema,
+  registerUserSchema,
 });

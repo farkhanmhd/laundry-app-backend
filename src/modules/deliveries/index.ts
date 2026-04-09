@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { deliveriesModel } from "./model";
 import { DeliveriesService } from "./service";
@@ -74,5 +74,22 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
     },
     {
       query: "deliveriesSearchQuery",
+    }
+  )
+  .patch(
+    "/:id/status",
+    async ({ status, params }) => {
+      const result = await DeliveriesService.updateDeliveryStatus(params.id);
+
+      return status(200, {
+        status: "success",
+        message: "Delivery Status Updated",
+        data: result,
+      });
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
     }
   );

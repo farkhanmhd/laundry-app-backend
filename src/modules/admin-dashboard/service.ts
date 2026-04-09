@@ -11,16 +11,16 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
+import { addresses } from "@/db/schema/addresses";
 import { user } from "@/db/schema/auth";
+import { bundlings } from "@/db/schema/bundlings";
+import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
+import { members } from "@/db/schema/members";
+import { orderItems } from "@/db/schema/order-items";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
-import { orderItems } from "@/db/schema/order-items";
-import { bundlings } from "@/db/schema/bundlings";
-import { addresses } from "@/db/schema/addresses";
-import { deliveries } from "@/db/schema/deliveries";
-import { members } from "@/db/schema/members";
 
 export type OrderStatusData = {
   name: string;
@@ -45,8 +45,12 @@ export type BundlingStatsItem = {
   sales: number;
 };
 
-export type OperationalMetrics = Awaited<ReturnType<typeof AdminDashboardService.getOperationalMetrics>>;
-export type RecentDeliveryItem = Awaited<ReturnType<typeof AdminDashboardService.getRecentPickups>>[number];
+export type OperationalMetrics = Awaited<
+  ReturnType<typeof AdminDashboardService.getOperationalMetrics>
+>;
+export type RecentDeliveryItem = Awaited<
+  ReturnType<typeof AdminDashboardService.getRecentPickups>
+>[number];
 
 export abstract class AdminDashboardService {
   static async getLatestOrders(limit = 10) {
@@ -254,38 +258,50 @@ export abstract class AdminDashboardService {
   }
 
   static async getOperationalMetrics() {
-    const [ordersPendingResult, ordersProcessingResult, pickupsPendingResult, deliveriesPendingResult] =
-      await Promise.all([
-        db
-          .select({ count: count() })
-          .from(orders)
-          .where(eq(orders.status, "pending")),
+    const [
+      ordersPendingResult,
+      ordersProcessingResult,
+      pickupsPendingResult,
+      deliveriesPendingResult,
+    ] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(orders)
+        .where(eq(orders.status, "pending")),
 
-        db
-          .select({ count: count() })
-          .from(orders)
-          .where(eq(orders.status, "processing")),
+      db
+        .select({ count: count() })
+        .from(orders)
+        .where(eq(orders.status, "processing")),
 
-        db
-          .select({ count: count() })
-          .from(deliveries)
-          .where(
-            and(
-              eq(deliveries.type, "pickup"),
-              eq(deliveries.status, "requested")
-            )
-          ),
+      db
+        .select({ count: count() })
+        .from(deliveries)
+        .where(
+          and(
+            eq(deliveries.type, "pickup"),
+            inArray(deliveries.status, [
+              "requested",
+              "in_progress",
+              "picked_up",
+            ])
+          )
+        ),
 
-        db
-          .select({ count: count() })
-          .from(deliveries)
-          .where(
-            and(
-              eq(deliveries.type, "delivery"),
-              eq(deliveries.status, "requested")
-            )
-          ),
-      ]);
+      db
+        .select({ count: count() })
+        .from(deliveries)
+        .where(
+          and(
+            eq(deliveries.type, "delivery"),
+            inArray(deliveries.status, [
+              "requested",
+              "in_progress",
+              "picked_up",
+            ])
+          )
+        ),
+    ]);
 
     return {
       ordersPending: ordersPendingResult[0]?.count ?? 0,

@@ -16,4 +16,12 @@ export const routesController = new Elysia({ prefix: "/routes" })
       message: "Route retrieved successfully",
       data,
     });
+  })
+  .patch("/:id", async ({ params, status }) => {
+    await RoutesService.finishRoute(params.id);
+
+    return status(200, {
+      status: "success",
+      message: "Route completed successfully",
+    });
   });

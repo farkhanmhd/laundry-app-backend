@@ -1,11 +1,11 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { NotFoundError } from "@/exceptions";
-import type { DeliveryDetail, DeliveryListItem } from "./model";
+import type { DeliveryDetail } from "./model";
 
 export abstract class CustomerDeliveriesService {
   private static async getMemberIdByUserId(userId: string): Promise<string> {
@@ -22,11 +22,13 @@ export abstract class CustomerDeliveriesService {
     return member.id;
   }
 
-  static async getDeliveries(userId: string): Promise<DeliveryListItem[]> {
+  static async getDeliveries(userId: string, page = 1) {
     const memberId =
       await CustomerDeliveriesService.getMemberIdByUserId(userId);
+    const limit = 5;
+    const offset = (page - 1) * limit;
 
-    const rows = await db
+    const dataQuery = db
       .select({
         id: deliveries.id,
         orderId: deliveries.orderId,
@@ -39,13 +41,32 @@ export abstract class CustomerDeliveriesService {
       .innerJoin(orders, eq(deliveries.orderId, orders.id))
       .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
       .where(eq(orders.memberId, memberId))
+      .limit(limit)
+      .offset(offset)
       .orderBy(desc(deliveries.requestedAt));
 
-    return rows.map((row) => ({
+    const totalQuery = db
+      .select({ count: count() })
+      .from(deliveries)
+      .innerJoin(orders, eq(deliveries.orderId, orders.id))
+      .where(eq(orders.memberId, memberId));
+
+    const [rows, totalResult] = await Promise.all([dataQuery, totalQuery]);
+
+    const data = rows.map((row) => ({
       ...row,
       address: row.address,
       date: row.date ?? new Date().toISOString(),
     }));
+
+    const totalData = totalResult[0]?.count ?? 0;
+    const totalPages = Math.ceil(totalData / limit);
+
+    return {
+      data,
+      totalData,
+      totalPages,
+    };
   }
 
   static async getDeliveryById(

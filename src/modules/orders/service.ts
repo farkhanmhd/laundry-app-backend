@@ -20,7 +20,7 @@ import { orders as ordersTable } from "@/db/schema/orders";
 import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
-import { NotFoundError } from "@/exceptions";
+import { InternalError, NotFoundError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
 import type { MidtransNotification } from "../midtrans/model";
 
@@ -42,36 +42,36 @@ export abstract class Orders {
     const whereQuery = and(...filters);
 
     const ordersQuery = db
-          .select({
-            id: ordersTable.id,
-            customerName: ordersTable.customerName,
-            phone: members.phone,
-            total: paymentsTable.total,
-            status: ordersTable.status,
-            // count(orderItems.id) is smart: if using leftJoin and there are no items,
-            // the ID is null, and count() will correctly return 0 instead of 1.
-            totalItems: count(orderItems.id),
-            createdAt: ordersTable.createdAt,
-          })
-          .from(ordersTable)
-          // 1. CHANGE TO LEFT JOIN: So orders without items don't disappear
-          .leftJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
-          // 2. CHANGE TO LEFT JOIN: So orders without payments don't disappear
-          .leftJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
-          .leftJoin(members, eq(ordersTable.memberId, members.id))
-          .groupBy(
-            ordersTable.id,
-            ordersTable.customerName,
-            paymentsTable.total,
-            members.phone,
-            ordersTable.status,
-            ordersTable.createdAt
-          )
-          .where(whereQuery)
-          .limit(rows)
-          .offset((page - 1) * rows)
-          // Bonus tip: Add 'id' to orderBy to prevent pagination from skipping/duplicating
-          // rows if multiple orders have the exact same createdAt timestamp.
+      .select({
+        id: ordersTable.id,
+        customerName: ordersTable.customerName,
+        phone: members.phone,
+        total: paymentsTable.total,
+        status: ordersTable.status,
+        // count(orderItems.id) is smart: if using leftJoin and there are no items,
+        // the ID is null, and count() will correctly return 0 instead of 1.
+        totalItems: count(orderItems.id),
+        createdAt: ordersTable.createdAt,
+      })
+      .from(ordersTable)
+      // 1. CHANGE TO LEFT JOIN: So orders without items don't disappear
+      .leftJoin(orderItems, eq(ordersTable.id, orderItems.orderId))
+      // 2. CHANGE TO LEFT JOIN: So orders without payments don't disappear
+      .leftJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
+      .leftJoin(members, eq(ordersTable.memberId, members.id))
+      .groupBy(
+        ordersTable.id,
+        ordersTable.customerName,
+        paymentsTable.total,
+        members.phone,
+        ordersTable.status,
+        ordersTable.createdAt
+      )
+      .where(whereQuery)
+      .limit(rows)
+      .offset((page - 1) * rows)
+      // Bonus tip: Add 'id' to orderBy to prevent pagination from skipping/duplicating
+      // rows if multiple orders have the exact same createdAt timestamp.
       .orderBy(desc(ordersTable.createdAt), desc(ordersTable.id));
 
     const totalQuery = db.select({ count: count() }).from(ordersTable);
@@ -314,5 +314,54 @@ export abstract class Orders {
       message: "Order status updated to processing",
       result: transaction,
     };
+  }
+
+  static async updateOrderStatus(orderId: string) {
+    return await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select({ status: ordersTable.status })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+
+      if (!order) {
+        throw new NotFoundError("Order ID not found");
+      }
+
+      const currentStatus = order.status;
+      let newStatus: typeof currentStatus;
+
+      if (currentStatus === "processing") {
+        newStatus = "ready" as typeof currentStatus;
+      } else if (currentStatus === "ready") {
+        // check for delivery id based on this order. if it has delivery with type pickup then throw error. dont allow it
+        const [delivery] = await tx
+          .select({ type: deliveries.type })
+          .from(deliveries)
+          .where(eq(deliveries.orderId, orderId))
+          .limit(1);
+
+        if (delivery && delivery.type === "pickup") {
+          throw new InternalError("Cannot complete order with pickup delivery");
+        }
+
+        newStatus = "completed" as typeof currentStatus;
+      } else {
+        throw new InternalError(
+          `Cannot update order status from ${currentStatus}`
+        );
+      }
+
+      await tx
+        .update(ordersTable)
+        .set({ status: newStatus })
+        .where(eq(ordersTable.id, orderId));
+
+      return {
+        id: orderId,
+        oldStatus: currentStatus,
+        newStatus,
+      };
+    });
   }
 }
