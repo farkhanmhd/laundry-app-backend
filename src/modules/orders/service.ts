@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   ne,
   or,
   type SQL,
@@ -16,13 +17,17 @@ import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
-import { orders as ordersTable } from "@/db/schema/orders";
+import { orders, orders as ordersTable } from "@/db/schema/orders";
 import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
+import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
+import { reduceOrderInventoryQty, updateEarnedPoints } from "@/utils/orders";
+import { INVENTORIES_CACHE_KEY } from "../inventories/service";
 import type { MidtransNotification } from "../midtrans/model";
+import { POS_CACHE_KEY } from "../pos/service";
 
 export abstract class Orders {
   static async getOrders(query: SearchQuery) {
@@ -242,14 +247,26 @@ export abstract class Orders {
         change: paymentsTable.change,
         total: paymentsTable.total,
         transactionStatus: paymentsTable.transactionStatus,
-        transactionTime: paymentsTable.transactionTime,
         fraudStatus: paymentsTable.fraudStatus,
-        expiryTime: paymentsTable.expiryTime,
         qrString: paymentsTable.qrString,
         acquirer: paymentsTable.acquirer,
         actions: paymentsTable.actions,
-        createdAt: paymentsTable.createdAt,
-        updatedAt: paymentsTable.updatedAt,
+        transactionTime:
+          sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "transactionTime"
+          ),
+        expiryTime:
+          sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "expiryTime"
+          ),
+        createdAt:
+          sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "createdAt"
+          ),
+        updatedAt:
+          sql<string>`to_char(${paymentsTable.updatedAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "updatedAt"
+          ),
       })
       .from(paymentsTable)
       .where(eq(paymentsTable.orderId, orderId.toLowerCase()))
@@ -268,7 +285,11 @@ export abstract class Orders {
         .update(ordersTable)
         .set({ status: "cancelled" })
         .where(eq(ordersTable.id, body.order_id));
-      return { updated: false, message: "Not a settlement status" };
+      return {
+        updated: false,
+        result: null,
+        message: "Not a settlement status",
+      };
     }
 
     const orderId = body.order_id.toLowerCase();
@@ -289,6 +310,7 @@ export abstract class Orders {
         .set({ status: onlyInventory ? "completed" : "processing" })
         .where(eq(ordersTable.id, orderId));
 
+      // Atomic check + update: only succeeds if still "pending"
       const [paymentResult] = await tx
         .update(paymentsTable)
         .set({
@@ -296,23 +318,28 @@ export abstract class Orders {
           transactionStatus: body.transaction_status,
           amountPaid: Number(body.gross_amount),
         })
-        .where(eq(paymentsTable.orderId, orderId))
+        .where(
+          and(
+            eq(paymentsTable.orderId, orderId),
+            eq(paymentsTable.transactionStatus, "pending") // ← atomic guard
+          )
+        )
         .returning({
           transactionStatus: paymentsTable.transactionStatus,
           updatedAt: paymentsTable.updatedAt,
         });
 
-      if (!paymentResult) {
-        throw new Error("Payment details not found");
-      }
-
-      return paymentResult;
+      return paymentResult ?? null; // null if already settled
     });
+
+    if (!transaction) {
+      return { updated: false, result: null, message: "Already processed" };
+    }
 
     return {
       updated: true,
-      message: "Order status updated to processing",
       result: transaction,
+      message: "Order status updated to processing",
     };
   }
 
@@ -362,6 +389,90 @@ export abstract class Orders {
         oldStatus: currentStatus,
         newStatus,
       };
+    });
+  }
+
+  static async reduceQtyAfterPayment(orderId: string) {
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ userId: orders.userId })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1);
+
+      if (!row) {
+        throw new InternalError("Failed to find order");
+      }
+
+      const { userId } = row;
+      const items = await tx
+        .select({
+          inventoryId: orderItems.inventoryId,
+          bundlingId: orderItems.bundlingId,
+          serviceId: orderItems.serviceId,
+          quantity: orderItems.quantity,
+          note: orderItems.note,
+          itemType: orderItems.itemType,
+        })
+        .from(orderItems)
+        .where(
+          and(
+            eq(orderItems.orderId, orderId),
+            inArray(orderItems.itemType, ["bundling", "inventory"])
+          )
+        );
+
+      await reduceOrderInventoryQty(tx, {
+        items,
+        orderId,
+        userId: userId as string,
+      });
+    });
+    await redis.del(POS_CACHE_KEY);
+    await redis.del(INVENTORIES_CACHE_KEY);
+  }
+
+  static async handlePointsAfterPayment(orderId: string) {
+    await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select({ memberId: orders.memberId })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1);
+
+      if (!order) {
+        throw new InternalError("Failed to find order");
+      }
+
+      if (!order?.memberId) {
+        return;
+      }
+
+      const { memberId } = order;
+
+      const orderItemRows = await tx
+        .select({
+          subtotal: orderItems.subtotal,
+          itemType: orderItems.itemType,
+        })
+        .from(orderItems)
+        .where(
+          and(
+            eq(orderItems.orderId, orderId),
+            ne(orderItems.itemType, "voucher")
+          )
+        );
+
+      const totalItemPrices = orderItemRows
+        .filter((item) => item.itemType !== "points")
+        .reduce((acc, item) => acc + item.subtotal, 0);
+
+      if (totalItemPrices >= 10_000) {
+        await updateEarnedPoints(tx, {
+          memberId,
+          pointsEarned: Math.ceil(totalItemPrices / 10),
+        });
+      }
     });
   }
 }

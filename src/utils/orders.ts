@@ -162,12 +162,24 @@ export const insertOrderVoucher = async (
   }
 ) => {
   const { voucher, discountAmount, orderId } = data;
+
+  const [selectedVoucher] = await tx
+    .select({ description: vouchers.description })
+    .from(vouchers)
+    .where(and(eq(vouchers.id, voucher.id), gt(vouchers.expiresAt, sql`now()`)))
+    .limit(1);
+
+  if (!selectedVoucher) {
+    throw new NotFoundError("Voucher not found");
+  }
+
   await tx.insert(orderItems).values({
     orderId,
     voucherId: voucher.id,
     itemType: "voucher",
     quantity: 1,
     subtotal: -1 * discountAmount,
+    note: selectedVoucher?.description,
   });
 };
 
@@ -175,7 +187,7 @@ export const insertOrderVoucher = async (
 //   ? Omit<T, K>
 //   : never;
 
-const chargeQris = async (
+export const chargeQris = async (
   data: ChargeDetails
 ): Promise<QrisTransactionResponse> => {
   const core = new midtransClient.CoreApi({
@@ -322,7 +334,7 @@ export const insertPaymentQuery = async (
   return tx.insert(payments).values(paymentData);
 };
 
-type StockLogInsert = {
+export type StockLogInsert = {
   inventoryId: string;
   quantity: number;
   bundlingId: string | null;
@@ -421,6 +433,7 @@ export const updateEarnedPoints = async (
   }
 ) => {
   const { memberId, pointsEarned } = data;
+
   await tx
     .update(members)
     .set({ points: sql`${members.points} + ${pointsEarned}` })
@@ -463,6 +476,12 @@ export const reduceMemberPoint = async (
     throw new InternalError("Insufficient points");
   }
 
+  console.log({
+    customerCurrentPoints: member.points,
+    pointsSpent: values.points,
+    reduced: member.points - values.points,
+  });
+
   await tx
     .update(members)
     .set({
@@ -485,6 +504,7 @@ export const insertOrderItemPoint = async (
     itemType: "points",
     subtotal: -1 * values.points,
     quantity: 1,
+    note: "Points",
   });
 };
 

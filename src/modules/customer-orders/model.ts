@@ -7,8 +7,14 @@ const requestPickupSchema = t.Object({
   points: t.Optional(t.Nullable(t.Number())),
 });
 
+const requestDeliverySchema = t.Object({
+  addressId: t.String(),
+  orderId: t.String(),
+});
+
 export type RequestPickupSchema = typeof requestPickupSchema.static;
+export type RequestDeliverySchema = typeof requestDeliverySchema.static;
 
 export const customerOrdersModel = new Elysia({
   name: "customer-orders/model",
-}).model({ requestPickupSchema });
+}).model({ requestPickupSchema, requestDeliverySchema });

@@ -1,5 +1,5 @@
 import type { User } from "better-auth/types";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { bundlings } from "@/db/schema/bundlings";
@@ -7,7 +7,7 @@ import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
 import { members } from "@/db/schema/members";
 import { orderItems } from "@/db/schema/order-items";
-import { orders as ordersTable } from "@/db/schema/orders";
+import { orders, orders as ordersTable } from "@/db/schema/orders";
 import {
   type PaymentInsert,
   payments,
@@ -15,14 +15,19 @@ import {
 } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { InternalError, NotFoundError } from "@/exceptions";
-import type { ItemDetails } from "@/types/midtrans";
+import type { ChargeDetails, ItemDetails } from "@/types/midtrans";
 import {
+  chargeQris,
   insertNewOrder,
   insertOrderItemPoint,
   reduceMemberPoint,
 } from "@/utils/orders";
 import { Pos } from "../pos/service";
-import type { RequestPickupSchema } from "./model";
+import type { RequestDeliverySchema, RequestPickupSchema } from "./model";
+
+interface RequestDeliveryParam extends RequestDeliverySchema {
+  userId: string;
+}
 
 export abstract class CustomerOrderService extends Pos {
   private static async verifyOrderOwnership(
@@ -105,6 +110,7 @@ export abstract class CustomerOrderService extends Pos {
         quantity: orderItems.quantity,
         subtotal: orderItems.subtotal,
         note: orderItems.note,
+        itemType: orderItems.itemType,
         name: sql<string>`COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})`,
         price: sql<number>`COALESCE(${services.price}, ${inventories.price}, ${bundlings.price})`,
       })
@@ -127,6 +133,7 @@ export abstract class CustomerOrderService extends Pos {
         total: paymentsTable.total,
         amountPaid: paymentsTable.amountPaid,
         change: paymentsTable.change,
+        actions: payments.actions,
       })
       .from(paymentsTable)
       .where(eq(paymentsTable.orderId, orderId))
@@ -295,5 +302,213 @@ export abstract class CustomerOrderService extends Pos {
     });
 
     return newOrderId;
+  }
+
+  static async createDeliveryRequest({
+    userId,
+    addressId,
+    orderId,
+  }: RequestDeliveryParam) {
+    await CustomerOrderService.verifyOrderOwnership(orderId, userId);
+
+    const newDeliveryId = await db.transaction(async (tx) => {
+      const [existingDelivery] = await tx
+        .select({
+          id: deliveries.id,
+        })
+        .from(deliveries)
+        .where(
+          and(eq(deliveries.orderId, orderId), eq(deliveries.type, "delivery"))
+        )
+        .limit(1);
+
+      if (existingDelivery?.id) {
+        throw new InternalError(
+          "Delivery request already exists for this order"
+        );
+      }
+
+      const [cancelledOrder] = await tx
+        .select()
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.status, "cancelled")))
+        .limit(1);
+
+      if (cancelledOrder) {
+        throw new InternalError(
+          "Cannot create delivery request for a cancelled order"
+        );
+      }
+
+      const [address] = await tx
+        .select()
+        .from(addresses)
+        .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
+        .limit(1);
+
+      if (!address) {
+        throw new InternalError("Address not found");
+      }
+
+      const [newDelivery] = await tx
+        .insert(deliveries)
+        .values({
+          addressId,
+          orderId,
+          type: "delivery",
+        })
+        .returning({ id: deliveries.id });
+
+      if (!newDelivery) {
+        throw new InternalError("Failed to create delivery request");
+      }
+
+      return newDelivery.id;
+    });
+
+    return newDeliveryId;
+  }
+
+  static async getOrderPaymentDetails(orderId: string, userId: string) {
+    const row = await db
+      .select({
+        id: paymentsTable.id,
+        orderId: paymentsTable.orderId,
+        paymentType: paymentsTable.paymentType,
+        discountAmount: paymentsTable.discountAmount,
+        amountPaid: paymentsTable.amountPaid,
+        change: paymentsTable.change,
+        total: paymentsTable.total,
+        transactionStatus: paymentsTable.transactionStatus,
+        fraudStatus: paymentsTable.fraudStatus,
+        qrString: paymentsTable.qrString,
+        acquirer: paymentsTable.acquirer,
+        actions: paymentsTable.actions,
+        transactionTime:
+          sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "transactionTime"
+          ),
+        expiryTime:
+          sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "expiryTime"
+          ),
+        createdAt:
+          sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "createdAt"
+          ),
+        updatedAt:
+          sql<string>`to_char(${paymentsTable.updatedAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+            "updatedAt"
+          ),
+      })
+      .from(paymentsTable)
+      .innerJoin(orders, eq(orders.id, paymentsTable.orderId))
+      .where(
+        and(
+          eq(paymentsTable.orderId, orderId.toLowerCase()),
+          eq(orders.userId, userId),
+          isNotNull(paymentsTable.actions)
+        )
+      )
+      .limit(1);
+
+    if (!row[0]) {
+      throw new NotFoundError("Payment details not found");
+    }
+
+    return row[0];
+  }
+
+  static async chargeQrisPayment(orderId: string, userId: string) {
+    await CustomerOrderService.verifyOrderOwnership(orderId, userId);
+
+    const item_details: ItemDetails[] = [];
+
+    await db.transaction(async (tx) => {
+      const customerOrderItems = await tx
+        .select({
+          id: orderItems.id,
+          quantity: orderItems.quantity,
+          subtotal: orderItems.subtotal,
+          note: orderItems.note,
+          itemType: orderItems.itemType,
+          name: sql<string>`
+          CASE
+            WHEN ${orderItems.itemType} = 'voucher' THEN 'Voucher'
+            WHEN ${orderItems.itemType} = 'points' THEN 'Points'
+            ELSE COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})
+          END
+        `,
+        })
+        .from(orderItems)
+        .leftJoin(services, eq(orderItems.serviceId, services.id))
+        .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
+        .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+        .where(eq(orderItems.orderId, orderId));
+
+      if (!customerOrderItems.length) {
+        throw new NotFoundError("Order items not found");
+      }
+
+      const [paymentDetail] = await tx
+        .select({ total: payments.total })
+        .from(payments)
+        .where(eq(payments.orderId, orderId))
+        .limit(1);
+
+      if (!paymentDetail) {
+        throw new NotFoundError("Payment details not found");
+      }
+
+      for (const item of customerOrderItems) {
+        item_details.push({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.subtotal,
+          name: item.name,
+        });
+      }
+
+      const chargeQrisData: ChargeDetails = {
+        payment_type: "qris",
+        transaction_details: {
+          order_id: orderId,
+          gross_amount: paymentDetail.total,
+        },
+        qris: {
+          acquirer: "gopay",
+        },
+        item_details,
+      };
+
+      let paymentDataUpdate: PaymentInsert | undefined;
+      const qrisResponse = await chargeQris(chargeQrisData);
+
+      if (qrisResponse.status_code === "201") {
+        paymentDataUpdate = {
+          orderId,
+          amountPaid: paymentDetail.total,
+          transactionStatus: "pending",
+          total: paymentDetail.total,
+          fraudStatus: qrisResponse.fraud_status,
+          transactionTime: qrisResponse.transaction_time,
+          expiryTime: qrisResponse.expiry_time,
+          qrString: qrisResponse.qr_string,
+          acquirer: qrisResponse.acquirer,
+          actions: qrisResponse.actions,
+        };
+      } else {
+        throw new InternalError("Unsupported payment type");
+      }
+
+      if (!paymentDataUpdate) {
+        throw new InternalError("Failed to update payment data");
+      }
+
+      await tx
+        .update(payments)
+        .set(paymentDataUpdate)
+        .where(eq(payments.orderId, orderId));
+    });
   }
 }

@@ -26,18 +26,21 @@ export const ordersController = new Elysia({ prefix: "/orders" })
     async ({ status, body, server }) => {
       const data = await Orders.handleMidtransNotification(body);
 
-      if (!data.result) {
-        throw new Error("Payment details not found");
+      if (data.updated) {
+        const orderId = body.order_id;
+
+        await Orders.reduceQtyAfterPayment(orderId);
+        await Orders.handlePointsAfterPayment(orderId);
+
+        const socketData = {
+          type: "PAYMENT_UPDATE",
+          orderId,
+          status: body.status_message,
+          ...data,
+        };
+
+        server?.publish(`payment/${body.order_id}`, JSON.stringify(socketData));
       }
-
-      const socketData = {
-        type: "PAYMENT_UPDATE",
-        orderId: body.order_id,
-        status: body.status_message,
-        ...data,
-      };
-
-      server?.publish(`payment/${body.order_id}`, JSON.stringify(socketData));
 
       return status(200, {
         status: "success",
@@ -50,11 +53,6 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       body: "midtransNotification",
     }
   )
-  .guard({
-    detail: {
-      tags: ["Orders"],
-    },
-  })
   .get(
     "/",
     async ({ status, query }) => {

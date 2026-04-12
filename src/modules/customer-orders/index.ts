@@ -52,6 +52,25 @@ export const customerOrdersController = new Elysia({
       parse: "application/json",
     }
   )
+  .post(
+    "/request-delivery",
+    async ({ status, body, user }) => {
+      const userId = user.id;
+      const newDeliveryId = await CustomerOrderService.createDeliveryRequest({
+        userId,
+        ...body,
+      });
+
+      return status(201, {
+        status: "success",
+        message: "Delivery request submitted successfully",
+        data: { deliveryId: newDeliveryId },
+      });
+    },
+    {
+      body: "requestDeliverySchema",
+    }
+  )
   .guard({
     params: t.Object({
       id: t.String(),
@@ -81,6 +100,18 @@ export const customerOrdersController = new Elysia({
       data,
     });
   })
+  .post("/:id/payment", async ({ status, params, user }) => {
+    const data = await CustomerOrderService.chargeQrisPayment(
+      params.id,
+      user.id
+    );
+
+    return status(200, {
+      status: 201,
+      message: "QRIS Payment Created",
+      data,
+    });
+  })
   .get("/:id/delivery", async ({ status, params, user }) => {
     const data = await CustomerOrderService.getOrderDelivery(
       params.id,
@@ -91,4 +122,22 @@ export const customerOrdersController = new Elysia({
       message: "Order delivery fetched successfully",
       data,
     });
-  });
+  })
+  .get(
+    "/:id/payment_details",
+    async ({ status, params, user }) => {
+      const paymentDetails = await CustomerOrderService.getOrderPaymentDetails(
+        params.id,
+        user.id
+      );
+
+      return status(200, {
+        status: "success",
+        message: "Order Payment Details Retrieved",
+        data: paymentDetails,
+      });
+    },
+    {
+      isCustomer: true,
+    }
+  );

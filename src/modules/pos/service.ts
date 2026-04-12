@@ -331,13 +331,15 @@ export abstract class Pos {
         totalItemPrice,
       });
 
-      // Step 5: Redeem and earn member points for the transaction.
-      await Pos._handlePoints(tx, {
-        body,
-        selectedMemberId,
-        orderId,
-        totalItemPrice,
-      });
+      // Step 5: Redeem and earn member points for the transaction if payment type is cash.
+      if (body.paymentType === "cash") {
+        await Pos._handlePoints(tx, {
+          body,
+          selectedMemberId,
+          orderId,
+          totalItemPrice,
+        });
+      }
 
       // Step 6: Record the final payment after all discounts are applied.
       await insertPaymentQuery(tx, {
@@ -349,8 +351,14 @@ export abstract class Pos {
         voucher,
       });
 
-      // Step 7: Update inventory by reducing stock for items sold.
-      await reduceOrderInventoryQty(tx, { items: body.items, orderId, userId });
+      // Step 7: Update inventory by reducing stock for items sold if the payment is cash. if its qris then it will be reduced after qris payment
+      if (body.paymentType === "cash") {
+        await reduceOrderInventoryQty(tx, {
+          items: body.items,
+          orderId,
+          userId,
+        });
+      }
 
       return orderId;
     });
