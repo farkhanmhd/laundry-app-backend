@@ -369,6 +369,109 @@ export abstract class CustomerOrderService extends Pos {
     return newDeliveryId;
   }
 
+  static async cancelOrder(orderId: string, userId: string) {
+    await CustomerOrderService.verifyOrderOwnership(orderId, userId);
+
+    return await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select({
+          id: ordersTable.id,
+          status: ordersTable.status,
+        })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+
+      if (!order) {
+        throw new NotFoundError("Order not found");
+      }
+
+      if (order.status !== "pending") {
+        throw new InternalError("Only pending orders can be cancelled");
+      }
+
+      const [payment] = await tx
+        .select({
+          id: paymentsTable.id,
+          transactionStatus: paymentsTable.transactionStatus,
+          actions: paymentsTable.actions,
+        })
+        .from(paymentsTable)
+        .where(eq(paymentsTable.orderId, orderId))
+        .limit(1);
+
+      if (!payment) {
+        throw new NotFoundError("Payment not found");
+      }
+
+      if (payment.transactionStatus !== "pending" || payment.actions !== null) {
+        throw new InternalError(
+          "Order cannot be cancelled after QRIS payment has been created"
+        );
+      }
+
+      const [pickupDelivery] = await tx
+        .select({
+          id: deliveries.id,
+          type: deliveries.type,
+          status: deliveries.status,
+        })
+        .from(deliveries)
+        .where(
+          and(
+            eq(deliveries.orderId, orderId),
+            eq(deliveries.type, "pickup"),
+            eq(deliveries.status, "requested")
+          )
+        )
+        .limit(1);
+
+      if (!pickupDelivery) {
+        throw new InternalError(
+          "Only pickup deliveries with requested status can be cancelled"
+        );
+      }
+
+      const [cancelledDelivery] = await tx
+        .update(deliveries)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(deliveries.id, pickupDelivery.id),
+            eq(deliveries.status, "requested")
+          )
+        )
+        .returning({
+          id: deliveries.id,
+          status: deliveries.status,
+        });
+
+      if (!cancelledDelivery) {
+        throw new InternalError("Failed to cancel pickup request");
+      }
+
+      const [cancelledOrder] = await tx
+        .update(ordersTable)
+        .set({ status: "cancelled" })
+        .where(
+          and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending"))
+        )
+        .returning({
+          id: ordersTable.id,
+          status: ordersTable.status,
+        });
+
+      if (!cancelledOrder) {
+        throw new InternalError("Failed to cancel order");
+      }
+
+      return {
+        ...cancelledOrder,
+        delivery: cancelledDelivery,
+      };
+    });
+  }
+
   static async getOrderPaymentDetails(orderId: string, userId: string) {
     const row = await db
       .select({
@@ -425,6 +528,44 @@ export abstract class CustomerOrderService extends Pos {
     const item_details: ItemDetails[] = [];
 
     await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select({
+          id: ordersTable.id,
+          status: ordersTable.status,
+        })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId))
+        .limit(1);
+
+      if (!order) {
+        throw new NotFoundError("Order not found");
+      }
+
+      if (order.status !== "pending") {
+        throw new InternalError("Only pending orders can be charged");
+      }
+
+      const [pickupDelivery] = await tx
+        .select({
+          id: deliveries.id,
+          status: deliveries.status,
+        })
+        .from(deliveries)
+        .where(
+          and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
+        )
+        .limit(1);
+
+      if (!pickupDelivery) {
+        throw new NotFoundError("Pickup delivery not found");
+      }
+
+      if (pickupDelivery.status !== "completed") {
+        throw new InternalError(
+          "QRIS payment can only be charged after pickup is completed"
+        );
+      }
+
       const customerOrderItems = await tx
         .select({
           id: orderItems.id,

@@ -123,6 +123,15 @@ export const customerOrdersController = new Elysia({
       data,
     });
   })
+  .patch("/:id", async ({ status, params, user }) => {
+    const data = await CustomerOrderService.cancelOrder(params.id, user.id);
+
+    return status(200, {
+      status: 200,
+      message: "Order cancelled successfully",
+      data,
+    });
+  })
   .get(
     "/:id/payment_details",
     async ({ status, params, user }) => {
