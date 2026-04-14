@@ -5,7 +5,7 @@ import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
 import { InternalError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
-import type { RegisterSchema } from "./model";
+import type { CreateCashierSchema, RegisterSchema } from "./model";
 
 export abstract class UserService {
   static async getUsers(query: SearchQuery) {
@@ -45,7 +45,6 @@ export abstract class UserService {
   }
 
   static async registerUser(body: RegisterSchema) {
-    console.log(body);
     const isMember = !!body.memberId;
     const { name, username, email, password, phoneNumber, memberId } = body;
 
@@ -82,6 +81,39 @@ export abstract class UserService {
           .insert(members)
           .values({ name, userId: newUser.id, phone: `+62${phoneNumber}` });
       }
+
+      return newUser.id;
+    });
+
+    return createdUser;
+  }
+
+  static async createCashier(body: CreateCashierSchema) {
+    const { name, username, email, phoneNumber } = body;
+    const password = "password";
+
+    const createdUser = await db.transaction(async (tx) => {
+      const { user: newUser } = await auth.api.createUser({
+        body: {
+          email,
+          password,
+          name,
+          role: "admin",
+          data: {
+            displayUsername: username,
+            username,
+          },
+        },
+      });
+
+      if (!newUser) {
+        throw new InternalError("Server Error. Failed to create user");
+      }
+
+      await tx
+        .update(user)
+        .set({ phoneNumber: `+62${phoneNumber}` })
+        .where(eq(user.id, newUser.id));
 
       return newUser.id;
     });

@@ -185,6 +185,7 @@ export abstract class Orders {
           amountPaid: paymentsTable.amountPaid,
           change: paymentsTable.change,
           transactionStatus: paymentsTable.transactionStatus,
+          actions: paymentsTable.actions,
         })
         .from(paymentsTable)
         .where(eq(paymentsTable.orderId, orderId))

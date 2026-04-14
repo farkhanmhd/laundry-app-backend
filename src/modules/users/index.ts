@@ -30,6 +30,24 @@ export const usersController = new Elysia({ prefix: "/users" })
       body: "registerUserSchema",
     }
   )
+  .post(
+    "/cashier",
+    async ({ status, body }) => {
+      const result = await UserService.createCashier(body);
+
+      return status(201, {
+        status: "success",
+        message: "Cashier created successfully",
+        data: {
+          newUserId: result,
+        },
+      });
+    },
+    {
+      body: "createCashierSchema",
+      isSuperAdmin: true,
+    }
+  )
   .get(
     "/",
     async ({ status, query }) => {

@@ -33,10 +33,17 @@ const registerUserSchema = t.Object({
   memberId: t.Optional(t.Nullable(t.String())),
 });
 
+const createCashierSchema = t.Omit(registerUserSchema, [
+  "password",
+  "memberId",
+]);
+
 export type UpdateUserRoleSchema = typeof updateUserRoleSchema.static;
 export type RegisterSchema = typeof registerUserSchema.static;
+export type CreateCashierSchema = typeof createCashierSchema.static;
 
 export const usersModel = new Elysia({ name: "users/model" }).model({
   updateUserRoleSchema,
   registerUserSchema,
+  createCashierSchema,
 });
