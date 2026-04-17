@@ -1,4 +1,4 @@
-import { and, eq, gt, ilike, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, isNotNull, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
@@ -95,11 +95,16 @@ export abstract class Pos {
       .select({
         id: membersTable.id,
         name: membersTable.name,
-        phone: membersTable.phone,
+        phone: sql<string>`${membersTable.phone}`,
         points: membersTable.points,
       })
       .from(membersTable)
-      .where(ilike(membersTable.phone, `%${search}%`))
+      .where(
+        and(
+          ilike(membersTable.phone, `%${search}%`),
+          isNotNull(membersTable.phone)
+        )
+      )
       .orderBy(membersTable.name)
       .limit(5);
 
