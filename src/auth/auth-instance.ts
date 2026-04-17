@@ -1,9 +1,10 @@
 import Elysia from "elysia";
+import { AccountService } from "@/modules/account/service";
 import { AuthorizationError } from "../exceptions";
 import { auth } from "./auth";
 
 export const betterAuth = new Elysia({ name: "better-auth" })
-  .mount("/auth", auth.handler)
+  .mount("/", auth.handler)
   .macro({
     auth: {
       async resolve({ request: { headers } }) {
@@ -15,8 +16,9 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
+        const userData = await AccountService.getUserData(session.user.id);
         return {
-          user: session.user,
+          user: userData,
           session: session.session,
         };
       },
@@ -31,12 +33,14 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
-        if (session.user.role !== "user") {
+        const userData = await AccountService.getUserData(session.user.id);
+
+        if (userData.role !== "user") {
           throw new AuthorizationError();
         }
 
         return {
-          user: session.user,
+          user: userData,
           session: session.session,
         };
       },
@@ -51,12 +55,14 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
-        if (session.user.role === "user") {
+        const userData = await AccountService.getUserData(session.user.id);
+
+        if (userData.role === "user") {
           throw new AuthorizationError();
         }
 
         return {
-          user: session.user,
+          user: userData,
           session: session.session,
         };
       },
@@ -71,12 +77,14 @@ export const betterAuth = new Elysia({ name: "better-auth" })
           throw new AuthorizationError();
         }
 
-        if (session.user.role !== "superadmin") {
+        const userData = await AccountService.getUserData(session.user.id);
+
+        if (userData.role !== "superadmin") {
           throw new AuthorizationError();
         }
 
         return {
-          user: session.user,
+          user: userData,
           session: session.session,
         };
       },

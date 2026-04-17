@@ -110,9 +110,20 @@ export type UpdateAddressSchema = typeof updateAddressSchema.static;
 
 export type UpdatePasswordSchema = typeof updatePasswordSchema.static;
 
+const updatePhoneNumberSchema = t.Object({
+  phoneNumber: t.String({
+    minLength: 7,
+    maxLength: 15,
+    description: "Phone number must be between 7 and 15 characters",
+  }),
+});
+
+export type UpdatePhoneNumberSchema = typeof updatePhoneNumberSchema.static;
+
 export const accountModel = new Elysia({ name: "account/model" }).model({
   updateInfo: updateInfoSchema,
   updatePassword: updatePasswordSchema,
   addAddress: addAddressSchema,
   updateAddress: updateAddressSchema,
+  updatePhoneNumber: updatePhoneNumberSchema,
 });

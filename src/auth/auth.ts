@@ -2,18 +2,21 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin as adminPlugin, openAPI, username } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import {
   account,
   session,
   user as userTable,
   verification,
 } from "@/db/schema/auth";
+import { members } from "@/db/schema/members";
 import { db } from "../db";
 import { accessControl, admin, superadmin, user } from "./permissions";
 
 export const auth = betterAuth({
   basePath: "/api",
   trustedOrigins: [process.env.FRONTEND_URL as string],
+  baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -43,6 +46,33 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 3600,
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          await db.insert(members).values({ name: user.name, userId: user.id });
+
+          const ownerEmail = process.env.OWNER_EMAIL;
+          if (user.email === ownerEmail) {
+            await db
+              .update(userTable)
+              .set({
+                role: "superadmin",
+              })
+              .where(eq(userTable.email, ownerEmail));
+          }
+        },
+      },
+    },
+  },
+  socialProviders: {
+    google: {
+      prompt: "select_account",
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      accessType: "offline",
     },
   },
 });

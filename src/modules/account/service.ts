@@ -4,13 +4,56 @@ import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
+import { InternalError, NotFoundError } from "@/exceptions";
 import type {
   AddAddressSchema,
   UpdateAccountInfoSchema,
   UpdatePasswordSchema,
+  UpdatePhoneNumberSchema,
 } from "./model";
 
 export abstract class AccountService {
+  static async updatePhoneNumber(
+    userId: string,
+    data: UpdatePhoneNumberSchema
+  ) {
+    await db.transaction(async (tx) => {
+      const [currentUser] = await tx
+        .select({ phoneNumber: user.phoneNumber })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+
+      if (!currentUser) {
+        throw new NotFoundError("User not found");
+      }
+
+      if (currentUser.phoneNumber) {
+        throw new InternalError("User already has a phone number");
+      }
+
+      const [userPhone] = await tx
+        .select({ phoneNumber: user.phoneNumber })
+        .from(user)
+        .where(eq(user.phoneNumber, `+62${data.phoneNumber}`))
+        .limit(1);
+
+      if (userPhone?.phoneNumber === `+62${data.phoneNumber}`) {
+        throw new InternalError("Phone number is already used");
+      }
+
+      await tx
+        .update(user)
+        .set({ phoneNumber: `+62${data.phoneNumber}` })
+        .where(eq(user.id, userId));
+
+      await tx
+        .update(members)
+        .set({ phone: `+62${data.phoneNumber}` })
+        .where(eq(members.userId, userId));
+    });
+  }
+
   static async getAccountInfo(userId: string) {
     const [userData] = await db
       .select({
@@ -20,6 +63,20 @@ export abstract class AccountService {
         username: user.username,
         phone: user.phoneNumber,
       })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    if (!userData) {
+      throw new Error("User not found");
+    }
+
+    return userData;
+  }
+
+  static async getUserData(userId: string) {
+    const [userData] = await db
+      .select()
       .from(user)
       .where(eq(user.id, userId))
       .limit(1);

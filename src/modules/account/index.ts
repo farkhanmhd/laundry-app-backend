@@ -18,6 +18,14 @@ export const accountController = new Elysia({ prefix: "/account" })
       data: userData,
     });
   })
+  .get("/", async ({ status, user }) => {
+    const userData = await AccountService.getUserData(user.id);
+    return status(200, {
+      status: "success",
+      message: "User role retrieved successfully",
+      data: userData,
+    });
+  })
   .patch(
     "/info",
     async ({ status, user, body }) => {
@@ -49,6 +57,19 @@ export const accountController = new Elysia({ prefix: "/account" })
     {
       body: "updatePassword",
       auth: true,
+    }
+  )
+  .post(
+    "/phone",
+    async ({ status, user, body }) => {
+      await AccountService.updatePhoneNumber(user.id, body);
+      return status(200, {
+        status: "success",
+        message: "Phone number updated",
+      });
+    },
+    {
+      body: "updatePhoneNumber",
     }
   )
   .post(

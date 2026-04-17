@@ -13,7 +13,7 @@ export const members = pgTable("members", {
   userId: varchar("user_id")
     .references(() => user.id, { onDelete: "set null" })
     .unique(),
-  phone: varchar("phone", { length: 24 }).unique().notNull(),
+  phone: varchar("phone", { length: 24 }).unique(),
   points: integer("points").default(0).notNull(),
   createdAt: timestamp("created_at", {
     mode: "string",
