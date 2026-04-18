@@ -23,7 +23,9 @@ export const restockLogs = pgTable(
     note: varchar("note", { length: 255 }),
     userId: varchar("user_id", { length: 255 }).notNull(),
     restockTime: timestamp("restock_time", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
     check("restock_quantity_check", sql`${table.restockQuantity} > 0`),

@@ -46,8 +46,6 @@ const adjustmentCategory = t.Object({
   inventoryIds: t.Optional(t.Array(t.String())),
 });
 
-const inventoryHistoryQuery = t.Composite([searchQuery, adjustmentCategory]);
-
 const inventoryReportQuery = t.Object({
   from: t.Optional(
     t.String({
@@ -62,6 +60,12 @@ const inventoryReportQuery = t.Object({
     })
   ),
 });
+
+const inventoryHistoryQuery = t.Composite([
+  searchQuery,
+  adjustmentCategory,
+  inventoryReportQuery,
+]);
 
 export type AddInventoryBody = typeof addInventory.static;
 export type UpdateInventoryBody = typeof updateInventory.static;

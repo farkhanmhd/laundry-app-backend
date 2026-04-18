@@ -2,6 +2,7 @@ import { write } from "bun";
 import { endOfDay, format, parse, startOfDay } from "date-fns";
 import {
   and,
+  between,
   count,
   countDistinct,
   desc,
@@ -55,7 +56,14 @@ export abstract class Inventories {
   }
 
   static async getAdjustmentHistory(query: InventoryHistoryQuery) {
-    const { search = "", rows = 10, page = 1, inventoryIds = [] } = query;
+    const {
+      from,
+      to,
+      search = "",
+      rows = 50,
+      page = 1,
+      inventoryIds = [],
+    } = query;
 
     const filters: SQL[] = [];
 
@@ -73,6 +81,14 @@ export abstract class Inventories {
       if (searchGroup) {
         filters.push(searchGroup);
       }
+    }
+
+    if (from && to) {
+      const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+      const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+      const startDate = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+      const endDate = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+      filters.push(between(adjustmentLogs.createdAt, startDate, endDate));
     }
 
     const whereQuery = and(...filters, isNull(adjustmentLogs.orderId));
@@ -101,7 +117,8 @@ export abstract class Inventories {
       .select({ count: count() })
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
-      .leftJoin(user, eq(adjustmentLogs.actorId, user.id));
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .where(whereQuery);
 
     const [inventoryHistory, [total]] = await Promise.all([
       inventoryHistoryQuery,
@@ -114,7 +131,14 @@ export abstract class Inventories {
   }
 
   static async getUsageHistory(query: InventoryHistoryQuery) {
-    const { search = "", rows = 10, page = 1, inventoryIds = [] } = query;
+    const {
+      from,
+      to,
+      search = "",
+      rows = 50,
+      page = 1,
+      inventoryIds = [],
+    } = query;
 
     const filters: SQL[] = [];
 
@@ -132,6 +156,14 @@ export abstract class Inventories {
       if (searchGroup) {
         filters.push(searchGroup);
       }
+    }
+
+    if (from && to) {
+      const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+      const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+      const startDate = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+      const endDate = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+      filters.push(between(adjustmentLogs.createdAt, startDate, endDate));
     }
 
     const whereQuery = and(...filters, isNotNull(adjustmentLogs.orderId));
@@ -173,7 +205,7 @@ export abstract class Inventories {
   }
 
   static async getRestockHistory(query: InventoryHistoryQuery) {
-    const { rows = 10, page = 1, inventoryIds = [] } = query;
+    const { rows = 50, page = 1, inventoryIds = [] } = query;
 
     const filters: SQL[] = [];
 

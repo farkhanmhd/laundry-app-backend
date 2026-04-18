@@ -8,12 +8,14 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .use(betterAuth)
   .use(searchQueryModel)
   .use(midtransModel)
+  .guard({
+    tags: ["Orders"],
+  })
   .ws("/payment/:id", {
     params: t.Object({
       id: t.String(),
     }),
     open(ws) {
-      // The client joins a "room" or "topic" based on the order ID
       ws.subscribe(`payment/${ws.data.params.id}`);
       console.log(`Client subscribed to order: ${ws.data.params.id}`);
     },

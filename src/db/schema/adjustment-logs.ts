@@ -24,7 +24,7 @@ export const adjustmentLogs = pgTable("adjustment_logs", {
   adjustmentTime: timestamp("adjustment_time", {
     withTimezone: true,
   }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
 });
