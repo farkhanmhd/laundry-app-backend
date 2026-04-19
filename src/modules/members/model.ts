@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { searchQuery } from "@/search-query";
+import { dateRangeQuery } from "@/utils";
 
 const addMember = t.Object({
   name: t.String({
@@ -11,20 +13,7 @@ const addMember = t.Object({
   }),
 });
 
-const dateRangeQuery = t.Object({
-  from: t.Optional(
-    t.String({
-      pattern: "^\\d{2}-\\d{2}-\\d{4}$", // Regex: only allows "20-01-2026" format
-      error: "Date must be in dd-MM-yyyy format", // Custom error message
-    })
-  ),
-  to: t.Optional(
-    t.String({
-      pattern: "^\\d{2}-\\d{2}-\\d{4}$",
-      error: "Date must be in dd-MM-yyyy format",
-    })
-  ),
-});
+const getMembersWithSpendingQuery = t.Composite([searchQuery, dateRangeQuery]);
 
 const searchByPhoneQuery = t.Object({
   phone: t.String({
@@ -35,9 +24,11 @@ const searchByPhoneQuery = t.Object({
 });
 
 export type AddMemberBody = typeof addMember.static;
-export type DateRangeQuery = typeof dateRangeQuery.static;
+export type GetMembersWithSpendingQuery =
+  typeof getMembersWithSpendingQuery.static;
 
 export const membersModel = new Elysia({ name: "members/model" }).model({
+  getMembersWithSpendingQuery,
   addMember,
   dateRangeQuery,
   searchByPhoneQuery,

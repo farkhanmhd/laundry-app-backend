@@ -230,4 +230,53 @@ export abstract class ReportService {
 
     return rows;
   }
+
+  /**
+   * Returns members with spending for report.
+   * Used exclusively for PDF report generation.
+   */
+  static async getMembersWithSpendingForReport(
+    from: string,
+    to: string,
+    rows = 50
+  ) {
+    const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+    const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+    const startString = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+    const endString = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+
+    const filters = and(
+      between(orders.createdAt, startString, endString),
+      inArray(orders.status, ["processing", "ready", "completed"])
+    );
+
+    const query = db
+      .select({
+        id: members.id,
+        name: members.name,
+        phone: members.phone,
+        joinDate: members.createdAt,
+        totalSpending: sum(payments.total),
+        orderCount: count(orders.id),
+        averageSpending:
+          sql<number>`CAST(${sum(payments.total)} AS REAL) / NULLIF(CAST(${count(orders.id)} AS REAL), 0)`.mapWith(
+            Number
+          ),
+      })
+      .from(members)
+      .innerJoin(orders, and(eq(members.id, orders.memberId), filters))
+      .leftJoin(payments, eq(orders.id, payments.orderId))
+      .groupBy(members.id)
+      .orderBy(desc(sql`COALESCE(${sum(payments.total)}, 0)`))
+      .limit(rows);
+
+    const rowsData = await query;
+
+    return rowsData.map((member) => ({
+      ...member,
+      totalSpending: Number(member.totalSpending ?? 0),
+      orderCount: Number(member.orderCount ?? 0),
+      averageSpending: Math.round(member.averageSpending ?? 0),
+    }));
+  }
 }

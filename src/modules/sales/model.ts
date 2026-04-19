@@ -1,18 +1,9 @@
 import { Elysia, t } from "elysia";
 import { succesResponse } from "@/responses";
 import { searchQuery } from "@/search-query";
+import { dateRangeQuery } from "@/utils";
 
 // 1. Date Range Query Schema (Updated keys)
-const dateRangeQuery = t.Object({
-  from: t.String({
-    pattern: "^\\d{2}-\\d{2}-\\d{4}$", // Regex: only allows "20-01-2026" format
-    error: "Date must be in dd-MM-yyyy format", // Custom error message
-  }),
-  to: t.String({
-    pattern: "^\\d{2}-\\d{2}-\\d{4}$",
-    error: "Date must be in dd-MM-yyyy format",
-  }),
-});
 
 const bestSellersQuery = t.Composite([
   dateRangeQuery,

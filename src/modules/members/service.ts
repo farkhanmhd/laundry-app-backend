@@ -18,7 +18,7 @@ import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { InternalError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
-import type { AddMemberBody } from "./model";
+import type { AddMemberBody, GetMembersWithSpendingQuery } from "./model";
 
 export abstract class Members {
   static async getMembers(query: SearchQuery) {
@@ -151,12 +151,13 @@ export abstract class Members {
    * Get members with spending statistics
    * Includes: id, name, phone, join date, total spending, order count, average spending
    */
-  static async getMembersWithSpending(query: SearchQuery) {
-    const { search = "", rows = 50, page = 1 } = query;
+  static async getMembersWithSpending(query: GetMembersWithSpendingQuery) {
+    const { search = "", rows = 50, page = 1, from, to } = query;
 
     // Search conditions
     const searchByName = ilike(membersTable.name, `%${search}%`);
     const searchByPhone = ilike(membersTable.phone, `%${search}%`);
+    const dateRange = Members.getBaseConditions(from, to);
     const whereQuery = or(searchByName, searchByPhone);
 
     // Main query with aggregations
@@ -174,7 +175,7 @@ export abstract class Members {
           ),
       })
       .from(membersTable)
-      .leftJoin(orders, eq(membersTable.id, orders.memberId))
+      .leftJoin(orders, and(eq(membersTable.id, orders.memberId), dateRange))
       .leftJoin(payments, eq(orders.id, payments.orderId))
       .where(whereQuery)
       .groupBy(membersTable.id)
@@ -186,6 +187,8 @@ export abstract class Members {
     const totalQuery = db
       .select({ count: count() })
       .from(membersTable)
+      .leftJoin(orders, eq(membersTable.id, orders.memberId))
+      .leftJoin(payments, eq(orders.id, payments.orderId))
       .where(whereQuery);
 
     const [members, totalResult] = await Promise.all([

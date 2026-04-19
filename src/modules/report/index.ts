@@ -9,23 +9,14 @@
 
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { dateRangeQuery } from "@/utils";
 import { generateBestSellersPDF } from "./best-sellers";
 import { generateAdjustmentPDF } from "./inventory-adjustments";
 import { generateRestockPDF } from "./inventory-restock";
 import { generateUsagePDF } from "./inventory-usage";
+import { generateMemberSpendingPDF } from "./member-spending";
 import { generateSalesByOrderPDF } from "./sales-by-order";
 import { ReportService } from "./service";
-
-const dateRangeQuery = t.Object({
-  from: t.String({
-    pattern: "^\\d{2}-\\d{2}-\\d{4}$",
-    error: "Tanggal harus dalam format dd-MM-yyyy",
-  }),
-  to: t.String({
-    pattern: "^\\d{2}-\\d{2}-\\d{4}$",
-    error: "Tanggal harus dalam format dd-MM-yyyy",
-  }),
-});
 
 export const reportController = new Elysia({ prefix: "/report" })
   .use(betterAuth)
@@ -178,6 +169,44 @@ export const reportController = new Elysia({ prefix: "/report" })
           "Menghasilkan laporan PDF restock inventori dari supplier berdasarkan rentang tanggal.",
       },
       query: dateRangeQuery,
+    }
+  )
+  // ─── Members: Spending ─────────────────────────────────────────────────────
+  .get(
+    "/member/spending",
+    async ({ query, set }) => {
+      const { from, to, rows } = query;
+
+      const items = await ReportService.getMembersWithSpendingForReport(
+        from,
+        to,
+        rows
+      );
+      const pdfBuffer = await generateMemberSpendingPDF(from, to, items);
+
+      const filename = `laporan-pengeluaran-member_${from}_sd_${to}.pdf`;
+
+      set.headers["Content-Type"] = "application/pdf";
+      set.headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+
+      return new Response(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    },
+    {
+      detail: {
+        description:
+          "Menghasilkan laporan PDF pengeluaran member berdasarkan rentang tanggal.",
+      },
+      query: t.Composite([
+        dateRangeQuery,
+        t.Object({
+          rows: t.Optional(t.Numeric()),
+        }),
+      ]),
     }
   );
 

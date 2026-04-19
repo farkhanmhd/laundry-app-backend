@@ -193,7 +193,7 @@ export const membersController = new Elysia({ prefix: "/members" })
           "Get members with spending statistics (total spending, order count, average spending)",
       },
       isAdmin: true,
-      query: "searchQuery",
+      query: "getMembersWithSpendingQuery",
     }
   )
   .get(
