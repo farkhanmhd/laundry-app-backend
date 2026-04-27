@@ -22,12 +22,9 @@ import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
-import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import { reduceOrderInventoryQty, updateEarnedPoints } from "@/utils/orders";
-import { INVENTORIES_CACHE_KEY } from "../inventories/service";
 import type { MidtransNotification } from "../midtrans/model";
-import { POS_CACHE_KEY } from "../pos/service";
 
 export abstract class Orders {
   static async getOrders(query: SearchQuery) {
@@ -429,8 +426,6 @@ export abstract class Orders {
         userId: userId as string,
       });
     });
-    await redis.del(POS_CACHE_KEY);
-    await redis.del(INVENTORIES_CACHE_KEY);
   }
 
   static async handlePointsAfterPayment(orderId: string) {

@@ -7,7 +7,6 @@ import { members as membersTable } from "@/db/schema/members";
 import { services as servicesTable } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
-import { redis } from "@/redis";
 import type { SearchQuery } from "@/search-query";
 import type { Transaction } from "@/utils";
 import {
@@ -28,19 +27,10 @@ import {
   reduceOrderInventoryQty,
   updateEarnedPoints,
 } from "@/utils/orders";
-import { INVENTORIES_CACHE_KEY } from "../inventories/service";
-import type { NewPosOrderSchema, PosItem } from "./model";
-
-export const POS_CACHE_KEY = "pos:all";
+import type { NewPosOrderSchema } from "./model";
 
 export abstract class Pos {
   static async getPosItems() {
-    const json = await redis.get(POS_CACHE_KEY);
-
-    if (json) {
-      return JSON.parse(json) as PosItem[];
-    }
-
     const inventories = db
       .select({
         id: inventoriesTable.id,
@@ -78,8 +68,6 @@ export abstract class Pos {
       .from(bundlingsTable);
 
     const rows = await unionAll(inventories, services, bundlings);
-
-    await redis.set(POS_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
   }
@@ -368,8 +356,6 @@ export abstract class Pos {
       return orderId;
     });
 
-    await redis.del(POS_CACHE_KEY);
-    await redis.del(INVENTORIES_CACHE_KEY);
     return newOrderId;
   }
 }

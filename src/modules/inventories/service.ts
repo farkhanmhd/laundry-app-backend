@@ -24,7 +24,6 @@ import { restockLogs } from "@/db/schema/restock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
 import { BUNDLINGS_CACHE_KEY } from "../bundlings/service";
-import { POS_CACHE_KEY } from "../pos/service";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
@@ -34,23 +33,13 @@ import type {
   UpdateInventoryBody,
   UpdateInventoryImage,
 } from "./model";
-export const INVENTORIES_CACHE_KEY = "inventories:all";
-const TOTAL_INVENTORIES = "inventories:total";
 
 export abstract class Inventories {
   static async getInventories() {
-    const json = await redis.get(INVENTORIES_CACHE_KEY);
-
-    if (json) {
-      return JSON.parse(json) as Inventory[];
-    }
-
     const rows = await db
       .select()
       .from(inventories)
       .orderBy(desc(inventories.createdAt));
-
-    await redis.set(INVENTORIES_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
   }
@@ -283,9 +272,6 @@ export abstract class Inventories {
       throw new InternalError();
     }
     const row = result[0];
-    await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(TOTAL_INVENTORIES);
-    await redis.del(POS_CACHE_KEY);
     return row;
   }
 
@@ -313,8 +299,6 @@ export abstract class Inventories {
       throw new InternalError();
     }
 
-    await redis.del(INVENTORIES_CACHE_KEY);
-
     return result[0]?.id as string;
   }
 
@@ -338,8 +322,6 @@ export abstract class Inventories {
       throw new InternalError();
     }
 
-    await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(POS_CACHE_KEY);
     await redis.del(BUNDLINGS_CACHE_KEY);
 
     return result[0]?.id as string;
@@ -382,9 +364,6 @@ export abstract class Inventories {
 
       return stockLogQuery.id;
     });
-
-    await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(POS_CACHE_KEY);
 
     return stockLogId;
   }
@@ -430,9 +409,6 @@ export abstract class Inventories {
       return restockLogQuery.id;
     });
 
-    await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(POS_CACHE_KEY);
-
     return restockLogId;
   }
 
@@ -446,10 +422,6 @@ export abstract class Inventories {
     if (!result.length) {
       throw new InternalError("Inventory id not valid");
     }
-
-    await redis.del(INVENTORIES_CACHE_KEY);
-    await redis.del(TOTAL_INVENTORIES);
-    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -468,13 +440,7 @@ export abstract class Inventories {
   }
 
   static async getTotalItems(): Promise<number> {
-    const json = await redis.get(TOTAL_INVENTORIES);
-    if (json) {
-      return JSON.parse(json);
-    }
-
     const result = await db.select({ count: count() }).from(inventories);
-    await redis.set(TOTAL_INVENTORIES, JSON.stringify(result[0]?.count ?? 0));
     return result[0]?.count ?? 0;
   }
 

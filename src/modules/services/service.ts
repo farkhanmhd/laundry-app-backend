@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { services } from "@/db/schema/services";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { redis } from "@/redis";
-import { POS_CACHE_KEY } from "../pos/service";
 import type {
   AddServiceBody,
   Service,
@@ -75,7 +74,6 @@ export abstract class Services {
     }
 
     await redis.del(SERVICE_CACHE_KEY);
-    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -133,7 +131,6 @@ export abstract class Services {
     }
 
     await redis.del(SERVICE_CACHE_KEY);
-    await redis.del(POS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
