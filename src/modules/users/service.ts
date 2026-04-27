@@ -5,7 +5,12 @@ import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
 import { InternalError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
-import type { CreateCashierSchema, RegisterSchema } from "./model";
+import type {
+  ConnectMemberSchema,
+  CreateCashierSchema,
+  CreateMemberSchema,
+  RegisterSchema,
+} from "./model";
 
 export abstract class UserService {
   static async getUsers(query: SearchQuery) {
@@ -119,5 +124,35 @@ export abstract class UserService {
     });
 
     return createdUser;
+  }
+
+  static async connectMember(userId: string, body: ConnectMemberSchema) {
+    const { memberId, phoneNumber } = body;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(user)
+        .set({ phoneNumber: `+62${phoneNumber}` })
+        .where(eq(user.id, userId));
+
+      await tx.update(members).set({ userId }).where(eq(members.id, memberId));
+    });
+  }
+
+  static async createMemberForUser(userId: string, body: CreateMemberSchema) {
+    const { name, phoneNumber } = body;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(user)
+        .set({ phoneNumber: `+62${phoneNumber}` })
+        .where(eq(user.id, userId));
+
+      await tx.insert(members).values({
+        name,
+        userId,
+        phone: `+62${phoneNumber}`,
+      });
+    });
   }
 }

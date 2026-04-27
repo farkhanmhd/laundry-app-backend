@@ -1,11 +1,7 @@
 {
   "formatter": "language_server",
   "format_on_save": "on",
-  "file_scan_inclusions": [
-    "prompt.md",
-    ".env.development",
-    ".env.example"
-  ],
+  "file_scan_inclusions": ["prompt.md", ".env.development", ".env.example"],
   "languages": {
     "JavaScript": {
       "formatter": {

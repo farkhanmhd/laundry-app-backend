@@ -27,7 +27,10 @@ export const payments = pgTable("payment_detail", {
   total: integer("total").notNull(), // customer total payment
 
   transactionStatus: varchar("transaction_status").notNull(),
-  transactionTime: timestamp("transaction_time", { mode: "string", withTimezone: true })
+  transactionTime: timestamp("transaction_time", {
+    mode: "string",
+    withTimezone: true,
+  })
     .defaultNow()
     .notNull(),
   fraudStatus: varchar("fraud_status", { length: 20 }),
@@ -39,8 +42,12 @@ export const payments = pgTable("payment_detail", {
   actions:
     jsonb("actions").$type<{ name: string; method: string; url: string }[]>(),
 
-  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export type PaymentInsert = typeof payments.$inferInsert;

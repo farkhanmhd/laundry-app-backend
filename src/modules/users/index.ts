@@ -63,4 +63,34 @@ export const usersController = new Elysia({ prefix: "/users" })
       query: "searchQuery",
       isSuperAdmin: true,
     }
+  )
+  .post(
+    "/connect-member",
+    async ({ status, body, user }) => {
+      await UserService.connectMember(user.id, body);
+
+      return status(200, {
+        status: "success",
+        message: "Member connected successfully",
+      });
+    },
+    {
+      body: "connectMemberSchema",
+      auth: true,
+    }
+  )
+  .post(
+    "/create-member",
+    async ({ status, body, user }) => {
+      await UserService.createMemberForUser(user.id, body);
+
+      return status(201, {
+        status: "success",
+        message: "Member created successfully",
+      });
+    },
+    {
+      body: "createMemberSchema",
+      auth: true,
+    }
   );

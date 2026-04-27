@@ -38,12 +38,39 @@ const createCashierSchema = t.Omit(registerUserSchema, [
   "memberId",
 ]);
 
+const connectMemberSchema = t.Object({
+  memberId: t.String(),
+  phoneNumber: t.String({
+    minLength: 7,
+    maxLength: 20,
+    pattern: "^\\+?[0-9\\s\\-()]+$",
+    error: "Invalid phone number format",
+  }),
+});
+
+const createMemberSchema = t.Object({
+  name: t.String({
+    minLength: 2,
+    error: "Name must be at least 2 characters",
+  }),
+  phoneNumber: t.String({
+    minLength: 7,
+    maxLength: 20,
+    pattern: "^\\+?[0-9\\s\\-()]+$",
+    error: "Invalid phone number format",
+  }),
+});
+
 export type UpdateUserRoleSchema = typeof updateUserRoleSchema.static;
 export type RegisterSchema = typeof registerUserSchema.static;
 export type CreateCashierSchema = typeof createCashierSchema.static;
+export type ConnectMemberSchema = typeof connectMemberSchema.static;
+export type CreateMemberSchema = typeof createMemberSchema.static;
 
 export const usersModel = new Elysia({ name: "users/model" }).model({
   updateUserRoleSchema,
   registerUserSchema,
   createCashierSchema,
+  connectMemberSchema,
+  createMemberSchema,
 });

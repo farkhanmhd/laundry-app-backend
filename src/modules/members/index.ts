@@ -9,6 +9,11 @@ export const membersController = new Elysia({ prefix: "/members" })
   .use(betterAuth)
   .use(membersModel)
   .use(searchQueryModel)
+  .guard({
+    detail: {
+      tags: ["Member"],
+    },
+  })
   .get(
     "/search-by-phone",
     async ({ query, status }) => {
@@ -31,11 +36,7 @@ export const membersController = new Elysia({ prefix: "/members" })
       query: "searchByPhoneQuery",
     }
   )
-  .guard({
-    detail: {
-      tags: ["Member"],
-    },
-  })
+
   .get(
     "/",
     async ({ status, query }) => {

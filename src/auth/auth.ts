@@ -9,7 +9,6 @@ import {
   user as userTable,
   verification,
 } from "@/db/schema/auth";
-import { members } from "@/db/schema/members";
 import { db } from "../db";
 import { accessControl, admin, superadmin, user } from "./permissions";
 
@@ -52,8 +51,6 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          await db.insert(members).values({ name: user.name, userId: user.id });
-
           const ownerEmail = process.env.OWNER_EMAIL;
           if (user.email === ownerEmail) {
             await db
