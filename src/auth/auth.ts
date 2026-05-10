@@ -66,7 +66,7 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      prompt: "select_account",
+      prompt: "select_account consent",
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       accessType: "offline",
@@ -75,7 +75,6 @@ export const auth = betterAuth({
 });
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
-// biome-ignore lint/suspicious/noAssignInExpressions: copied directly from better-auth docs
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema());
 
 export const OpenAPI = {
