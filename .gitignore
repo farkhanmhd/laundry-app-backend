@@ -25,12 +25,13 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*
+.env
 .env.local
 .env.development.local
 .env.development
 .env.test.local
-.env.inventoryion.local
+.env.inventory.local
+.env.production
 
 # vercel
 .vercel
@@ -52,3 +53,4 @@ server
 /drizzle
 
 prompt.md
+server
