@@ -75,6 +75,7 @@ export const auth = betterAuth({
 });
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
+// biome-ignore lint/suspicious/noAssignInExpressions: from elysia docs
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema());
 
 export const OpenAPI = {

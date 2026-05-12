@@ -3,6 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
+import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
@@ -17,6 +18,7 @@ import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { ordersController } from "./modules/orders";
 import { posController } from "./modules/pos";
+import { receiptController } from "./modules/receipt";
 import { reportController } from "./modules/report";
 import { routesController } from "./modules/routes";
 import { salesController } from "./modules/sales";
@@ -33,6 +35,11 @@ const uploadDir = "public/uploads";
 await mkdir(uploadDir, { recursive: true });
 
 const app = new Elysia()
+  .use(
+    dts("./src/server.ts", {
+      dtsPath: "/types.d.ts",
+    })
+  )
   .use(
     openapi({
       enabled: process.env.NODE_ENV !== "production",
@@ -58,6 +65,7 @@ const app = new Elysia()
             name: "Admin Dashboard",
             description: "Admin Dashboard API endpoints",
           },
+          { name: "Receipt", description: "Receipt API endpoints" },
         ],
       },
     })
@@ -84,6 +92,7 @@ const app = new Elysia()
   .use(staffsController)
   .use(posController)
   .use(ordersController)
+  .use(receiptController)
   .use(salesController)
   .use(usersController)
   .use(customerOrdersController)
