@@ -476,12 +476,6 @@ export const reduceMemberPoint = async (
     throw new InternalError("Insufficient points");
   }
 
-  console.log({
-    customerCurrentPoints: member.points,
-    pointsSpent: values.points,
-    reduced: member.points - values.points,
-  });
-
   await tx
     .update(members)
     .set({
