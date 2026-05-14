@@ -499,10 +499,7 @@ export abstract class CustomerOrderService extends Pos {
           sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
             "createdAt"
           ),
-        updatedAt:
-          sql<string>`to_char(${paymentsTable.updatedAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-            "updatedAt"
-          ),
+        updatedAt: paymentsTable.updatedAt,
       })
       .from(paymentsTable)
       .innerJoin(orders, eq(orders.id, paymentsTable.orderId))
@@ -541,8 +538,10 @@ export abstract class CustomerOrderService extends Pos {
         throw new NotFoundError("Order not found");
       }
 
-      if (order.status !== "pending") {
-        throw new InternalError("Only pending orders can be charged");
+      if (!["pending", "processing"].includes(order.status)) {
+        throw new InternalError(
+          "Only pending or processing orders can be charged"
+        );
       }
 
       const [pickupDelivery] = await tx
@@ -560,9 +559,9 @@ export abstract class CustomerOrderService extends Pos {
         throw new NotFoundError("Pickup delivery not found");
       }
 
-      if (pickupDelivery.status !== "completed") {
+      if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
         throw new InternalError(
-          "QRIS payment can only be charged after pickup is completed"
+          "QRIS payment can only be charged after item picked up"
         );
       }
 

@@ -1,9 +1,10 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
+import { payments } from "@/db/schema/payments";
 import { routes } from "@/db/schema/routes";
 import { InternalError, NotFoundError } from "@/exceptions";
 
@@ -91,16 +92,29 @@ export abstract class RoutesService {
         .set({ status: "completed" })
         .where(eq(deliveries.routeId, routeId));
 
-      // if delivery type is pickup, update the order statuses as processing
       const pickupOrderIds = routeDeliveries
         .filter((delivery) => delivery.type === "pickup")
         .map((delivery) => delivery.orderId);
 
       if (pickupOrderIds.length > 0) {
-        await tx
-          .update(orders)
-          .set({ status: "processing" })
-          .where(inArray(orders.id, pickupOrderIds));
+        const paidPickUpOrderIds = await tx
+          .select({ id: payments.orderId })
+          .from(payments)
+          .where(
+            and(
+              inArray(payments.orderId, pickupOrderIds),
+              eq(payments.transactionStatus, "settlement")
+            )
+          );
+
+        const paidOrderIds = paidPickUpOrderIds.map((p) => p.id);
+
+        if (paidOrderIds.length > 0) {
+          await tx
+            .update(orders)
+            .set({ status: "processing" })
+            .where(inArray(orders.id, paidOrderIds));
+        }
       }
 
       // if delivery type is delivery, update the order statuses to completed

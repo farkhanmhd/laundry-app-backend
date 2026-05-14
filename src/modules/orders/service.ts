@@ -319,7 +319,7 @@ export abstract class Orders {
         .where(
           and(
             eq(paymentsTable.orderId, orderId),
-            eq(paymentsTable.transactionStatus, "pending") // ← atomic guard
+            eq(paymentsTable.transactionStatus, "pending")
           )
         )
         .returning({

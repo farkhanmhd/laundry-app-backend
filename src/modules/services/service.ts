@@ -33,22 +33,17 @@ export abstract class Services {
   }
 
   static async getServiceById(id: string) {
-    const cacheKey = `service:${id}`;
-    const json = await redis.get(cacheKey);
-    if (json) {
-      return JSON.parse(json) as Service;
-    }
     const row = await db
       .select()
       .from(services)
       .where(and(eq(services.id, id), isNull(services.deletedAt)))
       .limit(1);
+
     if (!row.length) {
       throw new NotFoundError("Inventory not found");
     }
 
-    await redis.set(cacheKey, JSON.stringify(row[0]), "EX", 3600);
-    return row[0] as Service;
+    return row[0];
   }
 
   static async addService(formData: AddServiceBody) {

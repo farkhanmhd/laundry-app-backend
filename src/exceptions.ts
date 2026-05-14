@@ -61,8 +61,6 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
 
     const message = error instanceof Error ? error.message : String(error);
 
-    console.log(error);
-
     const defaultErrorResponse = {
       status: "failed",
       message,
