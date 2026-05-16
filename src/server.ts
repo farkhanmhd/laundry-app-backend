@@ -27,6 +27,7 @@ import { fileUploadController } from "./modules/uploads";
 import { usersController } from "./modules/users";
 import { vouchersController } from "./modules/vouchers";
 import { responseHandler } from "./responses";
+import { dts } from "elysia-remote-dts";
 
 const port = Number(process.env.APP_PORT as string);
 

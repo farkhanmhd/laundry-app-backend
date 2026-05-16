@@ -100,6 +100,7 @@ export class ReceiptService {
     const orderDeliveries = await db
       .select({
         id: deliveries.id,
+        type: deliveries.type,
         address: addresses.address,
         status: deliveries.status,
       })
@@ -107,15 +108,7 @@ export class ReceiptService {
       .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
       .where(eq(deliveries.orderId, id));
 
-    return orderDeliveries.map((d) => {
-      return {
-        id: d.id,
-        address: d.address,
-        courier: "Laundry Courier",
-        trackingNumber: null,
-        status: d.status,
-      };
-    });
+    return orderDeliveries;
   }
 
   static async getPayment(id: string) {
