@@ -5,10 +5,8 @@ import { db } from "@/db";
 import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { InternalError } from "@/exceptions";
-import { redis } from "@/redis";
 import type {
   AddBundlingBody,
-  Bundling,
   BundlingWithItem,
   UpdateBundlingData,
   UpdateBundlingImageBody,
@@ -19,18 +17,10 @@ export const BUNDLINGS_CACHE_KEY = "bundlings:all";
 
 export abstract class Bundlings {
   static async getBundlings() {
-    const json = await redis.get(BUNDLINGS_CACHE_KEY);
-
-    if (json) {
-      return JSON.parse(json) as Bundling[];
-    }
-
     const rows = await db
       .select()
       .from(bundlings)
       .orderBy(desc(bundlings.createdAt));
-
-    await redis.set(BUNDLINGS_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
   }
@@ -94,7 +84,6 @@ export abstract class Bundlings {
         return insertedBundling.id;
       });
 
-      await redis.del(BUNDLINGS_CACHE_KEY);
       return newBundlingId;
     } catch (error) {
       console.error("Transaction failed ", error);
@@ -117,8 +106,6 @@ export abstract class Bundlings {
     if (!result.length) {
       throw new InternalError();
     }
-
-    await redis.del(BUNDLINGS_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -162,8 +149,6 @@ export abstract class Bundlings {
               inventoryId: sql`excluded.inventory_id`,
             },
           });
-
-        await redis.del(BUNDLINGS_CACHE_KEY);
       }
     });
   }
@@ -187,8 +172,6 @@ export abstract class Bundlings {
     if (!result.length) {
       throw new InternalError();
     }
-
-    await redis.del(BUNDLINGS_CACHE_KEY);
 
     return result[0]?.id as string;
   }

@@ -22,8 +22,6 @@ import { user } from "@/db/schema/auth";
 import { inventories } from "@/db/schema/inventories";
 import { restockLogs } from "@/db/schema/restock-logs";
 import { InternalError, NotFoundError } from "@/exceptions";
-import { redis } from "@/redis";
-import { BUNDLINGS_CACHE_KEY } from "../bundlings/service";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
@@ -321,8 +319,6 @@ export abstract class Inventories {
     if (!result.length) {
       throw new InternalError();
     }
-
-    await redis.del(BUNDLINGS_CACHE_KEY);
 
     return result[0]?.id as string;
   }

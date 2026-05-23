@@ -3,7 +3,6 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { services } from "@/db/schema/services";
 import { InternalError, NotFoundError } from "@/exceptions";
-import { redis } from "@/redis";
 import type {
   AddServiceBody,
   Service,
@@ -11,23 +10,13 @@ import type {
   UpdateServiceImage,
 } from "./model";
 
-const SERVICE_CACHE_KEY = "service:all";
-
 export abstract class Services {
   static async getServices() {
-    const json = await redis.get(SERVICE_CACHE_KEY);
-
-    if (json) {
-      return JSON.parse(json) as Service[];
-    }
-
     const rows: Service[] = await db
       .select()
       .from(services)
       .where(isNull(services.deletedAt))
       .orderBy(desc(services.createdAt));
-
-    await redis.set(SERVICE_CACHE_KEY, JSON.stringify(rows), "EX", 3600);
 
     return rows;
   }
@@ -68,8 +57,6 @@ export abstract class Services {
       throw new InternalError();
     }
 
-    await redis.del(SERVICE_CACHE_KEY);
-
     return result[0]?.id as string;
   }
 
@@ -83,8 +70,6 @@ export abstract class Services {
     if (!result.length) {
       throw new InternalError();
     }
-
-    await redis.del(SERVICE_CACHE_KEY);
 
     return result[0]?.id as string;
   }
@@ -109,8 +94,6 @@ export abstract class Services {
       throw new InternalError();
     }
 
-    await redis.del(SERVICE_CACHE_KEY);
-
     return result[0]?.id as string;
   }
 
@@ -124,8 +107,6 @@ export abstract class Services {
     if (!result.length) {
       throw new InternalError("Service id not valid");
     }
-
-    await redis.del(SERVICE_CACHE_KEY);
 
     return result[0]?.id as string;
   }

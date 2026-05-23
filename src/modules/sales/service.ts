@@ -19,7 +19,6 @@ import { orderItems } from "@/db/schema/order-items";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
-import { redis } from "@/redis";
 import type { ItemType, PaymentType } from "@/utils";
 import type { GetBestSellerParams, GetSalesByOrderParams } from "./model";
 
@@ -466,12 +465,6 @@ export abstract class SalesService {
   }
 
   static async getOrderItemOptions() {
-    const cachedData = await redis.get("orderItemOptions");
-
-    if (cachedData) {
-      return JSON.parse(cachedData) as Array<{ value: string; label: string }>;
-    }
-
     const itemIdSQL = sql<string>`COALESCE(${services.id}, ${inventories.id}, ${bundlings.id})`;
     const itemNameSQL = sql<string>`COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})`;
 
@@ -486,8 +479,6 @@ export abstract class SalesService {
       .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
       .where(inArray(orderItems.itemType, ["service", "inventory", "bundling"]))
       .groupBy(itemIdSQL, itemNameSQL);
-
-    await redis.set("orderItemOptions", JSON.stringify(result), "EX", 3600);
 
     return result;
   }
