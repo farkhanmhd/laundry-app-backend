@@ -6,6 +6,12 @@ export class InternalError extends Error {
   }
 }
 
+export class ConflictError extends Error {
+  constructor(message = "Resource already exists") {
+    super(message);
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(message = "Resource not found") {
     super(message);
@@ -21,6 +27,7 @@ export class AuthorizationError extends Error {
 export const exceptionHandler = new Elysia({ name: "custom-error" })
   .error({
     INTERNAL_ERROR: InternalError,
+    CONFLICT: ConflictError,
     NOT_FOUND_RESOURCE: NotFoundError,
     UNAUTHORIZED: AuthorizationError,
   })
@@ -28,6 +35,7 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
     const errorCodeMap = {
       // Custom Errors
       INTERNAL_ERROR: 500,
+      CONFLICT: 409,
       NOT_FOUND_RESOURCE: 404,
       UNAUTHORIZED: 401,
 

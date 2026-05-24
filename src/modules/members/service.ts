@@ -16,7 +16,7 @@ import { db } from "@/db";
 import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
-import { InternalError } from "@/exceptions";
+import { ConflictError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
 import type { AddMemberBody, GetMembersWithSpendingQuery } from "./model";
 
@@ -51,19 +51,26 @@ export abstract class Members {
   }
 
   static async addMember(data: AddMemberBody) {
-    const result = await db
-      .insert(membersTable)
-      .values({
-        ...data,
-        phone: `+62${data.phone}`,
-      })
-      .returning({ id: membersTable.id });
+    try {
+      const result = await db
+        .insert(membersTable)
+        .values({
+          ...data,
+          phone: `+62${data.phone}`,
+        })
+        .returning({ id: membersTable.id });
 
-    if (!result.length) {
-      throw new InternalError();
+      return result[0]?.id as string;
+    } catch (error) {
+      if (
+        (error as { cause?: { message?: string } })?.cause?.message?.includes(
+          'unique constraint "members_phone_unique"'
+        )
+      ) {
+        throw new ConflictError("Phone number already registered");
+      }
+      throw error;
     }
-
-    return result[0]?.id as string;
   }
 
   /**
