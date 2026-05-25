@@ -16,6 +16,8 @@ export const addresses = pgTable("addresses", {
   longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
   notes: varchar("notes", { length: 255 }),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { mode: "string" }),
 });
 
 export const addressesRelations = relations(addresses, ({ one }) => ({

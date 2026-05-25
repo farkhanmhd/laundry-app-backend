@@ -1,9 +1,12 @@
 import { Elysia, t } from "elysia";
 import { succesResponse } from "@/responses";
 
-const transactionTypeEnum = t.Union([t.Literal("on-us"), t.Literal("off-us")]);
+export const transactionTypeEnum = t.Union([
+  t.Literal("on-us"),
+  t.Literal("off-us"),
+]);
 
-const transactionStatusEnum = t.Union([
+export const transactionStatusEnum = t.Union([
   t.Literal("capture"),
   t.Literal("settlement"),
   t.Literal("pending"),
@@ -12,39 +15,37 @@ const transactionStatusEnum = t.Union([
   t.Literal("cancel"),
 ]);
 
-const paymentTypeEnum = t.Union([
+export const paymentTypeEnum = t.Union([
   t.Literal("qris"),
   t.Literal("gopay"),
   t.Literal("bank_transfer"),
   t.Literal("credit_card"),
 ]);
 
-const fraudStatusEnum = t.Union([
+export const fraudStatusEnum = t.Union([
   t.Literal("accept"),
   t.Literal("deny"),
   t.Literal("pending"),
 ]);
 
 export const midtransNotification = t.Object({
-  transaction_type: transactionTypeEnum,
-  transaction_time: t.String(),
-  transaction_status: transactionStatusEnum,
-  transaction_id: t.String(),
-  status_message: t.String(),
-  status_code: t.String(),
-  signature_key: t.String(),
+  transaction_type: t.Optional(t.String()),
+  transaction_time: t.Optional(t.String()),
+  transaction_status: t.Optional(t.String()),
+  transaction_id: t.Optional(t.String()),
+  status_message: t.Optional(t.String()),
+  status_code: t.Optional(t.String()),
+  signature_key: t.Optional(t.String()),
   settlement_time: t.Optional(t.String()),
-  pop_id: t.String(),
-  payment_type: paymentTypeEnum,
+  payment_type: t.Optional(t.String()),
   order_id: t.String(),
-  merchant_id: t.String(),
+  merchant_id: t.Optional(t.String()),
   merchant_cross_reference_id: t.Optional(t.String()),
   issuer: t.Optional(t.String()),
-  gross_amount: t.String(),
-  fraud_status: fraudStatusEnum,
-  expiry_time: t.String(),
-  customer_details: t.Record(t.String(), t.Any()),
-  currency: t.String(),
+  gross_amount: t.Optional(t.String()),
+  fraud_status: t.Optional(t.String()),
+  expiry_time: t.Optional(t.String()),
+  currency: t.Optional(t.String()),
   acquirer: t.Optional(t.String()),
 });
 

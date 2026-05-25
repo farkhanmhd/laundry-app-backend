@@ -279,10 +279,23 @@ export abstract class Orders {
 
   static async handleMidtransNotification(body: MidtransNotification) {
     if (body.transaction_status !== "settlement") {
-      await db
-        .update(ordersTable)
-        .set({ status: "cancelled" })
-        .where(eq(ordersTable.id, body.order_id));
+      await db.transaction(async (tx) => {
+        if (
+          body.transaction_status === "expire" ||
+          body.transaction_status === "cancel"
+        ) {
+          await tx
+            .update(ordersTable)
+            .set({ status: "cancelled" })
+            .where(eq(ordersTable.id, body.order_id));
+
+          await tx
+            .update(paymentsTable)
+            .set({ transactionStatus: body.transaction_status })
+            .where(eq(paymentsTable.orderId, body.order_id));
+        }
+      });
+
       return {
         updated: false,
         result: null,

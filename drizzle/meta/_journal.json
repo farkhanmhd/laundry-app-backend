@@ -169,6 +169,13 @@
       "when": 1776527112187,
       "tag": "0023_eminent_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1779721300741,
+      "tag": "0024_lethal_abomination",
+      "breakpoints": true
     }
   ]
 }

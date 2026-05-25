@@ -1,4 +1,4 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { auth } from "@/auth/auth";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
@@ -185,7 +185,7 @@ export abstract class AccountService {
         note: addresses.notes,
       })
       .from(addresses)
-      .where(eq(addresses.userId, userId))
+      .where(and(eq(addresses.userId, userId), isNull(addresses.deletedAt)))
       .orderBy(desc(addresses.createdAt));
 
     return userAddresses;
@@ -207,7 +207,11 @@ export abstract class AccountService {
     }
 
     const [deletedAddress] = await db
-      .delete(addresses)
+      .update(addresses)
+      .set({
+        updatedAt: new Date().toISOString(),
+        deletedAt: new Date().toISOString(),
+      })
       .where(eq(addresses.id, addressId))
       .returning({ id: addresses.id });
 
@@ -253,7 +257,7 @@ export abstract class AccountService {
 
       const [updated] = await tx
         .update(addresses)
-        .set(updateData)
+        .set({ ...updateData, updatedAt: new Date().toISOString() })
         .where(eq(addresses.id, addressId))
         .returning({
           id: addresses.id,
