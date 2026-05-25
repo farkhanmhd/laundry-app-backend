@@ -20,10 +20,7 @@ const updateInfoSchema = t.Object({
     minLength: 3,
     description: "Email must be at least 3 characters",
   }),
-  phone: t.String({
-    minLength: 8,
-    description: "Phone number must be at least 8 characters",
-  }),
+  phone: t.Number(),
 });
 
 export type UpdateAccountInfoSchema = typeof updateInfoSchema.static;

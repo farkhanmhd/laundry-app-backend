@@ -61,7 +61,7 @@ export abstract class AccountService {
         name: user.name,
         email: user.email,
         username: user.username,
-        phone: user.phoneNumber,
+        phone: sql<string | null>`REPLACE(${user.phoneNumber}, '+62', '')`,
       })
       .from(user)
       .where(eq(user.id, userId))
@@ -98,7 +98,7 @@ export abstract class AccountService {
     const updatedUserId = await db.transaction(async (tx) => {
       const [result] = await tx
         .update(user)
-        .set(data)
+        .set({ ...data, phoneNumber: `+62${data.phone}` })
         .where(eq(user.id, userId))
         .returning({ id: user.id });
 
@@ -109,7 +109,7 @@ export abstract class AccountService {
       if (isMember) {
         const [memberResult] = await tx
           .update(members)
-          .set({ name: data.name, phone: data.phone })
+          .set({ name: data.name, phone: `+62${data.phone}` })
           .where(eq(members.userId, userId))
           .returning({ id: members.id });
 
