@@ -1,10 +1,10 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { auth } from "@/auth/auth";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
-import { InternalError, NotFoundError } from "@/exceptions";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type {
   AddAddressSchema,
   UpdateAccountInfoSchema,
@@ -96,9 +96,23 @@ export abstract class AccountService {
     const isMember = role === "user";
 
     const updatedUserId = await db.transaction(async (tx) => {
+      const [otherUser] = await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.username, data.username), ne(user.id, userId)))
+        .limit(1);
+
+      if (otherUser) {
+        throw new ConflictError("Username already exists");
+      }
+
       const [result] = await tx
         .update(user)
-        .set({ ...data, phoneNumber: `+62${data.phone}` })
+        .set({
+          ...data,
+          displayUsername: data.username,
+          phoneNumber: `+62${data.phone}`,
+        })
         .where(eq(user.id, userId))
         .returning({ id: user.id });
 

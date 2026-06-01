@@ -23,6 +23,10 @@ export const admin = accessControl.newRole({
   user: ["create", "list", "set-password"],
 });
 
+export const driver = accessControl.newRole({
+  user: ["create", "list", "set-password"],
+});
+
 export const superadmin = accessControl.newRole({
   user: [
     "create",

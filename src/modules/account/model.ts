@@ -16,10 +16,6 @@ const updateInfoSchema = t.Object({
     minLength: 2,
     description: "Name must be at least 2 characters",
   }),
-  email: t.String({
-    minLength: 3,
-    description: "Email must be at least 3 characters",
-  }),
   phone: t.Number(),
 });
 

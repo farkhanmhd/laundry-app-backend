@@ -10,7 +10,7 @@ import {
   verification,
 } from "@/db/schema/auth";
 import { db } from "../db";
-import { accessControl, admin, superadmin, user } from "./permissions";
+import { accessControl, admin, driver, superadmin, user } from "./permissions";
 
 export const auth = betterAuth({
   basePath: "/api",
@@ -38,6 +38,7 @@ export const auth = betterAuth({
         user,
         admin,
         superadmin,
+        driver,
       },
     }),
   ],
@@ -51,7 +52,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          const ownerEmail = process.env.OWNER_EMAIL;
+          const ownerEmail = process.env.SUPERADMIN_EMAIL;
           if (user.email === ownerEmail) {
             await db
               .update(userTable)

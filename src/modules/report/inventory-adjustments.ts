@@ -1,7 +1,3 @@
-// src/modules/report/inventory-adjustments.ts
-//
-// pdfkit PDF generator for the inventory adjustment report.
-
 import PDFDocument from "pdfkit";
 
 // ─── Colours & layout constants ───────────────────────────────────────────────
@@ -12,9 +8,16 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [25, 130, 60, 60, 140, 100]; // sum = 515
-const ROW_HEIGHT = 20;
+const COL_WIDTHS = [37, 130, 60, 60, 140, 88];
 const HEADER_HEIGHT = 24;
+
+const BOTTOM_SAFE_ZONE = 50;
+const CELL_PADDING_TOP = 5;
+const CELL_PADDING_BOTTOM = 5;
+const CELL_PADDING_H = 6;
+const MIN_ROW_HEIGHT = 20;
+const HEADER_BAR_HEIGHT = 70;
+const TABLE_TOP = HEADER_BAR_HEIGHT + 15;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const colX = (colIndex: number): number => {
@@ -27,6 +30,8 @@ const colX = (colIndex: number): number => {
 
 const tableWidth = COL_WIDTHS.reduce((a, b) => a + b, 0);
 
+const cellWidth = (colIndex: number) => (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type AdjustmentReportItem = {
   id: string;
@@ -37,6 +42,18 @@ export type AdjustmentReportItem = {
   actorName: string | null;
   createdAt: string;
 };
+
+type HeaderDef = { text: string; align: "left" | "center" | "right" };
+type CellDef = { text: string; align: "left" | "center" | "right"; color?: string; bold?: boolean };
+
+const HEADERS: readonly HeaderDef[] = [
+  { text: "No", align: "center" },
+  { text: "Nama Item", align: "left" },
+  { text: "Perubahan", align: "center" },
+  { text: "Stok Akhir", align: "center" },
+  { text: "Keterangan", align: "left" },
+  { text: "Oleh", align: "left" },
+];
 
 // ─── Generator ────────────────────────────────────────────────────────────────
 export function generateAdjustmentPDF(
@@ -67,6 +84,27 @@ export function generateAdjustmentPDF(
 
     const pageWidth = doc.page.width;
     const contentWidth = pageWidth - PAGE_MARGIN * 2;
+
+    let pageNumber = 1;
+
+    const drawPageHeader = () => {
+      doc.rect(0, 0, pageWidth, HEADER_BAR_HEIGHT).fill(NAVY);
+      doc
+        .fillColor("white")
+        .font("Helvetica-Bold")
+        .fontSize(16)
+        .text("Beringin Coin Laundry", PAGE_MARGIN, 18);
+      doc
+        .fillColor("#a8c4e0")
+        .font("Helvetica")
+        .fontSize(10)
+        .text("LAPORAN PENYESUAIAN STOK", PAGE_MARGIN, 42);
+    };
+
+    doc.on("pageAdded", () => {
+      pageNumber++;
+      drawPageHeader();
+    });
 
     const printedAt = new Date().toLocaleString("id-ID", {
       day: "2-digit",
@@ -145,34 +183,76 @@ export function generateAdjustmentPDF(
 
     y += descHeight + 14;
 
-    // ── Table header ──────────────────────────────────────────────────────────
-    doc.rect(PAGE_MARGIN, y, tableWidth, HEADER_HEIGHT).fill(NAVY);
+    // ── Helper to draw table header ────────────────────────────────────────────
+    const drawTableHeader = (startY: number): number => {
+      doc.rect(PAGE_MARGIN, startY, tableWidth, HEADER_HEIGHT).fill(NAVY);
 
-    const headers = [
-      { text: "No", align: "center" },
-      { text: "Nama Item", align: "left" },
-      { text: "Perubahan", align: "center" },
-      { text: "Stok Akhir", align: "center" },
-      { text: "Keterangan", align: "left" },
-      { text: "Oleh", align: "left" },
-    ] as const;
+      HEADERS.forEach((h, i) => {
+        doc
+          .fillColor("white")
+          .font("Helvetica-Bold")
+          .fontSize(8.5)
+          .text(h.text, colX(i) + CELL_PADDING_H, startY + 7, {
+            width: cellWidth(i),
+            align: h.align,
+          });
+      });
 
-    headers.forEach((h, i) => {
+      return startY + HEADER_HEIGHT;
+    };
+
+    // ── Helper to compute row height ───────────────────────────────────────────
+    const computeRowHeight = (cells: CellDef[]): number => {
+      doc.fontSize(8.5).font("Helvetica");
+      let maxH = MIN_ROW_HEIGHT;
+      cells.forEach((cell, ci) => {
+        const textH =
+          doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
+          CELL_PADDING_TOP +
+          CELL_PADDING_BOTTOM;
+        if (textH > maxH) { maxH = textH; }
+      });
+      return maxH;
+    };
+
+    // ── Helper to draw footer (page number + info) ─────────────────────────────
+    const drawFooter = () => {
+      const footerY = doc.page.height - PAGE_MARGIN - 16;
+
       doc
-        .fillColor("white")
-        .font("Helvetica-Bold")
-        .fontSize(8.5)
-        .text(h.text, colX(i) + 6, y + 7, {
-          width: (COL_WIDTHS[i] ?? 0) - 12,
-          align: h.align,
-        });
-    });
+        .moveTo(PAGE_MARGIN, footerY - 6)
+        .lineTo(pageWidth - PAGE_MARGIN, footerY - 6)
+        .strokeColor(BORDER)
+        .lineWidth(0.5)
+        .stroke();
 
-    y += HEADER_HEIGHT;
+      doc
+        .fillColor(TEXT_MUTED)
+        .font("Helvetica")
+        .fontSize(8)
+        .text(
+          `Dicetak otomatis oleh sistem — ${printedAt} WIB`,
+          PAGE_MARGIN,
+          footerY
+        );
+
+      doc
+        .fillColor(TEXT_MUTED)
+        .font("Helvetica")
+        .fontSize(8)
+        .text(`${pageNumber}`, pageWidth - PAGE_MARGIN, footerY, {
+          align: "right",
+        });
+    };
+
+    // ── Table header (first page) ──────────────────────────────────────────────
+    y = drawTableHeader(y);
 
     // ── Table rows ────────────────────────────────────────────────────────────
     if (items.length === 0) {
-      doc.rect(PAGE_MARGIN, y, tableWidth, ROW_HEIGHT + 8).fill("#ffffff");
+      drawFooter();
+
+      doc.rect(PAGE_MARGIN, y, tableWidth, MIN_ROW_HEIGHT + 8).fill("#ffffff");
       doc
         .fillColor(TEXT_MUTED)
         .font("Helvetica")
@@ -181,32 +261,17 @@ export function generateAdjustmentPDF(
           width: tableWidth,
           align: "center",
         });
-      y += ROW_HEIGHT + 8;
+      y += MIN_ROW_HEIGHT + 8;
     } else {
       items.forEach((item, idx) => {
-        if (y + ROW_HEIGHT * 2 > doc.page.height - PAGE_MARGIN - 40) {
-          doc.addPage();
-          y = PAGE_MARGIN;
-        }
-
-        const rowBg = idx % 2 === 0 ? "#ffffff" : LIGHT_BG;
-        doc.rect(PAGE_MARGIN, y, tableWidth, ROW_HEIGHT).fill(rowBg);
-
-        doc
-          .moveTo(PAGE_MARGIN, y + ROW_HEIGHT)
-          .lineTo(PAGE_MARGIN + tableWidth, y + ROW_HEIGHT)
-          .strokeColor(BORDER)
-          .lineWidth(0.5)
-          .stroke();
-
         const changeStr =
           item.change > 0 ? `+${item.change}` : String(item.change);
         const changeColor = item.change > 0 ? "#2f855a" : "#c53030";
 
-        const cells = [
+        const cells: CellDef[] = [
           { text: String(idx + 1), align: "center", color: TEXT_DARK },
           { text: item.inventoryName ?? "-", align: "left", color: TEXT_DARK },
-          { text: changeStr, align: "center", color: changeColor },
+          { text: changeStr, align: "center", color: changeColor, bold: true },
           {
             text: String(item.stockRemaining),
             align: "center",
@@ -214,54 +279,44 @@ export function generateAdjustmentPDF(
           },
           { text: item.note ?? "-", align: "left", color: TEXT_DARK },
           { text: item.actorName ?? "-", align: "left", color: TEXT_DARK },
-        ] as const;
+        ];
 
+        doc.font("Helvetica").fontSize(8.5);
+        const rowHeight = computeRowHeight(cells);
+
+        if (y + rowHeight > doc.page.height - PAGE_MARGIN - BOTTOM_SAFE_ZONE) {
+          drawFooter();
+          doc.addPage();
+          y = drawTableHeader(TABLE_TOP);
+        }
+
+        const rowBg = idx % 2 === 0 ? "#ffffff" : LIGHT_BG;
+        doc.rect(PAGE_MARGIN, y, tableWidth, rowHeight).fill(rowBg);
+
+        doc
+          .moveTo(PAGE_MARGIN, y + rowHeight)
+          .lineTo(PAGE_MARGIN + tableWidth, y + rowHeight)
+          .strokeColor(BORDER)
+          .lineWidth(0.5)
+          .stroke();
+
+        doc.fontSize(8.5);
         cells.forEach((cell, ci) => {
           doc
-            .fillColor(cell.color)
-            .font(ci === 2 ? "Helvetica-Bold" : "Helvetica")
+            .fillColor(cell.color ?? TEXT_DARK)
+            .font(cell.bold ? "Helvetica-Bold" : "Helvetica")
             .fontSize(8.5)
-            .text(cell.text, colX(ci) + 6, y + 5, {
-              width: (COL_WIDTHS[ci] ?? 0) - 12,
+            .text(cell.text, colX(ci) + CELL_PADDING_H, y + CELL_PADDING_TOP, {
+              width: cellWidth(ci),
               align: cell.align,
-              ellipsis: true,
-              lineBreak: false,
             });
         });
 
-        y += ROW_HEIGHT;
+        y += rowHeight;
       });
     }
 
-    // ── Footer ────────────────────────────────────────────────────────────────
-    const footerY = doc.page.height - PAGE_MARGIN - 16;
-
-    doc
-      .moveTo(PAGE_MARGIN, footerY - 6)
-      .lineTo(pageWidth - PAGE_MARGIN, footerY - 6)
-      .strokeColor(BORDER)
-      .lineWidth(0.5)
-      .stroke();
-
-    doc
-      .fillColor(TEXT_MUTED)
-      .font("Helvetica")
-      .fontSize(8)
-      .text(
-        `Dicetak otomatis oleh sistem — ${printedAt} WIB`,
-        PAGE_MARGIN,
-        footerY
-      );
-
-    doc
-      .fillColor(TEXT_MUTED)
-      .font("Helvetica")
-      .fontSize(8)
-      .text(`Periode: ${from} – ${to}`, PAGE_MARGIN, footerY, {
-        width: contentWidth,
-        align: "right",
-      });
-
+    drawFooter();
     doc.end();
   });
 }

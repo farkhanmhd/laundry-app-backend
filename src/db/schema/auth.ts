@@ -7,7 +7,12 @@ import { orders } from "./orders";
 import { restockLogs } from "./restock-logs";
 import { routes } from "./routes";
 
-export const roleEnum = pgEnum("role", ["superadmin", "admin", "user"]);
+export const roleEnum = pgEnum("role", [
+  "superadmin",
+  "admin",
+  "driver",
+  "user",
+]);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

@@ -108,10 +108,10 @@ export abstract class RoutesService {
           );
 
         const paidOrderIds = paidPickUpOrderIds.map((p) => p.id);
-        console.log(paidOrderIds)
+        console.log(paidOrderIds);
 
         if (paidOrderIds.length > 0) {
-          console.log('triggering update')
+          console.log("triggering update");
           await tx
             .update(orders)
             .set({ status: "processing" })

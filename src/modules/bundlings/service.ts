@@ -1,5 +1,5 @@
 import { file, randomUUIDv7 as uuid, write } from "bun";
-import { and, desc, eq, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { NotFoundError } from "elysia";
 import { db } from "@/db";
 import { bundlingItems } from "@/db/schema/bundling-items";
@@ -13,13 +13,12 @@ import type {
   UpdateBundlingItemBody,
 } from "./model";
 
-export const BUNDLINGS_CACHE_KEY = "bundlings:all";
-
 export abstract class Bundlings {
   static async getBundlings() {
     const rows = await db
       .select()
       .from(bundlings)
+      .where(isNull(bundlings.deletedAt))
       .orderBy(desc(bundlings.createdAt));
 
     return rows;
@@ -174,5 +173,14 @@ export abstract class Bundlings {
     }
 
     return result[0]?.id as string;
+  }
+
+  static async deleteBundlingById(id: string) {
+    await db
+      .update(bundlings)
+      .set({
+        deletedAt: new Date().toISOString(),
+      })
+      .where(eq(bundlings.id, id));
   }
 }

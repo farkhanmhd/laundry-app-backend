@@ -1,26 +1,37 @@
 import { write } from "bun";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { bundlingItems } from "@/db/schema/bundling-items";
+import { bundlings } from "@/db/schema/bundlings";
 import { services } from "@/db/schema/services";
-import { InternalError, NotFoundError } from "@/exceptions";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type {
   AddServiceBody,
-  Service,
   UpdateServiceBody,
   UpdateServiceImage,
 } from "./model";
 
 export abstract class Services {
   static async getServices() {
-    const rows: Service[] = await db
-      .select()
+    const rows = await db
+      .select({
+        ...getTableColumns(services),
+        isOnBundling: sql<boolean>`COUNT(${bundlings.id}) > 0`,
+      })
       .from(services)
+      .leftJoin(bundlingItems, eq(bundlingItems.serviceId, services.id))
+      .leftJoin(
+        bundlings,
+        and(
+          eq(bundlings.id, bundlingItems.bundlingId),
+          isNull(bundlings.deletedAt)
+        )
+      )
       .where(isNull(services.deletedAt))
-      .orderBy(desc(services.createdAt));
-
+      .orderBy(desc(services.createdAt))
+      .groupBy(services.id);
     return rows;
   }
-
   static async getServiceById(id: string) {
     const row = await db
       .select()
@@ -98,11 +109,21 @@ export abstract class Services {
   }
 
   static async deleteService(id: string) {
+    const bundling = await db
+      .select({ id: bundlingItems.id })
+      .from(bundlingItems)
+      .where(eq(bundlingItems.serviceId, id))
+      .limit(1);
+
+    if (bundling.length) {
+      throw new ConflictError("Service is used in bundling items");
+    }
+
     const result = await db
       .update(services)
       .set({ deletedAt: sql`now()` })
       .where(eq(services.id, id))
-      .returning({ id: services.id, image: services.image });
+      .returning({ id: services.id });
 
     if (!result.length) {
       throw new InternalError("Service id not valid");

@@ -1,4 +1,4 @@
-import { and, eq, gt, ilike, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, isNotNull, isNull, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
@@ -41,7 +41,8 @@ export abstract class Pos {
         stock: sql<number | null>`${inventoriesTable.stock}`.as("stock"),
         itemType: sql<string>`'inventory'`.as("item_type"),
       })
-      .from(inventoriesTable);
+      .from(inventoriesTable)
+      .where(isNull(inventoriesTable.deletedAt));
 
     const services = db
       .select({
@@ -53,7 +54,8 @@ export abstract class Pos {
         stock: sql<number | null>`null`.as("stock"),
         itemType: sql<string>`'service'`.as("item_type"),
       })
-      .from(servicesTable);
+      .from(servicesTable)
+      .where(isNull(servicesTable.deletedAt));
 
     const bundlings = db
       .select({
@@ -65,7 +67,8 @@ export abstract class Pos {
         stock: sql<number | null>`null`.as("stock"),
         itemType: sql<string>`'bundling'`.as("item_type"),
       })
-      .from(bundlingsTable);
+      .from(bundlingsTable)
+      .where(isNull(bundlingsTable.deletedAt));
 
     const rows = await unionAll(inventories, services, bundlings);
 

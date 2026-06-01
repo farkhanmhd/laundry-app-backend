@@ -176,6 +176,13 @@
       "when": 1779721300741,
       "tag": "0024_lethal_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780225590606,
+      "tag": "0025_kind_maddog",
+      "breakpoints": true
     }
   ]
 }

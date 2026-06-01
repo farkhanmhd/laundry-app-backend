@@ -2,7 +2,10 @@ import { Elysia, t } from "elysia";
 import { models } from "@/db/models";
 import { succesResponse } from "@/responses";
 
-const service = t.Object(models.select.services);
+const service = t.Object({
+  ...models.select.services,
+  isOnBundling: t.Boolean(),
+});
 
 const addService = t.Object({
   name: t.String({

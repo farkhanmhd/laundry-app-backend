@@ -3,7 +3,10 @@ import { models } from "@/db/models";
 import { succesResponse } from "@/responses";
 import { searchQuery } from "@/search-query";
 
-const inventory = t.Object(models.select.inventories);
+const inventory = t.Object({
+  ...models.select.inventories,
+  isOnBundling: t.Boolean(),
+});
 const addInventory = t.Object({
   name: t.String({
     ...models.insert.inventories.name,

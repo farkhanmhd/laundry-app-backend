@@ -171,6 +171,7 @@ export abstract class Members {
     const membersQuery = db
       .select({
         id: membersTable.id,
+        userId: membersTable.userId,
         name: membersTable.name,
         phone: membersTable.phone,
         joinDate: membersTable.createdAt,

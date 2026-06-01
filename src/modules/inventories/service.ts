@@ -7,6 +7,7 @@ import {
   countDistinct,
   desc,
   eq,
+  getTableColumns,
   ilike,
   inArray,
   isNotNull,
@@ -19,9 +20,11 @@ import {
 import { db } from "@/db";
 import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { user } from "@/db/schema/auth";
+import { bundlingItems } from "@/db/schema/bundling-items";
+import { bundlings } from "@/db/schema/bundlings";
 import { inventories } from "@/db/schema/inventories";
 import { restockLogs } from "@/db/schema/restock-logs";
-import { InternalError, NotFoundError } from "@/exceptions";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
@@ -34,12 +37,23 @@ import type {
 
 export abstract class Inventories {
   static async getInventories() {
-    const rows = await db
-      .select()
+    const result = await db
+      .select({
+        ...getTableColumns(inventories),
+        isOnBundling: sql<boolean>`COUNT(${bundlingItems.id}) > 0`,
+      })
       .from(inventories)
-      .orderBy(desc(inventories.createdAt));
-
-    return rows;
+      .leftJoin(bundlingItems, eq(bundlingItems.inventoryId, inventories.id))
+      .leftJoin(
+        bundlings,
+        and(
+          eq(bundlings.id, bundlingItems.bundlingId),
+          isNull(bundlings.deletedAt)
+        )
+      )
+      .where(isNull(inventories.deletedAt))
+      .groupBy(inventories.id);
+    return result;
   }
 
   static async getAdjustmentHistory(query: InventoryHistoryQuery) {
@@ -269,13 +283,18 @@ export abstract class Inventories {
     if (result.length === 0) {
       throw new InternalError();
     }
-    const row = result[0];
+    const row = { ...result[0], isOnBundling: false };
     return row;
   }
 
   static async getInventoryById(id: string) {
     const row = await db
-      .select()
+      .select({
+        ...getTableColumns(inventories),
+        isOnBundling: sql<boolean>`(SELECT count(*) > 0 FROM ${bundlingItems}
+          WHERE ${bundlingItems.inventoryId} = ${inventories.id}
+        )`.as("is_on_bundling"),
+      })
       .from(inventories)
       .where(and(eq(inventories.id, id), isNull(inventories.deletedAt)))
       .limit(1);
@@ -409,6 +428,15 @@ export abstract class Inventories {
   }
 
   static async deleteInventory(id: string) {
+    const bundling = await db
+      .select({ id: bundlingItems.id })
+      .from(bundlingItems)
+      .where(eq(bundlingItems.inventoryId, id));
+
+    if (bundling.length) {
+      throw new ConflictError("Inventory is being used in a bundling");
+    }
+
     const result = await db
       .update(inventories)
       .set({ deletedAt: sql`now()` })

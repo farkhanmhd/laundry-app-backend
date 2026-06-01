@@ -1,7 +1,7 @@
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { vouchers } from "@/db/schema/vouchers";
-import { InternalError, NotFoundError } from "@/exceptions";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type { Voucher, VoucherInsert } from "./model";
 
 /**
@@ -21,7 +21,11 @@ export abstract class Vouchers {
         .select()
         .from(vouchers)
         .where(
-          and(gt(vouchers.expiresAt, sql`now()`), eq(vouchers.isVisible, true))
+          and(
+            gt(vouchers.expiresAt, sql`now()`),
+            eq(vouchers.isVisible, true),
+            isNull(vouchers.deletedAt)
+          )
         )
         .orderBy(desc(vouchers.createdAt));
 
@@ -37,6 +41,7 @@ export abstract class Vouchers {
       const rows = await db
         .select()
         .from(vouchers)
+        .where(isNull(vouchers.deletedAt))
         .orderBy(desc(vouchers.createdAt));
 
       return rows;
@@ -47,8 +52,12 @@ export abstract class Vouchers {
   }
 
   static async getVoucherById(id: string) {
+    const { expiresAt, ...columns } = getTableColumns(vouchers);
     const row = await db
-      .select()
+      .select({
+        ...columns,
+        expiresAt: sql<string>`${vouchers.expiresAt} + interval '7 hours'`,
+      })
       .from(vouchers)
       .where(and(eq(vouchers.id, id), isNull(vouchers.deletedAt)))
       .limit(1);
@@ -66,9 +75,20 @@ export abstract class Vouchers {
    * @throws {InternalError} If the voucher creation fails.
    */
   static async addVoucher(data: VoucherInsert) {
+    const code = data.code.toLowerCase();
+    const existing = await db
+      .select({ id: vouchers.id })
+      .from(vouchers)
+      .where(and(eq(vouchers.code, code), isNull(vouchers.deletedAt)))
+      .limit(1);
+
+    if (existing.length) {
+      throw new ConflictError("A voucher with this code already exists.");
+    }
+
     const result = await db
       .insert(vouchers)
-      .values({ ...data, code: data.code.toLowerCase() })
+      .values({ ...data, code })
       .returning({ id: vouchers.id });
 
     if (!(result.length && result[0]?.id)) {

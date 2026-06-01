@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { auth } from "@/auth/auth";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
@@ -19,10 +19,7 @@ export abstract class UserService {
     const searchByUsername = ilike(user.username, `%${search}%`);
     const searchByPhone = ilike(user.phoneNumber, `%${search}%`);
 
-    const whereQuery = and(
-      or(searchByUsername, searchByName, searchByPhone),
-      ne(user.role, "superadmin")
-    );
+    const whereQuery = and(or(searchByUsername, searchByName, searchByPhone));
     const usersQuery = db
       .select({
         id: user.id,

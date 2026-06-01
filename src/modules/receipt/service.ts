@@ -24,7 +24,7 @@ export class ReceiptService {
       })
       .from(orders)
       .leftJoin(members, eq(orders.memberId, members.id))
-      .where(eq(orders.id, orderId))
+      .where(eq(orders.id, orderId.toLowerCase()))
       .limit(1);
 
     const order = result[0];

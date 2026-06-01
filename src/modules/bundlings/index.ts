@@ -185,4 +185,11 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
     {
       body: "updateBundlingImage",
     }
-  );
+  )
+  .delete("/:id", async ({ params: { id }, status }) => {
+    await Bundlings.deleteBundlingById(id);
+    return status(200, {
+      status: "success",
+      message: "Bundling deleted",
+    });
+  });

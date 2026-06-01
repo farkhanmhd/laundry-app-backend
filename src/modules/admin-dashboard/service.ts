@@ -8,6 +8,7 @@ import {
   gt,
   inArray,
   isNotNull,
+  isNull,
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -83,7 +84,12 @@ export abstract class AdminDashboardService {
         safety: inventories.safetyStock,
       })
       .from(inventories)
-      .where(gt(inventories.safetyStock, inventories.stock));
+      .where(
+        and(
+          gt(inventories.safetyStock, inventories.stock),
+          isNull(inventories.deletedAt)
+        )
+      );
 
     return rows;
   }
@@ -133,7 +139,7 @@ export abstract class AdminDashboardService {
     const staffResult = await db
       .select({ count: count() })
       .from(user)
-      .where(eq(user.role, "admin"));
+      .where(inArray(user.role, ["admin", "driver"]));
 
     return {
       totalRevenue: revenueResult[0]?.total ?? 0,
@@ -143,10 +149,7 @@ export abstract class AdminDashboardService {
     };
   }
 
-  static async getOrderStatusData(
-    from?: string,
-    to?: string
-  ): Promise<OrderStatusData[]> {
+  static async getOrderStatusData(from?: string, to?: string) {
     const baseFilter =
       from && to
         ? AdminDashboardService.getBaseConditions(from, to)
