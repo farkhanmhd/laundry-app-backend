@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { deliveriesModel } from "./model";
 import { DeliveriesService } from "./service";
+import { NotFoundError } from "@/exceptions";
 
 export const deliveriesController = new Elysia({ prefix: "/deliveries" })
   .use(betterAuth)
@@ -13,18 +14,30 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
   .post(
     "/",
     async ({ status, body, user }) => {
-      const newRouteId = await DeliveriesService.createDeliveryRoute({
-        deliveryIds: body.deliveryIds,
-        userId: user.id,
-      });
+      try {
+        const newRouteId = await DeliveriesService.createDeliveryRoute({
+          deliveryIds: body.deliveryIds,
+          userId: user.id,
+        });
 
-      return status(201, {
-        status: "success",
-        message: "New pickup route created",
-        data: {
-          routeId: newRouteId,
-        },
-      });
+        return status(201, {
+          status: "success",
+          message: "New pickup route created",
+          messageKey: "delivery.route.created",
+          data: {
+            routeId: newRouteId,
+          },
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Some deliveries could not be found",
+            messageKey: "delivery.route.createNotFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "createRouteSchema",
@@ -44,6 +57,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       return status(200, {
         status: "success",
         message: "Pickups retrieved successfully",
+        messageKey: "delivery.pickups.retrieved",
         data,
         totalData,
         totalPages,
@@ -67,6 +81,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       return status(200, {
         status: "success",
         message: "Deliveries retrieved successfully",
+        messageKey: "delivery.deliveries.retrieved",
         data,
         totalData,
         totalPages,
@@ -79,13 +94,25 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
   .patch(
     "/:id/status",
     async ({ status, params }) => {
-      const result = await DeliveriesService.updateDeliveryStatus(params.id);
+      try {
+        const result = await DeliveriesService.updateDeliveryStatus(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Delivery Status Updated",
-        data: result,
-      });
+        return status(200, {
+          status: "success",
+          message: "Delivery status updated",
+          messageKey: "delivery.status.updated",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Delivery not found",
+            messageKey: "delivery.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       params: t.Object({

@@ -86,16 +86,28 @@ export abstract class Vouchers {
       throw new ConflictError("A voucher with this code already exists.");
     }
 
-    const result = await db
-      .insert(vouchers)
-      .values({ ...data, code })
-      .returning({ id: vouchers.id });
+    try {
+      const result = await db
+        .insert(vouchers)
+        .values({ ...data, code })
+        .returning({ id: vouchers.id });
 
-    if (!(result.length && result[0]?.id)) {
-      throw new InternalError("Failed to create the new voucher.");
+      if (!(result.length && result[0]?.id)) {
+        throw new InternalError("Failed to create the new voucher.");
+      }
+
+      return result[0].id;
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "23505"
+      ) {
+        throw new ConflictError("A voucher with this code already exists.");
+      }
+      throw error;
     }
-
-    return result[0].id;
   }
 
   /**
@@ -106,17 +118,48 @@ export abstract class Vouchers {
    * @throws {NotFoundError} If no voucher with the given ID is found.
    */
   static async updateVoucher(id: string, data: VoucherInsert) {
-    const result = await db
-      .update(vouchers)
-      .set(data)
-      .where(eq(vouchers.id, id))
-      .returning({ id: vouchers.id });
+    if (data.code) {
+      const code = data.code.toLowerCase();
+      const existing = await db
+        .select({ id: vouchers.id })
+        .from(vouchers)
+        .where(
+          and(
+            eq(vouchers.code, code),
+            isNull(vouchers.deletedAt),
+            eq(vouchers.isVisible, true)
+          )
+        )
+        .limit(1);
 
-    if (!(result.length && result[0]?.id)) {
-      throw new NotFoundError("Voucher not found.");
+      if (existing.length && existing[0]?.id !== id) {
+        throw new ConflictError("A voucher with this code already exists.");
+      }
     }
 
-    return result[0].id;
+    try {
+      const result = await db
+        .update(vouchers)
+        .set(data)
+        .where(eq(vouchers.id, id))
+        .returning({ id: vouchers.id });
+
+      if (!(result.length && result[0]?.id)) {
+        throw new NotFoundError("Voucher not found.");
+      }
+
+      return result[0].id;
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "23505"
+      ) {
+        throw new ConflictError("A voucher with this code already exists.");
+      }
+      throw error;
+    }
   }
 
   /**

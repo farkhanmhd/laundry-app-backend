@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { InternalError, NotFoundError } from "@/exceptions";
 import { bundlingsModel } from "./model";
 import { Bundlings } from "./service";
 
@@ -19,13 +20,19 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         return status(200, {
           status: "success",
           message: "Bundlings Retrieved",
+          messageKey: "bundling.retrieved",
           data: result,
         });
-      } catch {
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -41,24 +48,28 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         return status(200, {
           status: "success",
           message: "Bundling Retrieved",
+          messageKey: "bundling.retrieved",
           data: bundling,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
+        if (error instanceof NotFoundError) {
           return status(404, {
             status: "error",
-            message: "Inventory not found",
+            message: error.message,
+            messageKey: "bundling.notFound",
+            messageParams: { id: params.id },
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -71,14 +82,28 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
   .post(
     "/",
     async ({ body, status }) => {
-      const bundlingId = await Bundlings.addBundling(body);
-      return status(201, {
-        status: "success",
-        message: "New Bundling Created",
-        data: {
-          bundlingId,
-        },
-      });
+      try {
+        const bundlingId = await Bundlings.addBundling(body);
+        return status(201, {
+          status: "success",
+          message: "New Bundling Created",
+          messageKey: "bundling.created",
+          messageParams: { name: body.name },
+          data: {
+            bundlingId,
+          },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "addBundling",
@@ -113,23 +138,28 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         return status(200, {
           status: "success",
           message: "Bundling data Updated",
+          messageKey: "bundling.updated",
+          data: null,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
+        if (error instanceof NotFoundError) {
           return status(404, {
             status: "error",
-            message: "Inventory not found",
+            message: error.message,
+            messageKey: "bundling.notFound",
+            messageParams: { id },
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -140,15 +170,25 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
   .patch(
     "/:id/items",
     async ({ params: { id }, body, status }) => {
-      await Bundlings.updateBundlingItems(id, body);
-      return status(200, {
-        status: "success",
-        message: "Bundling Items Updated.",
-        data: {
-          id,
-          body,
-        },
-      });
+      try {
+        await Bundlings.updateBundlingItems(id, body);
+        return status(200, {
+          status: "success",
+          message: "Bundling Items Updated.",
+          messageKey: "bundling.items.updated",
+          data: null,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "updateBundlingItemBody",
@@ -163,23 +203,28 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         return status(200, {
           status: "success",
           message: "Bundling image updated",
+          messageKey: "bundling.image.updated",
+          data: null,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
+        if (error instanceof NotFoundError) {
           return status(404, {
             status: "error",
-            message: "inventory not found",
+            message: error.message,
+            messageKey: "bundling.notFound",
+            messageParams: { id },
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -187,9 +232,32 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
     }
   )
   .delete("/:id", async ({ params: { id }, status }) => {
-    await Bundlings.deleteBundlingById(id);
-    return status(200, {
-      status: "success",
-      message: "Bundling deleted",
-    });
+    try {
+      await Bundlings.deleteBundlingById(id);
+      return status(200, {
+        status: "success",
+        message: "Bundling deleted",
+        messageKey: "bundling.deleted",
+        data: null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return status(404, {
+          status: "error",
+          message: error.message,
+          messageKey: "bundling.notFound",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
+    }
   });

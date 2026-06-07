@@ -49,6 +49,20 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
       INVALID_FILE_TYPE: 422,
     };
 
+    const messageKeyMap: Record<string, string> = {
+      INTERNAL_ERROR: "common.unexpectedError",
+      CONFLICT: "validation.alreadyExists",
+      NOT_FOUND_RESOURCE: "common.notFound",
+      UNAUTHORIZED: "auth.unauthorized",
+      VALIDATION: "validation.required",
+      UNKNOWN: "common.unexpectedError",
+      NOT_FOUND: "common.notFound",
+      PARSE: "validation.required",
+      INTERNAL_SERVER_ERROR: "common.unexpectedError",
+      INVALID_COOKIE_SIGNATURE: "auth.sessionExpired",
+      INVALID_FILE_TYPE: "validation.required",
+    };
+
     if (code === "VALIDATION") {
       const details = error.all.map((e) => {
         if (e.summary) {
@@ -63,15 +77,18 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
       return status(422, {
         status: "failed",
         message: "Validation failed",
+        messageKey: "validation.required",
         errors: details,
       });
     }
 
     const message = error instanceof Error ? error.message : String(error);
+    const key = messageKeyMap[code as keyof typeof messageKeyMap] || "common.unexpectedError";
 
     const defaultErrorResponse = {
       status: "failed",
       message,
+      messageKey: key,
     };
 
     return status(

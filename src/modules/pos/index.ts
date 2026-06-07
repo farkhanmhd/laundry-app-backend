@@ -3,6 +3,7 @@ import { betterAuth } from "@/auth/auth-instance";
 import { searchQueryModel } from "@/search-query";
 import { posModel } from "./model";
 import { Pos } from "./service";
+import { NotFoundError } from "@/exceptions";
 
 export const posController = new Elysia({ prefix: "/pos" })
   .use(posModel)
@@ -19,20 +20,33 @@ export const posController = new Elysia({ prefix: "/pos" })
     return status(200, {
       status: "success",
       message: "Pos Items Retrieved",
+      messageKey: "pos.items.retrieved",
       data: result,
     });
   })
   .post(
     "/new",
     async ({ body, status, session }) => {
-      const newOrderId = await Pos.newPosOrder(body, session.userId);
-      return status(201, {
-        status: "success",
-        message: "New Pos Order Created",
-        data: {
-          orderId: newOrderId,
-        },
-      });
+      try {
+        const newOrderId = await Pos.newPosOrder(body, session.userId);
+        return status(201, {
+          status: "success",
+          message: "New Pos Order Created",
+          messageKey: "pos.order.created",
+          data: {
+            orderId: newOrderId,
+          },
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Resource not found",
+            messageKey: "common.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "newPosOrderSchema",
@@ -47,6 +61,7 @@ export const posController = new Elysia({ prefix: "/pos" })
       return status(200, {
         status: "success",
         message: "Member search success",
+        messageKey: "pos.members.retrieved",
         data: { members },
       });
     },
@@ -63,6 +78,7 @@ export const posController = new Elysia({ prefix: "/pos" })
       return status(200, {
         status: "success",
         message: "Pos Vouchers Retrieved",
+        messageKey: "pos.vouchers.retrieved",
         data,
       });
     },
@@ -73,13 +89,25 @@ export const posController = new Elysia({ prefix: "/pos" })
   .get(
     "/voucher",
     async ({ status, query }) => {
-      const { search = "" } = query;
-      const voucher = await Pos.getVoucherByCode(search.toLowerCase());
-      return status(200, {
-        status: "success",
-        message: "Voucher Added",
-        data: voucher,
-      });
+      try {
+        const { search = "" } = query;
+        const voucher = await Pos.getVoucherByCode(search.toLowerCase());
+        return status(200, {
+          status: "success",
+          message: "Voucher Added",
+          messageKey: "pos.voucher.retrieved",
+          data: voucher,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Voucher not found",
+            messageKey: "pos.voucher.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       query: "searchQuery",

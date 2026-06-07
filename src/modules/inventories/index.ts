@@ -1,6 +1,7 @@
 import { endOfDay, format, startOfMonth } from "date-fns";
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import { inventoriesModel } from "./model";
 import { Inventories } from "./service";
 
@@ -20,13 +21,19 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
         return status(200, {
           status: "success",
           message: "Inventories Retrieved",
+          messageKey: "inventory.retrieved",
           data: result,
         });
-      } catch {
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -36,12 +43,25 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/report/total-items",
     async ({ status }) => {
-      const totalItems = await Inventories.getTotalItems();
-      return status(200, {
-        status: "success",
-        message: "Total items retrieved",
-        data: { totalItems },
-      });
+      try {
+        const totalItems = await Inventories.getTotalItems();
+        return status(200, {
+          status: "success",
+          message: "Total items retrieved",
+          messageKey: "inventory.report.totalItems",
+          data: { totalItems },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       auth: true,
@@ -50,12 +70,25 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/report/low-stock",
     async ({ status }) => {
-      const result = await Inventories.getLowStockItems();
-      return status(200, {
-        status: "success",
-        message: "Low stock items retrieved",
-        data: result,
-      });
+      try {
+        const result = await Inventories.getLowStockItems();
+        return status(200, {
+          status: "success",
+          message: "Low stock items retrieved",
+          messageKey: "inventory.report.lowStock",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       auth: true,
@@ -64,19 +97,32 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/report/usage",
     async ({ status, query }) => {
-      let { from, to } = query;
-      if (!from) {
-        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+      try {
+        let { from, to } = query;
+        if (!from) {
+          from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+        }
+        if (!to) {
+          to = format(endOfDay(new Date()), "dd-MM-yyyy");
+        }
+        const totalUsage = await Inventories.getTotalUsage(from, to);
+        return status(200, {
+          status: "success",
+          message: "Total usage retrieved",
+          messageKey: "inventory.report.usage",
+          data: { totalUsage, from, to },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
-      if (!to) {
-        to = format(endOfDay(new Date()), "dd-MM-yyyy");
-      }
-      const totalUsage = await Inventories.getTotalUsage(from, to);
-      return status(200, {
-        status: "success",
-        message: "Total usage retrieved",
-        data: { totalUsage, from, to },
-      });
     },
     {
       query: "inventoryReportQuery",
@@ -86,22 +132,35 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/report/average-usage",
     async ({ status, query }) => {
-      let { from, to } = query;
-      if (!from) {
-        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+      try {
+        let { from, to } = query;
+        if (!from) {
+          from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+        }
+        if (!to) {
+          to = format(endOfDay(new Date()), "dd-MM-yyyy");
+        }
+        const totalUsage = await Inventories.getTotalUsage(from, to);
+        const uniqueOrderCount = await Inventories.getUniqueOrderCount(from, to);
+        const averageUsagePerOrder =
+          uniqueOrderCount > 0 ? totalUsage / uniqueOrderCount : 0;
+        return status(200, {
+          status: "success",
+          message: "Average usage per order retrieved",
+          messageKey: "inventory.report.averageUsage",
+          data: { averageUsagePerOrder, from, to },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
-      if (!to) {
-        to = format(endOfDay(new Date()), "dd-MM-yyyy");
-      }
-      const totalUsage = await Inventories.getTotalUsage(from, to);
-      const uniqueOrderCount = await Inventories.getUniqueOrderCount(from, to);
-      const averageUsagePerOrder =
-        uniqueOrderCount > 0 ? totalUsage / uniqueOrderCount : 0;
-      return status(200, {
-        status: "success",
-        message: "Average usage per order retrieved",
-        data: { averageUsagePerOrder, from, to },
-      });
     },
     {
       query: "inventoryReportQuery",
@@ -111,12 +170,26 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/:id",
     async ({ params, status }) => {
-      const inventory = await Inventories.getInventoryById(params.id as string);
-      return status(200, {
-        status: "success",
-        message: "Inventory Retrieved",
-        data: inventory,
-      });
+      try {
+        const inventory = await Inventories.getInventoryById(params.id as string);
+        return status(200, {
+          status: "success",
+          message: "Inventory Retrieved",
+          messageKey: "inventory.retrieved",
+          data: inventory,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.notFound",
+            messageParams: { id: params.id },
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     { auth: true }
   )
@@ -126,13 +199,25 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/adjustments",
     async ({ status, query }) => {
-      const result = await Inventories.getAdjustmentHistory(query);
-
-      return status(200, {
-        status: "success",
-        message: "Inventory history retrieved",
-        data: result,
-      });
+      try {
+        const result = await Inventories.getAdjustmentHistory(query);
+        return status(200, {
+          status: "success",
+          message: "Inventory history retrieved",
+          messageKey: "inventory.adjustments.retrieved",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       query: "inventoryHistoryQuery",
@@ -141,13 +226,25 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/usage",
     async ({ status, query }) => {
-      const result = await Inventories.getUsageHistory(query);
-
-      return status(200, {
-        status: "success",
-        message: "Usage history retrieved",
-        data: result,
-      });
+      try {
+        const result = await Inventories.getUsageHistory(query);
+        return status(200, {
+          status: "success",
+          message: "Usage history retrieved",
+          messageKey: "inventory.usage.retrieved",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       query: "inventoryHistoryQuery",
@@ -156,25 +253,50 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .get(
     "/restock-history",
     async ({ status, query }) => {
-      const result = await Inventories.getRestockHistory(query);
-
-      return status(200, {
-        status: "success",
-        message: "Restock history retrieved",
-        data: result,
-      });
+      try {
+        const result = await Inventories.getRestockHistory(query);
+        return status(200, {
+          status: "success",
+          message: "Restock history retrieved",
+          messageKey: "inventory.restockHistory.retrieved",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       query: "inventoryHistoryQuery",
     }
   )
   .get("/options", async ({ status }) => {
-    const options = await Inventories.getInventoryOptions();
-    return status(200, {
-      status: "success",
-      message: "Inventory options retrieved",
-      data: options,
-    });
+    try {
+      const options = await Inventories.getInventoryOptions();
+      return status(200, {
+        status: "success",
+        message: "Inventory options retrieved",
+        messageKey: "inventory.options.retrieved",
+        data: options,
+      });
+    } catch (error) {
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
+    }
   })
   .post(
     "/",
@@ -184,24 +306,20 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
         return status(201, {
           status: "success",
           message: "New inventory Created",
+          messageKey: "inventory.created",
+          messageParams: { name: body.name },
           data: inventory,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "InternalError"
-        ) {
-          return status(400, {
+        if (error instanceof InternalError) {
+          return status(500, {
             status: "error",
-            message: "Failed to create inventory",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        throw error;
       }
     },
     {
@@ -217,23 +335,28 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
         return status(200, {
           status: "success",
           message: "Inventory Updated",
+          messageKey: "inventory.updated",
+          data: null,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
+        if (error instanceof NotFoundError) {
           return status(404, {
             status: "error",
             message: "Inventory not found",
+            messageKey: "inventory.notFound",
+            messageParams: { id },
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -248,24 +371,29 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
         await Inventories.updateInventoryImage(id, body);
         return status(200, {
           status: "success",
-          message: "inventory updated",
+          message: "Inventory updated",
+          messageKey: "inventory.image.updated",
+          data: null,
         });
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "name" in error &&
-          error.name === "NotFoundError"
-        ) {
+        if (error instanceof NotFoundError) {
           return status(404, {
             status: "error",
-            message: "inventory not found",
+            message: "Inventory not found",
+            messageKey: "inventory.notFound",
+            messageParams: { id },
+            data: null,
           });
         }
-        return status(500, {
-          status: "error",
-          message: "Internal server error",
-        });
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
     },
     {
@@ -275,11 +403,34 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .patch(
     "/:id/stock",
     async ({ params: { id }, status, body, user }) => {
-      await Inventories.adjustQuantity(user.id, id, body);
-      return status(200, {
-        status: "success",
-        message: "Quantity Updated",
-      });
+      try {
+        await Inventories.adjustQuantity(user.id, id, body);
+        return status(200, {
+          status: "success",
+          message: "Quantity Updated",
+          messageKey: "inventory.stock.adjusted",
+          data: null,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "adjustQuantity",
@@ -288,11 +439,35 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   .post(
     "/:id/restock",
     async ({ params: { id }, status, body, user }) => {
-      await Inventories.restockInventory(user.id, id, body);
-      return status(200, {
-        status: "success",
-        message: "Inventory restocked successfully",
-      });
+      try {
+        await Inventories.restockInventory(user.id, id, body);
+        return status(200, {
+          status: "success",
+          message: "Inventory restocked successfully",
+          messageKey: "inventory.restocked",
+          messageParams: { id },
+          data: null,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       body: "restockQuantity",
@@ -304,22 +479,37 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       return status(200, {
         status: "success",
         message: "Inventory deleted",
+        messageKey: "inventory.deleted",
+        messageParams: { id },
+        data: null,
       });
     } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "name" in error &&
-        error.name === "NotFoundError"
-      ) {
+      if (error instanceof NotFoundError) {
         return status(404, {
           status: "error",
-          message: "Inventory not found",
+          message: error.message,
+          messageKey: "inventory.notFound",
+          messageParams: { id },
+          data: null,
         });
       }
-      return status(500, {
-        status: "error",
-        message: "Internal server error",
-      });
+      if (error instanceof ConflictError) {
+        return status(409, {
+          status: "error",
+          message: error.message,
+          messageKey: "inventory.inUse",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
     }
   });

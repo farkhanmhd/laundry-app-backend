@@ -476,7 +476,12 @@ export abstract class Inventories {
         stock: inventories.stock,
       })
       .from(inventories)
-      .where(lt(inventories.stock, inventories.safetyStock));
+      .where(
+        and(
+          lt(inventories.stock, inventories.safetyStock),
+          isNull(inventories.deletedAt)
+        )
+      );
     return result;
   }
 

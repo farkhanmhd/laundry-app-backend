@@ -1,6 +1,7 @@
 import { endOfDay, format, startOfMonth } from "date-fns";
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import { searchQueryModel } from "@/search-query";
 import { membersModel } from "./model";
 import { Members } from "./service";
@@ -17,36 +18,64 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/search-by-phone",
     async ({ query, status }) => {
-      const result = await Members.getMemberByPhone(query.phone);
+      try {
+        const result = await Members.getMemberByPhone(query.phone);
 
-      if (!result) {
-        return status(404, {
-          status: "error",
-          message: "Member not found",
+        if (!result) {
+          return status(404, {
+            status: "error",
+            message: "Member not found",
+            messageKey: "member.notFound",
+            messageParams: { phone: query.phone },
+            data: null,
+          });
+        }
+
+        return status(200, {
+          status: "success",
+          message: "Member retrieved successfully",
+          messageKey: "member.retrieved",
+          data: result,
         });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
       }
-
-      return status(200, {
-        status: "success",
-        message: "Member retrieved successfully",
-        data: result,
-      });
     },
     {
       query: "searchByPhoneQuery",
     }
   )
-
   .get(
     "/",
     async ({ status, query }) => {
-      const result = await Members.getMembers(query);
+      try {
+        const result = await Members.getMembers(query);
 
-      return status(200, {
-        status: "success",
-        message: "Members Retrieved",
-        data: result,
-      });
+        return status(200, {
+          status: "success",
+          message: "Members Retrieved",
+          messageKey: "member.retrieved",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       query: "searchQuery",
@@ -55,15 +84,38 @@ export const membersController = new Elysia({ prefix: "/members" })
   .post(
     "/",
     async ({ body, status }) => {
-      const newMemberId = await Members.addMember(body);
+      try {
+        const newMemberId = await Members.addMember(body);
 
-      return status(201, {
-        status: "success",
-        message: "New Member Added",
-        data: {
-          id: newMemberId,
-        },
-      });
+        return status(201, {
+          status: "success",
+          message: "New Member Added",
+          messageKey: "member.created",
+          messageParams: { name: body.name },
+          data: {
+            id: newMemberId,
+          },
+        });
+      } catch (error) {
+        if (error instanceof ConflictError) {
+          return status(409, {
+            status: "error",
+            message: error.message,
+            messageKey: "member.phoneTaken",
+            messageParams: { phone: body.phone },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
@@ -74,14 +126,27 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/reports/total-customers",
     async ({ status }) => {
-      const totalCustomers = await Members.getTotalCustomers();
-      return status(200, {
-        status: "success",
-        message: "Total customers retrieved successfully",
-        data: {
-          totalCustomers,
-        },
-      });
+      try {
+        const totalCustomers = await Members.getTotalCustomers();
+        return status(200, {
+          status: "success",
+          message: "Total customers retrieved successfully",
+          messageKey: "member.report.totalCustomers",
+          data: {
+            totalCustomers,
+          },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       detail: {
@@ -93,23 +158,36 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/reports/average-order-value",
     async ({ query, status }) => {
-      let { from, to } = query;
+      try {
+        let { from, to } = query;
 
-      if (!from) {
-        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
-      }
-      if (!to) {
-        to = format(endOfDay(new Date()), "dd-MM-yyyy");
-      }
+        if (!from) {
+          from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+        }
+        if (!to) {
+          to = format(endOfDay(new Date()), "dd-MM-yyyy");
+        }
 
-      const averageOrderValue = await Members.getAverageOrderValue(from, to);
-      return status(200, {
-        status: "success",
-        message: "Average customer order retrieved successfully",
-        data: {
-          averageOrderValue,
-        },
-      });
+        const averageOrderValue = await Members.getAverageOrderValue(from, to);
+        return status(200, {
+          status: "success",
+          message: "Average customer order retrieved successfully",
+          messageKey: "member.report.averageOrderValue",
+          data: {
+            averageOrderValue,
+          },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       detail: {
@@ -122,23 +200,36 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/reports/active-members",
     async ({ query, status }) => {
-      let { from, to } = query;
+      try {
+        let { from, to } = query;
 
-      if (!from) {
-        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
-      }
-      if (!to) {
-        to = format(endOfDay(new Date()), "dd-MM-yyyy");
-      }
+        if (!from) {
+          from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+        }
+        if (!to) {
+          to = format(endOfDay(new Date()), "dd-MM-yyyy");
+        }
 
-      const activeMembers = await Members.getActiveMembers(from, to);
-      return status(200, {
-        status: "success",
-        message: "Active members retrieved successfully",
-        data: {
-          activeMembers,
-        },
-      });
+        const activeMembers = await Members.getActiveMembers(from, to);
+        return status(200, {
+          status: "success",
+          message: "Active members retrieved successfully",
+          messageKey: "member.report.activeMembers",
+          data: {
+            activeMembers,
+          },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       detail: {
@@ -151,23 +242,36 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/reports/total-member-orders",
     async ({ query, status }) => {
-      let { from, to } = query;
+      try {
+        let { from, to } = query;
 
-      if (!from) {
-        from = format(startOfMonth(new Date()), "dd-MM-yyyy");
-      }
-      if (!to) {
-        to = format(endOfDay(new Date()), "dd-MM-yyyy");
-      }
+        if (!from) {
+          from = format(startOfMonth(new Date()), "dd-MM-yyyy");
+        }
+        if (!to) {
+          to = format(endOfDay(new Date()), "dd-MM-yyyy");
+        }
 
-      const totalMemberOrders = await Members.getTotalMemberOrders(from, to);
-      return status(200, {
-        status: "success",
-        message: "Total member orders retrieved successfully",
-        data: {
-          totalMemberOrders,
-        },
-      });
+        const totalMemberOrders = await Members.getTotalMemberOrders(from, to);
+        return status(200, {
+          status: "success",
+          message: "Total member orders retrieved successfully",
+          messageKey: "member.report.totalMemberOrders",
+          data: {
+            totalMemberOrders,
+          },
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       detail: {
@@ -180,13 +284,26 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/reports/members-spending",
     async ({ query, status }) => {
-      const membersWithSpending = await Members.getMembersWithSpending(query);
+      try {
+        const membersWithSpending = await Members.getMembersWithSpending(query);
 
-      return status(200, {
-        status: "success",
-        message: "Members spending data retrieved successfully",
-        data: membersWithSpending,
-      });
+        return status(200, {
+          status: "success",
+          message: "Members spending data retrieved successfully",
+          messageKey: "member.report.membersSpending",
+          data: membersWithSpending,
+        });
+      } catch (error) {
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       detail: {
@@ -200,16 +317,37 @@ export const membersController = new Elysia({ prefix: "/members" })
   .get(
     "/points",
     async ({ status, user }) => {
-      const userId = user.id;
+      try {
+        const userId = user.id;
 
-      const points = await Members.getMemberPoints(userId);
-      return status(200, {
-        status: "success",
-        message: "Member points retrieved successfully",
-        data: {
-          points,
-        },
-      });
+        const points = await Members.getMemberPoints(userId);
+        return status(200, {
+          status: "success",
+          message: "Member points retrieved successfully",
+          messageKey: "member.points.retrieved",
+          data: {
+            points,
+          },
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "member.notFound",
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
     },
     {
       auth: true,

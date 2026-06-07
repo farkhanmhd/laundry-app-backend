@@ -31,125 +31,148 @@ import type { NewPosOrderSchema } from "./model";
 
 export abstract class Pos {
   static async getPosItems() {
-    const inventories = db
-      .select({
-        id: inventoriesTable.id,
-        name: inventoriesTable.name,
-        description: inventoriesTable.description,
-        price: inventoriesTable.price,
-        image: inventoriesTable.image,
-        stock: sql<number | null>`${inventoriesTable.stock}`.as("stock"),
-        itemType: sql<string>`'inventory'`.as("item_type"),
-      })
-      .from(inventoriesTable)
-      .where(isNull(inventoriesTable.deletedAt));
+    try {
+      const inventories = db
+        .select({
+          id: inventoriesTable.id,
+          name: inventoriesTable.name,
+          description: inventoriesTable.description,
+          price: inventoriesTable.price,
+          image: inventoriesTable.image,
+          stock: sql<number | null>`${inventoriesTable.stock}`.as("stock"),
+          itemType: sql<string>`'inventory'`.as("item_type"),
+        })
+        .from(inventoriesTable)
+        .where(isNull(inventoriesTable.deletedAt));
 
-    const services = db
-      .select({
-        id: servicesTable.id,
-        name: servicesTable.name,
-        description: servicesTable.description,
-        price: servicesTable.price,
-        image: servicesTable.image,
-        stock: sql<number | null>`null`.as("stock"),
-        itemType: sql<string>`'service'`.as("item_type"),
-      })
-      .from(servicesTable)
-      .where(isNull(servicesTable.deletedAt));
+      const services = db
+        .select({
+          id: servicesTable.id,
+          name: servicesTable.name,
+          description: servicesTable.description,
+          price: servicesTable.price,
+          image: servicesTable.image,
+          stock: sql<number | null>`null`.as("stock"),
+          itemType: sql<string>`'service'`.as("item_type"),
+        })
+        .from(servicesTable)
+        .where(isNull(servicesTable.deletedAt));
 
-    const bundlings = db
-      .select({
-        id: bundlingsTable.id,
-        name: bundlingsTable.name,
-        description: bundlingsTable.description,
-        price: bundlingsTable.price,
-        image: bundlingsTable.image,
-        stock: sql<number | null>`null`.as("stock"),
-        itemType: sql<string>`'bundling'`.as("item_type"),
-      })
-      .from(bundlingsTable)
-      .where(isNull(bundlingsTable.deletedAt));
+      const bundlings = db
+        .select({
+          id: bundlingsTable.id,
+          name: bundlingsTable.name,
+          description: bundlingsTable.description,
+          price: bundlingsTable.price,
+          image: bundlingsTable.image,
+          stock: sql<number | null>`null`.as("stock"),
+          itemType: sql<string>`'bundling'`.as("item_type"),
+        })
+        .from(bundlingsTable)
+        .where(isNull(bundlingsTable.deletedAt));
 
-    const rows = await unionAll(inventories, services, bundlings);
+      const rows = await unionAll(inventories, services, bundlings);
 
-    return rows;
+      return rows;
+    } catch (error) {
+      console.error("Error fetching POS items:", error);
+      throw new InternalError("Could not retrieve POS items.");
+    }
   }
 
   static async getPosMembers(query: SearchQuery) {
-    const { search } = query;
+    try {
+      const { search } = query;
 
-    if (!search) {
-      return [];
-    }
+      if (!search) {
+        return [];
+      }
 
-    const members = await db
-      .select({
-        id: membersTable.id,
-        name: membersTable.name,
-        phone: sql<string>`${membersTable.phone}`,
-        points: membersTable.points,
-      })
-      .from(membersTable)
-      .where(
-        and(
-          ilike(membersTable.phone, `%${search}%`),
-          isNotNull(membersTable.phone)
+      const members = await db
+        .select({
+          id: membersTable.id,
+          name: membersTable.name,
+          phone: sql<string>`${membersTable.phone}`,
+          points: membersTable.points,
+        })
+        .from(membersTable)
+        .where(
+          and(
+            ilike(membersTable.phone, `%${search}%`),
+            isNotNull(membersTable.phone)
+          )
         )
-      )
-      .orderBy(membersTable.name)
-      .limit(5);
+        .orderBy(membersTable.name)
+        .limit(5);
 
-    return members;
+      return members;
+    } catch (error) {
+      console.error("Error searching POS members:", error);
+      throw new InternalError("Could not search members.");
+    }
   }
 
   static async getPosVouchers() {
-    const whereQuery = and(
-      eq(vouchers.isVisible, true),
-      gt(vouchers.expiresAt, sql`now()`)
-    );
-    const rows = await db
-      .select({
-        id: vouchers.id,
-        code: vouchers.code,
-        description: vouchers.description,
-        discountPercentage: vouchers.discountPercentage,
-        discountAmount: vouchers.discountAmount,
-        minSpend: vouchers.minSpend,
-        maxDiscountAmount: vouchers.maxDiscountAmount,
-        expiresAt: vouchers.expiresAt,
-      })
-      .from(vouchers)
-      .where(whereQuery);
+    try {
+      const whereQuery = and(
+        eq(vouchers.isVisible, true),
+        gt(vouchers.expiresAt, sql`now()`)
+      );
+      const rows = await db
+        .select({
+          id: vouchers.id,
+          code: vouchers.code,
+          description: vouchers.description,
+          discountPercentage: vouchers.discountPercentage,
+          discountAmount: vouchers.discountAmount,
+          minSpend: vouchers.minSpend,
+          maxDiscountAmount: vouchers.maxDiscountAmount,
+          expiresAt: vouchers.expiresAt,
+        })
+        .from(vouchers)
+        .where(whereQuery);
 
-    return rows;
+      return rows;
+    } catch (error) {
+      console.error("Error fetching POS vouchers:", error);
+      throw new InternalError("Could not retrieve vouchers.");
+    }
   }
 
   static async getVoucherByCode(voucherCode: string) {
-    const whereQuery = and(
-      eq(vouchers.code, voucherCode),
-      gt(vouchers.expiresAt, sql`now()`)
-    );
+    try {
+      const whereQuery = and(
+        eq(vouchers.code, voucherCode),
+        gt(vouchers.expiresAt, sql`now()`)
+      );
 
-    const rows = await db
-      .select({
-        id: vouchers.id,
-        code: vouchers.code,
-        description: vouchers.description,
-        discountPercentage: vouchers.discountPercentage,
-        discountAmount: vouchers.discountAmount,
-        minSpend: vouchers.minSpend,
-        maxDiscountAmount: vouchers.maxDiscountAmount,
-        expiresAt: vouchers.expiresAt,
-      })
-      .from(vouchers)
-      .where(whereQuery)
-      .limit(1);
+      const rows = await db
+        .select({
+          id: vouchers.id,
+          code: vouchers.code,
+          description: vouchers.description,
+          discountPercentage: vouchers.discountPercentage,
+          discountAmount: vouchers.discountAmount,
+          minSpend: vouchers.minSpend,
+          maxDiscountAmount: vouchers.maxDiscountAmount,
+          expiresAt: vouchers.expiresAt,
+        })
+        .from(vouchers)
+        .where(whereQuery)
+        .limit(1);
 
-    if (!rows.length) {
-      throw new NotFoundError("Voucher Code Not Found");
+      if (!rows.length) {
+        throw new NotFoundError("Voucher Code Not Found");
+      }
+
+      return rows[0];
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      console.error("Error fetching voucher by code:", error);
+      throw new InternalError("Could not retrieve voucher.");
     }
-
-    return rows[0];
   }
 
   protected static async _determineMemberId(
@@ -289,76 +312,77 @@ export abstract class Pos {
       );
     }
 
-    const onlyInventoryItems = !body.items.find(
-      (item) =>
-        item.itemType === "service" ||
-        item.itemType === "bundling" ||
-        item.itemType === "voucher"
-    );
-
-    const newOrderId = await db.transaction(async (tx) => {
-      // Step 1: Determine member ID. Creates a new member if requested, otherwise uses existing.
-      const selectedMemberId = await Pos._determineMemberId(tx, body);
-
-      const orderStatus = determineOrderStatus(
-        onlyInventoryItems,
-        body.paymentType
+    try {
+      const onlyInventoryItems = !body.items.find(
+        (item) =>
+          item.itemType === "service" ||
+          item.itemType === "bundling" ||
+          item.itemType === "voucher"
       );
 
-      // Step 2: Create the core order record with customer and status.
-      const orderId = (await insertNewOrder(tx, {
-        customerName: body.customerName,
-        memberId: selectedMemberId ? selectedMemberId : null,
-        userId,
-        status: orderStatus,
-      })) as string;
+      const newOrderId = await db.transaction(async (tx) => {
+        const selectedMemberId = await Pos._determineMemberId(tx, body);
 
-      // Step 3: Process items to calculate total price before discounts.
-      const { totalItemPrice, itemPrices } = await Pos._processOrderItems(tx, {
-        items: body.items,
-        orderId,
-      });
+        const orderStatus = determineOrderStatus(
+          onlyInventoryItems,
+          body.paymentType
+        );
 
-      // Step 4: Apply voucher if present and calculate the discount amount.
-      const { voucherDiscountAmount, voucher } = await Pos._handleVouchers(tx, {
-        items: body.items,
-        orderId,
-        selectedMemberId,
-        totalItemPrice,
-      });
+        const orderId = (await insertNewOrder(tx, {
+          customerName: body.customerName,
+          memberId: selectedMemberId ? selectedMemberId : null,
+          userId,
+          status: orderStatus,
+        })) as string;
 
-      // Step 5: Redeem and earn member points for the transaction if payment type is cash.
-      if (body.paymentType === "cash") {
-        await Pos._handlePoints(tx, {
-          body,
-          selectedMemberId,
-          orderId,
-          totalItemPrice,
-        });
-      }
-
-      // Step 6: Record the final payment after all discounts are applied.
-      await insertPaymentQuery(tx, {
-        orderId,
-        body,
-        totalPrice: totalItemPrice,
-        voucherDiscountAmount,
-        itemPrices,
-        voucher,
-      });
-
-      // Step 7: Update inventory by reducing stock for items sold if the payment is cash. if its qris then it will be reduced after qris payment
-      if (body.paymentType === "cash") {
-        await reduceOrderInventoryQty(tx, {
+        const { totalItemPrice, itemPrices } = await Pos._processOrderItems(tx, {
           items: body.items,
           orderId,
-          userId,
         });
+
+        const { voucherDiscountAmount, voucher } = await Pos._handleVouchers(tx, {
+          items: body.items,
+          orderId,
+          selectedMemberId,
+          totalItemPrice,
+        });
+
+        if (body.paymentType === "cash") {
+          await Pos._handlePoints(tx, {
+            body,
+            selectedMemberId,
+            orderId,
+            totalItemPrice,
+          });
+        }
+
+        await insertPaymentQuery(tx, {
+          orderId,
+          body,
+          totalPrice: totalItemPrice,
+          voucherDiscountAmount,
+          itemPrices,
+          voucher,
+        });
+
+        if (body.paymentType === "cash") {
+          await reduceOrderInventoryQty(tx, {
+            items: body.items,
+            orderId,
+            userId,
+          });
+        }
+
+        return orderId;
+      });
+
+      return newOrderId;
+    } catch (error) {
+      if (error instanceof InternalError) {
+        throw error;
       }
-
-      return orderId;
-    });
-
-    return newOrderId;
+      console.error("Error creating POS order:", error);
+      throw new InternalError("Failed to create POS order.");
+    }
   }
 }

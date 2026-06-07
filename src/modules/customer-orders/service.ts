@@ -47,40 +47,45 @@ export abstract class CustomerOrderService extends Pos {
   }
 
   static async getCustomerOrders(userId: string, page = 1) {
-    const limit = 5;
-    const offset = (page - 1) * limit;
+    try {
+      const limit = 5;
+      const offset = (page - 1) * limit;
 
-    const dataQuery = db
-      .select({
-        id: ordersTable.id,
-        createdAt: ordersTable.createdAt,
-        total: paymentsTable.total,
-        status: ordersTable.status,
-      })
-      .from(ordersTable)
-      .innerJoin(members, eq(ordersTable.memberId, members.id))
-      .leftJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
-      .where(eq(members.userId, userId))
-      .limit(limit)
-      .offset(offset)
-      .orderBy(desc(ordersTable.createdAt));
+      const dataQuery = db
+        .select({
+          id: ordersTable.id,
+          createdAt: ordersTable.createdAt,
+          total: paymentsTable.total,
+          status: ordersTable.status,
+        })
+        .from(ordersTable)
+        .innerJoin(members, eq(ordersTable.memberId, members.id))
+        .leftJoin(paymentsTable, eq(ordersTable.id, paymentsTable.orderId))
+        .where(eq(members.userId, userId))
+        .limit(limit)
+        .offset(offset)
+        .orderBy(desc(ordersTable.createdAt));
 
-    const totalQuery = db
-      .select({ count: count() })
-      .from(ordersTable)
-      .innerJoin(members, eq(ordersTable.memberId, members.id))
-      .where(eq(members.userId, userId));
+      const totalQuery = db
+        .select({ count: count() })
+        .from(ordersTable)
+        .innerJoin(members, eq(ordersTable.memberId, members.id))
+        .where(eq(members.userId, userId));
 
-    const [data, totalResult] = await Promise.all([dataQuery, totalQuery]);
+      const [data, totalResult] = await Promise.all([dataQuery, totalQuery]);
 
-    const totalData = totalResult[0]?.count ?? 0;
-    const totalPages = Math.ceil(totalData / limit);
+      const totalData = totalResult[0]?.count ?? 0;
+      const totalPages = Math.ceil(totalData / limit);
 
-    return {
-      data,
-      totalData,
-      totalPages,
-    };
+      return {
+        data,
+        totalData,
+        totalPages,
+      };
+    } catch (error) {
+      console.error("Error fetching customer orders:", error);
+      throw new InternalError("Could not retrieve customer orders.");
+    }
   }
 
   static async getOrderDetail(orderId: string, userId: string) {
@@ -185,123 +190,132 @@ export abstract class CustomerOrderService extends Pos {
       );
     }
 
-    const newOrderId = await db.transaction(async (tx) => {
-      const memberId = (
-        await tx
-          .select({ id: members.id })
-          .from(members)
-          .where(eq(members.userId, user.id))
-          .limit(1)
-      )[0]?.id;
+    try {
+      const newOrderId = await db.transaction(async (tx) => {
+        const memberId = (
+          await tx
+            .select({ id: members.id })
+            .from(members)
+            .where(eq(members.userId, user.id))
+            .limit(1)
+        )[0]?.id;
 
-      if (!memberId) {
-        throw new InternalError("User is not a member");
-      }
+        if (!memberId) {
+          throw new InternalError("User is not a member");
+        }
 
-      const orderId = await insertNewOrder(tx, {
-        customerName: user.name,
-        memberId,
-        userId: user.id,
-        status: "pending",
-      });
-
-      if (!orderId) {
-        throw new InternalError(
-          "Internal Server Error. Failed to create new Order ID"
-        );
-      }
-
-      const { totalItemPrice, itemPrices } =
-        await CustomerOrderService._processOrderItems(tx, {
-          items: body.items,
-          orderId,
-        });
-
-      const { voucherDiscountAmount, voucher } =
-        await CustomerOrderService._handleVouchers(tx, {
-          items: body.items,
-          orderId,
-          selectedMemberId: memberId,
-          totalItemPrice,
-        });
-
-      // handle points
-      if (body.points && memberId) {
-        await reduceMemberPoint(tx, {
+        const orderId = await insertNewOrder(tx, {
+          customerName: user.name,
           memberId,
-          points: body.points,
+          userId: user.id,
+          status: "pending",
         });
 
-        await insertOrderItemPoint(tx, { orderId, points: body.points });
-      }
+        if (!orderId) {
+          throw new InternalError(
+            "Internal Server Error. Failed to create new Order ID"
+          );
+        }
 
-      // handle payment
-      const total = totalItemPrice - voucherDiscountAmount - (body.points ?? 0);
-      const discountAmount = voucherDiscountAmount + (body.points ?? 0);
-      const item_details: ItemDetails[] = [];
-      const orderItems = body.items.filter(
-        (item) => !(item.itemType === "voucher" || item.itemType === "points")
-      );
+        const { totalItemPrice, itemPrices } =
+          await CustomerOrderService._processOrderItems(tx, {
+            items: body.items,
+            orderId,
+          });
 
-      orderItems.map((item) =>
-        item_details.push({
-          id: String(item.bundlingId || item.serviceId || item.inventoryId),
-          quantity: item.quantity,
-          name:
-            itemPrices.find(
-              (price) =>
-                price.id === item.bundlingId ||
-                price.id === item.serviceId ||
-                price.id === item.inventoryId
-            )?.name || "",
-          price:
-            itemPrices.find(
-              (price) =>
-                price.id === item.bundlingId ||
-                price.id === item.serviceId ||
-                price.id === item.inventoryId
-            )?.price || 0,
-        })
-      );
+        const { voucherDiscountAmount, voucher } =
+          await CustomerOrderService._handleVouchers(tx, {
+            items: body.items,
+            orderId,
+            selectedMemberId: memberId,
+            totalItemPrice,
+          });
 
-      if (body.points) {
-        item_details.push({
-          price: -1 * body.points,
-          quantity: 1,
-          name: "Points",
+        if (body.points && memberId) {
+          await reduceMemberPoint(tx, {
+            memberId,
+            points: body.points,
+          });
+
+          await insertOrderItemPoint(tx, { orderId, points: body.points });
+        }
+
+        const total =
+          totalItemPrice - voucherDiscountAmount - (body.points ?? 0);
+        const discountAmount = voucherDiscountAmount + (body.points ?? 0);
+        const item_details: ItemDetails[] = [];
+        const orderItems = body.items.filter(
+          (item) =>
+            !(item.itemType === "voucher" || item.itemType === "points")
+        );
+
+        orderItems.map((item) =>
+          item_details.push({
+            id: String(
+              item.bundlingId || item.serviceId || item.inventoryId
+            ),
+            quantity: item.quantity,
+            name:
+              itemPrices.find(
+                (price) =>
+                  price.id === item.bundlingId ||
+                  price.id === item.serviceId ||
+                  price.id === item.inventoryId
+              )?.name || "",
+            price:
+              itemPrices.find(
+                (price) =>
+                  price.id === item.bundlingId ||
+                  price.id === item.serviceId ||
+                  price.id === item.inventoryId
+              )?.price || 0,
+          })
+        );
+
+        if (body.points) {
+          item_details.push({
+            price: -1 * body.points,
+            quantity: 1,
+            name: "Points",
+          });
+        }
+
+        if (voucher) {
+          item_details.push({
+            price: -1 * voucherDiscountAmount,
+            quantity: 1,
+            name: "Voucher",
+          });
+        }
+
+        const paymentData: PaymentInsert = {
+          orderId,
+          paymentType: "qris",
+          amountPaid: total,
+          discountAmount,
+          total,
+          transactionStatus: "pending",
+        };
+
+        await tx.insert(payments).values(paymentData);
+
+        await tx.insert(deliveries).values({
+          addressId: body.addressId,
+          orderId,
+          type: "pickup",
         });
-      }
 
-      if (voucher) {
-        item_details.push({
-          price: -1 * voucherDiscountAmount,
-          quantity: 1,
-          name: "Voucher",
-        });
-      }
-
-      const paymentData: PaymentInsert = {
-        orderId,
-        paymentType: "qris",
-        amountPaid: total,
-        discountAmount,
-        total,
-        transactionStatus: "pending",
-      };
-
-      await tx.insert(payments).values(paymentData);
-
-      // insert a delivery record
-      await tx.insert(deliveries).values({
-        addressId: body.addressId,
-        orderId,
-        type: "pickup",
+        return orderId;
       });
 
-      return orderId;
-    });
-
-    return newOrderId;
+      return newOrderId;
+    } catch (error) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
+        throw error;
+      }
+      console.error("Error creating pickup request:", error);
+      throw new InternalError("Failed to create pickup request.");
+    }
   }
 
   static async createDeliveryRequest({
@@ -311,212 +325,257 @@ export abstract class CustomerOrderService extends Pos {
   }: RequestDeliveryParam) {
     await CustomerOrderService.verifyOrderOwnership(orderId, userId);
 
-    const newDeliveryId = await db.transaction(async (tx) => {
-      const [existingDelivery] = await tx
-        .select({
-          id: deliveries.id,
-        })
-        .from(deliveries)
-        .where(
-          and(eq(deliveries.orderId, orderId), eq(deliveries.type, "delivery"))
-        )
-        .limit(1);
+    try {
+      const newDeliveryId = await db.transaction(async (tx) => {
+        const [existingDelivery] = await tx
+          .select({
+            id: deliveries.id,
+          })
+          .from(deliveries)
+          .where(
+            and(
+              eq(deliveries.orderId, orderId),
+              eq(deliveries.type, "delivery")
+            )
+          )
+          .limit(1);
 
-      if (existingDelivery?.id) {
-        throw new InternalError(
-          "Delivery request already exists for this order"
-        );
+        if (existingDelivery?.id) {
+          throw new InternalError(
+            "Delivery request already exists for this order"
+          );
+        }
+
+        const [cancelledOrder] = await tx
+          .select()
+          .from(orders)
+          .where(
+            and(eq(orders.id, orderId), eq(orders.status, "cancelled"))
+          )
+          .limit(1);
+
+        if (cancelledOrder) {
+          throw new InternalError(
+            "Cannot create delivery request for a cancelled order"
+          );
+        }
+
+        const [address] = await tx
+          .select()
+          .from(addresses)
+          .where(
+            and(eq(addresses.id, addressId), eq(addresses.userId, userId))
+          )
+          .limit(1);
+
+        if (!address) {
+          throw new InternalError("Address not found");
+        }
+
+        const [newDelivery] = await tx
+          .insert(deliveries)
+          .values({
+            addressId,
+            orderId,
+            type: "delivery",
+          })
+          .returning({ id: deliveries.id });
+
+        if (!newDelivery) {
+          throw new InternalError("Failed to create delivery request");
+        }
+
+        return newDelivery.id;
+      });
+
+      return newDeliveryId;
+    } catch (error) {
+      if (
+        error instanceof InternalError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
       }
-
-      const [cancelledOrder] = await tx
-        .select()
-        .from(orders)
-        .where(and(eq(orders.id, orderId), eq(orders.status, "cancelled")))
-        .limit(1);
-
-      if (cancelledOrder) {
-        throw new InternalError(
-          "Cannot create delivery request for a cancelled order"
-        );
-      }
-
-      const [address] = await tx
-        .select()
-        .from(addresses)
-        .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
-        .limit(1);
-
-      if (!address) {
-        throw new InternalError("Address not found");
-      }
-
-      const [newDelivery] = await tx
-        .insert(deliveries)
-        .values({
-          addressId,
-          orderId,
-          type: "delivery",
-        })
-        .returning({ id: deliveries.id });
-
-      if (!newDelivery) {
-        throw new InternalError("Failed to create delivery request");
-      }
-
-      return newDelivery.id;
-    });
-
-    return newDeliveryId;
+      console.error("Error creating delivery request:", error);
+      throw new InternalError("Failed to create delivery request.");
+    }
   }
 
   static async cancelOrder(orderId: string, userId: string) {
     await CustomerOrderService.verifyOrderOwnership(orderId, userId);
 
-    return await db.transaction(async (tx) => {
-      const [order] = await tx
-        .select({
-          id: ordersTable.id,
-          status: ordersTable.status,
-        })
-        .from(ordersTable)
-        .where(eq(ordersTable.id, orderId))
-        .limit(1);
+    try {
+      return await db.transaction(async (tx) => {
+        const [order] = await tx
+          .select({
+            id: ordersTable.id,
+            status: ordersTable.status,
+          })
+          .from(ordersTable)
+          .where(eq(ordersTable.id, orderId))
+          .limit(1);
 
-      if (!order) {
-        throw new NotFoundError("Order not found");
-      }
+        if (!order) {
+          throw new NotFoundError("Order not found");
+        }
 
-      if (order.status !== "pending") {
-        throw new InternalError("Only pending orders can be cancelled");
-      }
+        if (order.status !== "pending") {
+          throw new InternalError(
+            "Only pending orders can be cancelled"
+          );
+        }
 
-      const [payment] = await tx
-        .select({
-          id: paymentsTable.id,
-          transactionStatus: paymentsTable.transactionStatus,
-          actions: paymentsTable.actions,
-        })
-        .from(paymentsTable)
-        .where(eq(paymentsTable.orderId, orderId))
-        .limit(1);
+        const [payment] = await tx
+          .select({
+            id: paymentsTable.id,
+            transactionStatus: paymentsTable.transactionStatus,
+            actions: paymentsTable.actions,
+          })
+          .from(paymentsTable)
+          .where(eq(paymentsTable.orderId, orderId))
+          .limit(1);
 
-      if (!payment) {
-        throw new NotFoundError("Payment not found");
-      }
+        if (!payment) {
+          throw new NotFoundError("Payment not found");
+        }
 
-      if (payment.transactionStatus !== "pending" || payment.actions !== null) {
-        throw new InternalError(
-          "Order cannot be cancelled after QRIS payment has been created"
-        );
-      }
+        if (
+          payment.transactionStatus !== "pending" ||
+          payment.actions !== null
+        ) {
+          throw new InternalError(
+            "Order cannot be cancelled after QRIS payment has been created"
+          );
+        }
 
-      const [pickupDelivery] = await tx
-        .select({
-          id: deliveries.id,
-          type: deliveries.type,
-          status: deliveries.status,
-        })
-        .from(deliveries)
-        .where(
-          and(
-            eq(deliveries.orderId, orderId),
-            eq(deliveries.type, "pickup"),
-            eq(deliveries.status, "requested")
+        const [pickupDelivery] = await tx
+          .select({
+            id: deliveries.id,
+            type: deliveries.type,
+            status: deliveries.status,
+          })
+          .from(deliveries)
+          .where(
+            and(
+              eq(deliveries.orderId, orderId),
+              eq(deliveries.type, "pickup"),
+              eq(deliveries.status, "requested")
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
 
-      if (!pickupDelivery) {
-        throw new InternalError(
-          "Only pickup deliveries with requested status can be cancelled"
-        );
-      }
+        if (!pickupDelivery) {
+          throw new InternalError(
+            "Only pickup deliveries with requested status can be cancelled"
+          );
+        }
 
-      const [cancelledDelivery] = await tx
-        .update(deliveries)
-        .set({ status: "cancelled" })
-        .where(
-          and(
-            eq(deliveries.id, pickupDelivery.id),
-            eq(deliveries.status, "requested")
+        const [cancelledDelivery] = await tx
+          .update(deliveries)
+          .set({ status: "cancelled" })
+          .where(
+            and(
+              eq(deliveries.id, pickupDelivery.id),
+              eq(deliveries.status, "requested")
+            )
           )
-        )
-        .returning({
-          id: deliveries.id,
-          status: deliveries.status,
-        });
+          .returning({
+            id: deliveries.id,
+            status: deliveries.status,
+          });
 
-      if (!cancelledDelivery) {
-        throw new InternalError("Failed to cancel pickup request");
+        if (!cancelledDelivery) {
+          throw new InternalError("Failed to cancel pickup request");
+        }
+
+        const [cancelledOrder] = await tx
+          .update(ordersTable)
+          .set({ status: "cancelled" })
+          .where(
+            and(
+              eq(ordersTable.id, orderId),
+              eq(ordersTable.status, "pending")
+            )
+          )
+          .returning({
+            id: ordersTable.id,
+            status: ordersTable.status,
+          });
+
+        if (!cancelledOrder) {
+          throw new InternalError("Failed to cancel order");
+        }
+
+        return {
+          ...cancelledOrder,
+          delivery: cancelledDelivery,
+        };
+      });
+    } catch (error) {
+      if (
+        error instanceof InternalError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
       }
-
-      const [cancelledOrder] = await tx
-        .update(ordersTable)
-        .set({ status: "cancelled" })
-        .where(
-          and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending"))
-        )
-        .returning({
-          id: ordersTable.id,
-          status: ordersTable.status,
-        });
-
-      if (!cancelledOrder) {
-        throw new InternalError("Failed to cancel order");
-      }
-
-      return {
-        ...cancelledOrder,
-        delivery: cancelledDelivery,
-      };
-    });
+      console.error("Error cancelling order:", error);
+      throw new InternalError("Failed to cancel order.");
+    }
   }
 
   static async getOrderPaymentDetails(orderId: string, userId: string) {
-    const row = await db
-      .select({
-        id: paymentsTable.id,
-        orderId: paymentsTable.orderId,
-        paymentType: paymentsTable.paymentType,
-        discountAmount: paymentsTable.discountAmount,
-        amountPaid: paymentsTable.amountPaid,
-        change: paymentsTable.change,
-        total: paymentsTable.total,
-        transactionStatus: paymentsTable.transactionStatus,
-        fraudStatus: paymentsTable.fraudStatus,
-        qrString: paymentsTable.qrString,
-        acquirer: paymentsTable.acquirer,
-        actions: paymentsTable.actions,
-        transactionTime:
-          sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-            "transactionTime"
-          ),
-        expiryTime:
-          sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-            "expiryTime"
-          ),
-        createdAt:
-          sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-            "createdAt"
-          ),
-        updatedAt: paymentsTable.updatedAt,
-      })
-      .from(paymentsTable)
-      .innerJoin(orders, eq(orders.id, paymentsTable.orderId))
-      .where(
-        and(
-          eq(paymentsTable.orderId, orderId.toLowerCase()),
-          eq(orders.userId, userId),
-          isNotNull(paymentsTable.actions)
+    try {
+      const row = await db
+        .select({
+          id: paymentsTable.id,
+          orderId: paymentsTable.orderId,
+          paymentType: paymentsTable.paymentType,
+          discountAmount: paymentsTable.discountAmount,
+          amountPaid: paymentsTable.amountPaid,
+          change: paymentsTable.change,
+          total: paymentsTable.total,
+          transactionStatus: paymentsTable.transactionStatus,
+          fraudStatus: paymentsTable.fraudStatus,
+          qrString: paymentsTable.qrString,
+          acquirer: paymentsTable.acquirer,
+          actions: paymentsTable.actions,
+          transactionTime:
+            sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+              "transactionTime"
+            ),
+          expiryTime:
+            sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+              "expiryTime"
+            ),
+          createdAt:
+            sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+              "createdAt"
+            ),
+          updatedAt: paymentsTable.updatedAt,
+        })
+        .from(paymentsTable)
+        .innerJoin(orders, eq(orders.id, paymentsTable.orderId))
+        .where(
+          and(
+            eq(paymentsTable.orderId, orderId.toLowerCase()),
+            eq(orders.userId, userId),
+            isNotNull(paymentsTable.actions)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!row[0]) {
-      throw new NotFoundError("Payment details not found");
+      if (!row[0]) {
+        throw new NotFoundError("Payment details not found");
+      }
+
+      return row[0];
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      console.error("Error fetching payment details:", error);
+      throw new InternalError("Could not retrieve payment details.");
     }
-
-    return row[0];
   }
 
   static async chargeQrisPayment(orderId: string, userId: string) {
@@ -524,131 +583,150 @@ export abstract class CustomerOrderService extends Pos {
 
     const item_details: ItemDetails[] = [];
 
-    await db.transaction(async (tx) => {
-      const [order] = await tx
-        .select({
-          id: ordersTable.id,
-          status: ordersTable.status,
-        })
-        .from(ordersTable)
-        .where(eq(ordersTable.id, orderId))
-        .limit(1);
+    try {
+      await db.transaction(async (tx) => {
+        const [order] = await tx
+          .select({
+            id: ordersTable.id,
+            status: ordersTable.status,
+          })
+          .from(ordersTable)
+          .where(eq(ordersTable.id, orderId))
+          .limit(1);
 
-      if (!order) {
-        throw new NotFoundError("Order not found");
-      }
+        if (!order) {
+          throw new NotFoundError("Order not found");
+        }
 
-      if (!["pending", "processing"].includes(order.status)) {
-        throw new InternalError(
-          "Only pending or processing orders can be charged"
-        );
-      }
+        if (!["pending", "processing"].includes(order.status)) {
+          throw new InternalError(
+            "Only pending or processing orders can be charged"
+          );
+        }
 
-      const [pickupDelivery] = await tx
-        .select({
-          id: deliveries.id,
-          status: deliveries.status,
-        })
-        .from(deliveries)
-        .where(
-          and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
-        )
-        .limit(1);
+        const [pickupDelivery] = await tx
+          .select({
+            id: deliveries.id,
+            status: deliveries.status,
+          })
+          .from(deliveries)
+          .where(
+            and(
+              eq(deliveries.orderId, orderId),
+              eq(deliveries.type, "pickup")
+            )
+          )
+          .limit(1);
 
-      if (!pickupDelivery) {
-        throw new NotFoundError("Pickup delivery not found");
-      }
+        if (!pickupDelivery) {
+          throw new NotFoundError("Pickup delivery not found");
+        }
 
-      if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
-        throw new InternalError(
-          "QRIS payment can only be charged after item picked up"
-        );
-      }
+        if (
+          !["completed", "picked_up"].includes(pickupDelivery.status)
+        ) {
+          throw new InternalError(
+            "QRIS payment can only be charged after item picked up"
+          );
+        }
 
-      const customerOrderItems = await tx
-        .select({
-          id: orderItems.id,
-          quantity: orderItems.quantity,
-          subtotal: orderItems.subtotal,
-          note: orderItems.note,
-          itemType: orderItems.itemType,
-          name: sql<string>`
-          CASE
-            WHEN ${orderItems.itemType} = 'voucher' THEN 'Voucher'
-            WHEN ${orderItems.itemType} = 'points' THEN 'Points'
-            ELSE COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})
-          END
-        `,
-        })
-        .from(orderItems)
-        .leftJoin(services, eq(orderItems.serviceId, services.id))
-        .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
-        .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
-        .where(eq(orderItems.orderId, orderId));
+        const customerOrderItems = await tx
+          .select({
+            id: orderItems.id,
+            quantity: orderItems.quantity,
+            subtotal: orderItems.subtotal,
+            note: orderItems.note,
+            itemType: orderItems.itemType,
+            name: sql<string>`
+            CASE
+              WHEN ${orderItems.itemType} = 'voucher' THEN 'Voucher'
+              WHEN ${orderItems.itemType} = 'points' THEN 'Points'
+              ELSE COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})
+            END
+          `,
+          })
+          .from(orderItems)
+          .leftJoin(services, eq(orderItems.serviceId, services.id))
+          .leftJoin(
+            inventories,
+            eq(orderItems.inventoryId, inventories.id)
+          )
+          .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+          .where(eq(orderItems.orderId, orderId));
 
-      if (!customerOrderItems.length) {
-        throw new NotFoundError("Order items not found");
-      }
+        if (!customerOrderItems.length) {
+          throw new NotFoundError("Order items not found");
+        }
 
-      const [paymentDetail] = await tx
-        .select({ total: payments.total })
-        .from(payments)
-        .where(eq(payments.orderId, orderId))
-        .limit(1);
+        const [paymentDetail] = await tx
+          .select({ total: payments.total })
+          .from(payments)
+          .where(eq(payments.orderId, orderId))
+          .limit(1);
 
-      if (!paymentDetail) {
-        throw new NotFoundError("Payment details not found");
-      }
+        if (!paymentDetail) {
+          throw new NotFoundError("Payment details not found");
+        }
 
-      for (const item of customerOrderItems) {
-        item_details.push({
-          id: item.id,
-          quantity: item.quantity,
-          price: item.subtotal,
-          name: item.name,
-        });
-      }
+        for (const item of customerOrderItems) {
+          item_details.push({
+            id: item.id,
+            quantity: item.quantity,
+            price: item.subtotal,
+            name: item.name,
+          });
+        }
 
-      const chargeQrisData: ChargeDetails = {
-        payment_type: "qris",
-        transaction_details: {
-          order_id: orderId,
-          gross_amount: paymentDetail.total,
-        },
-        qris: {
-          acquirer: "gopay",
-        },
-        item_details,
-      };
-
-      let paymentDataUpdate: PaymentInsert | undefined;
-      const qrisResponse = await chargeQris(chargeQrisData);
-
-      if (qrisResponse.status_code === "201") {
-        paymentDataUpdate = {
-          orderId,
-          amountPaid: paymentDetail.total,
-          transactionStatus: "pending",
-          total: paymentDetail.total,
-          fraudStatus: qrisResponse.fraud_status,
-          transactionTime: qrisResponse.transaction_time,
-          expiryTime: qrisResponse.expiry_time,
-          qrString: qrisResponse.qr_string,
-          acquirer: qrisResponse.acquirer,
-          actions: qrisResponse.actions,
+        const chargeQrisData: ChargeDetails = {
+          payment_type: "qris",
+          transaction_details: {
+            order_id: orderId,
+            gross_amount: paymentDetail.total,
+          },
+          qris: {
+            acquirer: "gopay",
+          },
+          item_details,
         };
-      } else {
-        throw new InternalError("Unsupported payment type");
-      }
 
-      if (!paymentDataUpdate) {
-        throw new InternalError("Failed to update payment data");
-      }
+        let paymentDataUpdate: PaymentInsert | undefined;
+        const qrisResponse = await chargeQris(chargeQrisData);
 
-      await tx
-        .update(payments)
-        .set(paymentDataUpdate)
-        .where(eq(payments.orderId, orderId));
-    });
+        if (qrisResponse.status_code === "201") {
+          paymentDataUpdate = {
+            orderId,
+            amountPaid: paymentDetail.total,
+            transactionStatus: "pending",
+            total: paymentDetail.total,
+            fraudStatus: qrisResponse.fraud_status,
+            transactionTime: qrisResponse.transaction_time,
+            expiryTime: qrisResponse.expiry_time,
+            qrString: qrisResponse.qr_string,
+            acquirer: qrisResponse.acquirer,
+            actions: qrisResponse.actions,
+          };
+        } else {
+          throw new InternalError("Unsupported payment type");
+        }
+
+        if (!paymentDataUpdate) {
+          throw new InternalError("Failed to update payment data");
+        }
+
+        await tx
+          .update(payments)
+          .set(paymentDataUpdate)
+          .where(eq(payments.orderId, orderId));
+      });
+    } catch (error) {
+      if (
+        error instanceof InternalError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
+      }
+      console.error("Error charging QRIS payment:", error);
+      throw new InternalError("Failed to charge QRIS payment.");
+    }
   }
 }

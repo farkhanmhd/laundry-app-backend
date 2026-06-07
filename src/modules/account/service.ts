@@ -4,7 +4,12 @@ import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
-import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
+import {
+  AuthorizationError,
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from "@/exceptions";
 import type {
   AddAddressSchema,
   UpdateAccountInfoSchema,
@@ -29,7 +34,7 @@ export abstract class AccountService {
       }
 
       if (currentUser.phoneNumber) {
-        throw new InternalError("User already has a phone number");
+        throw new ConflictError("User already has a phone number");
       }
 
       const [userPhone] = await tx
@@ -39,7 +44,7 @@ export abstract class AccountService {
         .limit(1);
 
       if (userPhone?.phoneNumber === `+62${data.phoneNumber}`) {
-        throw new InternalError("Phone number is already used");
+        throw new ConflictError("Phone number is already used");
       }
 
       await tx
@@ -68,7 +73,7 @@ export abstract class AccountService {
       .limit(1);
 
     if (!userData) {
-      throw new Error("User not found");
+      throw new NotFoundError("User not found");
     }
 
     return userData;
@@ -82,7 +87,7 @@ export abstract class AccountService {
       .limit(1);
 
     if (!userData) {
-      throw new Error("User not found");
+      throw new NotFoundError("User not found");
     }
 
     return userData;
@@ -117,7 +122,7 @@ export abstract class AccountService {
         .returning({ id: user.id });
 
       if (!result) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
       }
 
       if (isMember) {
@@ -128,7 +133,7 @@ export abstract class AccountService {
           .returning({ id: members.id });
 
         if (!memberResult) {
-          throw new Error("Member not found");
+          throw new NotFoundError("Member not found");
         }
       }
 
@@ -153,7 +158,7 @@ export abstract class AccountService {
     });
 
     if (!data.user) {
-      throw new Error("User not found");
+      throw new NotFoundError("User not found");
     }
 
     return data;
@@ -163,10 +168,10 @@ export abstract class AccountService {
     const [addressCount] = await db
       .select({ count: count() })
       .from(addresses)
-      .where(eq(addresses.userId, userId));
+      .where(and(eq(addresses.userId, userId), isNull(addresses.deletedAt)));
 
     if (addressCount && addressCount.count >= 3) {
-      throw new Error("Maximum of 3 addresses allowed per user");
+      throw new ConflictError("Maximum of 3 addresses allowed per user");
     }
 
     const [newAddress] = await db
@@ -182,7 +187,7 @@ export abstract class AccountService {
       .returning({ id: addresses.id });
 
     if (!newAddress) {
-      throw new Error("Failed to create address");
+      throw new InternalError("Failed to create address");
     }
 
     return newAddress;
@@ -213,11 +218,11 @@ export abstract class AccountService {
       .limit(1);
 
     if (!existingAddress) {
-      throw new Error("Address not found");
+      throw new NotFoundError("Address not found");
     }
 
     if (existingAddress.userId !== userId) {
-      throw new Error("Unauthorized to delete this address");
+      throw new AuthorizationError();
     }
 
     const [deletedAddress] = await db
@@ -245,11 +250,11 @@ export abstract class AccountService {
         .limit(1);
 
       if (!existingAddress) {
-        throw new Error("Address not found");
+        throw new NotFoundError("Address not found");
       }
 
       if (existingAddress.userId !== userId) {
-        throw new Error("Unauthorized to update this address");
+        throw new AuthorizationError();
       }
 
       const updateData: Record<string, unknown> = {};

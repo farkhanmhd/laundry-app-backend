@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
 
@@ -7,7 +7,7 @@ export abstract class Staffs {
     const rows = await db
       .select()
       .from(user)
-      .where(eq(user.role, "admin"))
+      .where(inArray(user.role, ["admin", "driver", "superadmin"]))
       .orderBy(desc(user.createdAt));
 
     return rows;

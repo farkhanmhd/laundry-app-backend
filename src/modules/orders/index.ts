@@ -3,6 +3,7 @@ import { betterAuth } from "@/auth/auth-instance";
 import { searchQueryModel } from "@/search-query";
 import { midtransModel } from "../midtrans/model";
 import { Orders } from "./service";
+import { NotFoundError } from "@/exceptions";
 
 export const ordersController = new Elysia({ prefix: "/orders" })
   .use(betterAuth)
@@ -47,6 +48,7 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       return status(200, {
         status: "success",
         message: "Notification Received",
+        messageKey: "order.notification.received",
         data,
       });
     },
@@ -62,6 +64,7 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       return status(200, {
         status: "success",
         message: "Orders Retrieved",
+        messageKey: "order.retrieved",
         data: orders,
       });
     },
@@ -78,13 +81,25 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .get(
     "/:id/status",
     async ({ status, params }) => {
-      const orderStatus = await Orders.getOrderStatus(params.id);
+      try {
+        const orderStatus = await Orders.getOrderStatus(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Status Retrieved",
-        data: orderStatus,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Status Retrieved",
+          messageKey: "order.status.retrieved",
+          data: orderStatus,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Order not found",
+            messageKey: "order.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
@@ -93,29 +108,52 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .patch(
     "/:id/status",
     async ({ status, params }) => {
-      const result = await Orders.updateOrderStatus(params.id);
+      try {
+        const result = await Orders.updateOrderStatus(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Status Updated",
-        data: result,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Status Updated",
+          messageKey: "order.status.updated",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Order not found",
+            messageKey: "order.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
     }
   )
-
   .get(
     "/:id/items",
     async ({ status, params }) => {
-      const orderItems = await Orders.getOrderItems(params.id);
+      try {
+        const orderItems = await Orders.getOrderItems(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Items Retrieved",
-        data: orderItems,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Items Retrieved",
+          messageKey: "order.items.retrieved",
+          data: orderItems,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Order not found",
+            messageKey: "order.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
@@ -124,13 +162,25 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .get(
     "/:id/payment",
     async ({ status, params }) => {
-      const payment = await Orders.getOrderPayment(params.id);
+      try {
+        const payment = await Orders.getOrderPayment(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Payment Retrieved",
-        data: payment,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Payment Retrieved",
+          messageKey: "order.payment.retrieved",
+          data: payment,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Order not found",
+            messageKey: "order.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
@@ -139,13 +189,25 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .get(
     "/:id/customer",
     async ({ status, params }) => {
-      const customer = await Orders.getOrdercustomer(params.id);
+      try {
+        const customer = await Orders.getOrdercustomer(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Customer Retrieved",
-        data: customer,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Customer Retrieved",
+          messageKey: "order.customer.retrieved",
+          data: customer,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Order not found",
+            messageKey: "order.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,
@@ -159,6 +221,7 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       return status(200, {
         status: "success",
         message: "Order Deliveries Retrieved",
+        messageKey: "order.deliveries.retrieved",
         data: deliveries,
       });
     },
@@ -169,13 +232,25 @@ export const ordersController = new Elysia({ prefix: "/orders" })
   .get(
     "/:id/payment_details",
     async ({ status, params }) => {
-      const paymentDetails = await Orders.getOrderPaymentDetails(params.id);
+      try {
+        const paymentDetails = await Orders.getOrderPaymentDetails(params.id);
 
-      return status(200, {
-        status: "success",
-        message: "Order Payment Details Retrieved",
-        data: paymentDetails,
-      });
+        return status(200, {
+          status: "success",
+          message: "Order Payment Details Retrieved",
+          messageKey: "order.paymentDetails.retrieved",
+          data: paymentDetails,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Payment details not found",
+            messageKey: "order.paymentDetails.notFound",
+          });
+        }
+        throw error;
+      }
     },
     {
       isAdmin: true,

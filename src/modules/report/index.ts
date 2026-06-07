@@ -209,8 +209,3 @@ export const reportController = new Elysia({ prefix: "/report" })
       ]),
     }
   );
-
-// Future reports — add more .get() routes here, e.g.:
-// .get("/sales/by-order", ...)
-// .get("/inventory/usage", ...)
-// .get("/members/spending", ...)
