@@ -1,23 +1,24 @@
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { AuthorizationError, NotFoundError } from "@/exceptions";
 import { deliveriesModel } from "./model";
 import { DeliveriesService } from "./service";
-import { NotFoundError } from "@/exceptions";
 
 export const deliveriesController = new Elysia({ prefix: "/deliveries" })
   .use(betterAuth)
   .use(deliveriesModel)
   .guard({
     tags: ["Deliveries"],
-    isAdmin: true,
+    auth: true,
   })
   .post(
     "/",
-    async ({ status, body, user }) => {
+    async ({ status, body }) => {
       try {
         const newRouteId = await DeliveriesService.createDeliveryRoute({
           deliveryIds: body.deliveryIds,
-          userId: user.id,
+          driverId: body.driverId,
+          assetId: body.assetId,
         });
 
         return status(201, {
@@ -41,6 +42,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
     },
     {
       body: "createRouteSchema",
+      isAdmin: true,
     }
   )
   .get(
@@ -65,6 +67,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
     },
     {
       query: "deliveriesSearchQuery",
+      isAdmin: true,
     }
   )
   .get(
@@ -89,13 +92,22 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
     },
     {
       query: "deliveriesSearchQuery",
+      isAdmin: true,
     }
   )
   .patch(
     "/:id/status",
-    async ({ status, params }) => {
+    async ({ status, params, user, body }) => {
+      const role = user.role ?? "user";
+      if (role !== "superadmin" && role !== "driver") {
+        throw new AuthorizationError();
+      }
+
       try {
-        const result = await DeliveriesService.updateDeliveryStatus(params.id);
+        const result = await DeliveriesService.updateDeliveryStatus(
+          params.id,
+          body.image
+        );
 
         return status(200, {
           status: "success",
@@ -118,5 +130,6 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       params: t.Object({
         id: t.String(),
       }),
+      body: "updateDeliveryStatusSchema",
     }
   );

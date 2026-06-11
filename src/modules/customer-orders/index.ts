@@ -84,11 +84,10 @@ export const customerOrdersController = new Elysia({
     async ({ status, body, user }) => {
       try {
         const userId = user.id;
-        const newDeliveryId =
-          await CustomerOrderService.createDeliveryRequest({
-            userId,
-            ...body,
-          });
+        const newDeliveryId = await CustomerOrderService.createDeliveryRequest({
+          userId,
+          ...body,
+        });
 
         return status(201, {
           status: "success",
@@ -153,10 +152,7 @@ export const customerOrdersController = new Elysia({
   })
   .get("/:id/items", async ({ status, params, user }) => {
     try {
-      const data = await CustomerOrderService.getOrderItems(
-        params.id,
-        user.id
-      );
+      const data = await CustomerOrderService.getOrderItems(params.id, user.id);
       return status(200, {
         status: 200,
         message: "Order items fetched successfully",
@@ -269,10 +265,7 @@ export const customerOrdersController = new Elysia({
   })
   .patch("/:id", async ({ status, params, user }) => {
     try {
-      const data = await CustomerOrderService.cancelOrder(
-        params.id,
-        user.id
-      );
+      const data = await CustomerOrderService.cancelOrder(params.id, user.id);
 
       return status(200, {
         status: 200,
@@ -306,10 +299,7 @@ export const customerOrdersController = new Elysia({
     async ({ status, params, user }) => {
       try {
         const paymentDetails =
-          await CustomerOrderService.getOrderPaymentDetails(
-            params.id,
-            user.id
-          );
+          await CustomerOrderService.getOrderPaymentDetails(params.id, user.id);
 
         return status(200, {
           status: "success",

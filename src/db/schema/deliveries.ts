@@ -32,10 +32,12 @@ export const deliveries = pgTable("deliveries", {
     .references(() => orders.id, { onDelete: "cascade" })
     .notNull(),
   routeId: varchar("route_id").references(() => routes.id),
+  pickupImage: varchar("pickup_image"),
   index: integer("index"),
   type: deliveryTypeEnum().notNull(),
   status: deliveryStatusEnum().default("requested").notNull(),
   notes: varchar("notes", { length: 255 }),
+  requestTime: timestamp("request_time", { mode: "string" }),
   requestedAt: timestamp("requested_at", { mode: "string" }).defaultNow(),
   completedAt: timestamp("completed_at", { mode: "string" }),
 });

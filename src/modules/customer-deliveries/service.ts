@@ -82,6 +82,7 @@ export abstract class CustomerDeliveriesService {
         type: deliveries.type,
         status: deliveries.status,
         notes: deliveries.notes,
+        pickupImage: deliveries.pickupImage,
         requestedAt: deliveries.requestedAt,
         completedAt: deliveries.completedAt,
         orderId: deliveries.orderId,

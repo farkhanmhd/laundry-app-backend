@@ -5,11 +5,13 @@ const requestPickupSchema = t.Object({
   items: t.Array(orderItemSchema),
   addressId: t.String(),
   points: t.Optional(t.Nullable(t.Number())),
+  requestTime: t.String(),
 });
 
 const requestDeliverySchema = t.Object({
   addressId: t.String(),
   orderId: t.String(),
+  requestTime: t.String(),
 });
 
 export type RequestPickupSchema = typeof requestPickupSchema.static;

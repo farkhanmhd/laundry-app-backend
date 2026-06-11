@@ -9,11 +9,14 @@ import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { accountController } from "./modules/account";
 import { adminDashboardController } from "./modules/admin-dashboard";
+import { assetsController } from "./modules/assets";
 import { bundlingsController } from "./modules/bundlings";
 import { customerDashboardController } from "./modules/customer-dashboard";
 import { customerDeliveriesController } from "./modules/customer-deliveries";
 import { customerOrdersController } from "./modules/customer-orders";
 import { deliveriesController } from "./modules/deliveries";
+import { driverDashboardController } from "./modules/driver-dashboard";
+import { driversController } from "./modules/drivers";
 import { inventoriesController } from "./modules/inventories";
 import { membersController } from "./modules/members";
 import { ordersController } from "./modules/orders";
@@ -62,6 +65,10 @@ const app = new Elysia()
           },
           { name: "Deliveries", description: "Deliveries API endpoints" },
           {
+            name: "Driver Dashboard",
+            description: "Driver Dashboard API endpoints",
+          },
+          {
             name: "Admin Dashboard",
             description: "Admin Dashboard API endpoints",
           },
@@ -84,6 +91,8 @@ const app = new Elysia()
   .use(betterAuth)
   .use(responseHandler)
   .use(exceptionHandler)
+  .use(assetsController)
+  .use(driversController)
   .use(inventoriesController)
   .use(membersController)
   .use(servicesController)
@@ -101,6 +110,7 @@ const app = new Elysia()
   .use(customerDeliveriesController)
   .use(deliveriesController)
   .use(routesController)
+  .use(driverDashboardController)
   .use(adminDashboardController)
   .use(reportController)
   .use(

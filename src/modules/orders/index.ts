@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { NotFoundError } from "@/exceptions";
 import { searchQueryModel } from "@/search-query";
 import { midtransModel } from "../midtrans/model";
 import { Orders } from "./service";
-import { NotFoundError } from "@/exceptions";
 
 export const ordersController = new Elysia({ prefix: "/orders" })
   .use(betterAuth)

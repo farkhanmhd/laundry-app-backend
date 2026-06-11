@@ -25,6 +25,7 @@ const deliveryDetail = t.Object({
     t.Literal("completed"),
     t.Literal("cancelled"),
   ]),
+  pickupImage: t.Nullable(t.String()),
   notes: t.Nullable(t.String()),
   requestedAt: t.String(),
   completedAt: t.Nullable(t.String()),

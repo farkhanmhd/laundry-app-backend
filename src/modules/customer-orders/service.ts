@@ -2,6 +2,8 @@ import type { User } from "better-auth/types";
 import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
+import { assets } from "@/db/schema/assets";
+import { user } from "@/db/schema/auth";
 import { bundlings } from "@/db/schema/bundlings";
 import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
@@ -13,6 +15,7 @@ import {
   payments,
   payments as paymentsTable,
 } from "@/db/schema/payments";
+import { routes } from "@/db/schema/routes";
 import { services } from "@/db/schema/services";
 import { InternalError, NotFoundError } from "@/exceptions";
 import type { ChargeDetails, ItemDetails } from "@/types/midtrans";
@@ -162,9 +165,15 @@ export abstract class CustomerOrderService extends Pos {
         address: addresses.address,
         label: addresses.label,
         notes: deliveries.notes,
+        driverName: user.name,
+        vehicleName: assets.name,
+        licensePlate: assets.licensePlate,
       })
       .from(deliveries)
       .leftJoin(addresses, eq(addresses.id, deliveries.addressId))
+      .leftJoin(routes, eq(deliveries.routeId, routes.id))
+      .leftJoin(user, eq(routes.userId, user.id))
+      .leftJoin(assets, eq(routes.assetId, assets.id))
       .where(eq(deliveries.orderId, orderId));
 
     return deliveryData;
@@ -245,15 +254,12 @@ export abstract class CustomerOrderService extends Pos {
         const discountAmount = voucherDiscountAmount + (body.points ?? 0);
         const item_details: ItemDetails[] = [];
         const orderItems = body.items.filter(
-          (item) =>
-            !(item.itemType === "voucher" || item.itemType === "points")
+          (item) => !(item.itemType === "voucher" || item.itemType === "points")
         );
 
         orderItems.map((item) =>
           item_details.push({
-            id: String(
-              item.bundlingId || item.serviceId || item.inventoryId
-            ),
+            id: String(item.bundlingId || item.serviceId || item.inventoryId),
             quantity: item.quantity,
             name:
               itemPrices.find(
@@ -303,6 +309,7 @@ export abstract class CustomerOrderService extends Pos {
           addressId: body.addressId,
           orderId,
           type: "pickup",
+          requestTime: body.requestTime,
         });
 
         return orderId;
@@ -322,6 +329,7 @@ export abstract class CustomerOrderService extends Pos {
     userId,
     addressId,
     orderId,
+    requestTime,
   }: RequestDeliveryParam) {
     await CustomerOrderService.verifyOrderOwnership(orderId, userId);
 
@@ -349,9 +357,7 @@ export abstract class CustomerOrderService extends Pos {
         const [cancelledOrder] = await tx
           .select()
           .from(orders)
-          .where(
-            and(eq(orders.id, orderId), eq(orders.status, "cancelled"))
-          )
+          .where(and(eq(orders.id, orderId), eq(orders.status, "cancelled")))
           .limit(1);
 
         if (cancelledOrder) {
@@ -363,9 +369,7 @@ export abstract class CustomerOrderService extends Pos {
         const [address] = await tx
           .select()
           .from(addresses)
-          .where(
-            and(eq(addresses.id, addressId), eq(addresses.userId, userId))
-          )
+          .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
           .limit(1);
 
         if (!address) {
@@ -378,6 +382,7 @@ export abstract class CustomerOrderService extends Pos {
             addressId,
             orderId,
             type: "delivery",
+            requestTime,
           })
           .returning({ id: deliveries.id });
 
@@ -390,10 +395,7 @@ export abstract class CustomerOrderService extends Pos {
 
       return newDeliveryId;
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error creating delivery request:", error);
@@ -420,9 +422,7 @@ export abstract class CustomerOrderService extends Pos {
         }
 
         if (order.status !== "pending") {
-          throw new InternalError(
-            "Only pending orders can be cancelled"
-          );
+          throw new InternalError("Only pending orders can be cancelled");
         }
 
         const [payment] = await tx
@@ -492,10 +492,7 @@ export abstract class CustomerOrderService extends Pos {
           .update(ordersTable)
           .set({ status: "cancelled" })
           .where(
-            and(
-              eq(ordersTable.id, orderId),
-              eq(ordersTable.status, "pending")
-            )
+            and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending"))
           )
           .returning({
             id: ordersTable.id,
@@ -512,10 +509,7 @@ export abstract class CustomerOrderService extends Pos {
         };
       });
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error cancelling order:", error);
@@ -611,10 +605,7 @@ export abstract class CustomerOrderService extends Pos {
           })
           .from(deliveries)
           .where(
-            and(
-              eq(deliveries.orderId, orderId),
-              eq(deliveries.type, "pickup")
-            )
+            and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
           )
           .limit(1);
 
@@ -622,9 +613,7 @@ export abstract class CustomerOrderService extends Pos {
           throw new NotFoundError("Pickup delivery not found");
         }
 
-        if (
-          !["completed", "picked_up"].includes(pickupDelivery.status)
-        ) {
+        if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
           throw new InternalError(
             "QRIS payment can only be charged after item picked up"
           );
@@ -647,10 +636,7 @@ export abstract class CustomerOrderService extends Pos {
           })
           .from(orderItems)
           .leftJoin(services, eq(orderItems.serviceId, services.id))
-          .leftJoin(
-            inventories,
-            eq(orderItems.inventoryId, inventories.id)
-          )
+          .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
           .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
           .where(eq(orderItems.orderId, orderId));
 
@@ -719,10 +705,7 @@ export abstract class CustomerOrderService extends Pos {
           .where(eq(payments.orderId, orderId));
       });
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error charging QRIS payment:", error);

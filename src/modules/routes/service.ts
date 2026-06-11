@@ -1,12 +1,25 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  ilike,
+  inArray,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
+import { assets } from "@/db/schema/assets";
+import { user } from "@/db/schema/auth";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { routes } from "@/db/schema/routes";
-import { InternalError, NotFoundError } from "@/exceptions";
+import { AuthorizationError, InternalError, NotFoundError } from "@/exceptions";
+import type { SearchQuery } from "@/search-query";
 
 export abstract class RoutesService {
   static async getRouteById(routeId: string) {
@@ -29,6 +42,7 @@ export abstract class RoutesService {
         type: deliveries.type,
         status: deliveries.status,
         notes: addresses.notes,
+        pickupImage: deliveries.pickupImage,
         requestedAt: deliveries.requestedAt,
         completedAt: deliveries.completedAt,
         customerName: members.name,
@@ -108,10 +122,8 @@ export abstract class RoutesService {
           );
 
         const paidOrderIds = paidPickUpOrderIds.map((p) => p.id);
-        console.log(paidOrderIds);
 
         if (paidOrderIds.length > 0) {
-          console.log("triggering update");
           await tx
             .update(orders)
             .set({ status: "processing" })
@@ -119,7 +131,6 @@ export abstract class RoutesService {
         }
       }
 
-      // if delivery type is delivery, update the order statuses to completed
       const deliveryOrderIds = routeDeliveries
         .filter((delivery) => delivery.type === "delivery")
         .map((delivery) => delivery.orderId);
@@ -133,5 +144,75 @@ export abstract class RoutesService {
 
       return true;
     });
+  }
+
+  static async verifyRouteAccess(userId: string, role: string) {
+    if (role === "superadmin") {
+      return;
+    }
+
+    if (role !== "driver") {
+      throw new AuthorizationError();
+    }
+
+    const [route] = await db
+      .select({ userId: routes.userId })
+      .from(routes)
+      .where(eq(routes.userId, userId))
+      .limit(1);
+
+    if (!route || route.userId !== userId) {
+      throw new AuthorizationError();
+    }
+  }
+
+  static async getRoutes(role: string, userId: string, query: SearchQuery) {
+    const { search = "", rows = 50, page = 1 } = query;
+
+    const filters: SQL[] = [];
+    if (role !== "superadmin") {
+      filters.push(eq(routes.userId, userId));
+    }
+
+    if (search) {
+      const searchByRouteId = ilike(routes.id, `%${search}%`);
+      const searchByDriverName = ilike(user.name, `%${search}%`);
+      const searchLogic = or(searchByRouteId, searchByDriverName);
+      if (searchLogic) {
+        filters.push(searchLogic);
+      }
+    }
+
+    const whereQuery = filters.length > 0 ? and(...filters) : undefined;
+
+    const routesQuery = db
+      .select({
+        id: routes.id,
+        userId: routes.userId,
+        driverName: user.name,
+        assetId: routes.assetId,
+        assetName: assets.name,
+        assetLicensePlate: assets.licensePlate,
+        deliveryCount: count(deliveries.id),
+        completedCount: sql<number>`COUNT(*) FILTER (WHERE ${deliveries.status} IN ('completed', 'cancelled'))`,
+      })
+      .from(routes)
+      .leftJoin(user, eq(routes.userId, user.id))
+      .leftJoin(assets, eq(routes.assetId, assets.id))
+      .leftJoin(deliveries, eq(routes.id, deliveries.routeId))
+      .where(whereQuery)
+      .groupBy(routes.id, user.name, assets.name, assets.licensePlate)
+      .limit(rows)
+      .offset((page - 1) * rows)
+      .orderBy(sql`MAX(${deliveries.requestedAt}) DESC NULLS LAST`);
+
+    const totalQuery = db
+      .select({ count: count() })
+      .from(routes)
+      .where(whereQuery);
+
+    const [routesData, [total]] = await Promise.all([routesQuery, totalQuery]);
+
+    return { routes: routesData, total: total?.count ?? 0 };
   }
 }

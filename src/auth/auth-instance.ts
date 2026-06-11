@@ -67,6 +67,28 @@ export const betterAuth = new Elysia({ name: "better-auth" })
         };
       },
     },
+    isDriver: {
+      async resolve({ request: { headers } }) {
+        const session = await auth.api.getSession({
+          headers,
+        });
+
+        if (!session) {
+          throw new AuthorizationError();
+        }
+
+        const userData = await AccountService.getUserData(session.user.id);
+
+        if (userData.role !== "driver") {
+          throw new AuthorizationError();
+        }
+
+        return {
+          user: userData,
+          session: session.session,
+        };
+      },
+    },
     isSuperAdmin: {
       async resolve({ request: { headers } }) {
         const session = await auth.api.getSession({

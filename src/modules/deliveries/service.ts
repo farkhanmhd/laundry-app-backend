@@ -1,6 +1,9 @@
-import { and, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { file, write } from "bun";
+import { and, count, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
+import { assets } from "@/db/schema/assets";
+import { user } from "@/db/schema/auth";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
@@ -103,16 +106,24 @@ export abstract class DeliveriesService {
           customerPhone: members.phone,
           address: addresses.address,
           status: deliveries.status,
+          driverName: user.name,
+          assetId: assets.id,
+          licensePlate: assets.licensePlate,
+          vehicleName: assets.name,
+          requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)
         .innerJoin(orders, eq(deliveries.orderId, orders.id))
         .innerJoin(members, eq(orders.memberId, members.id))
         .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
+        .leftJoin(routes, eq(deliveries.routeId, routes.id))
+        .leftJoin(assets, eq(routes.assetId, assets.id))
+        .leftJoin(user, eq(routes.userId, user.id))
         .where(and(...conditions))
         .limit(limit)
         .offset(offset)
-        .orderBy(desc(deliveries.requestedAt));
+        .orderBy(sql`${deliveries.requestTime} DESC NULLS LAST`);
 
       const totalQuery = db
         .select({ count: count() })
@@ -179,16 +190,24 @@ export abstract class DeliveriesService {
           customerPhone: members.phone,
           address: addresses.address,
           status: deliveries.status,
+          assetId: assets.id,
+          driverName: user.name,
+          licensePlate: assets.licensePlate,
+          vehicleName: assets.name,
+          requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)
         .innerJoin(orders, eq(deliveries.orderId, orders.id))
         .innerJoin(members, eq(orders.memberId, members.id))
         .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
+        .leftJoin(routes, eq(deliveries.routeId, routes.id))
+        .leftJoin(assets, eq(routes.assetId, assets.id))
+        .leftJoin(user, eq(routes.userId, user.id))
         .where(and(...conditions))
         .limit(limit)
         .offset(offset)
-        .orderBy(desc(deliveries.requestedAt));
+        .orderBy(sql`${deliveries.requestTime} DESC NULLS LAST`);
 
       const totalQuery = db
         .select({ count: count() })
@@ -223,13 +242,40 @@ export abstract class DeliveriesService {
 
   static async createDeliveryRoute({
     deliveryIds,
-    userId,
+    driverId,
+    assetId,
   }: {
     deliveryIds: string[];
-    userId: string;
+    driverId: string;
+    assetId: string;
   }) {
     try {
       const newRouteId = await db.transaction(async (tx) => {
+        const getDriverQuery = tx
+          .select({ id: user.id })
+          .from(user)
+          .where(and(eq(user.id, driverId), eq(user.role, "driver")))
+          .limit(1);
+
+        const getAssetQuery = tx
+          .select({ id: assets.id })
+          .from(assets)
+          .where(eq(assets.id, assetId))
+          .limit(1);
+
+        const [driver, asset] = await Promise.all([
+          getDriverQuery,
+          getAssetQuery,
+        ]);
+
+        if (!driver) {
+          throw new NotFoundError(`Driver not found with id ${driverId}`);
+        }
+
+        if (!asset) {
+          throw new NotFoundError(`Asset not found with id ${assetId}`);
+        }
+
         const selectedAddresses = await tx
           .select({
             id: addresses.id,
@@ -246,9 +292,7 @@ export abstract class DeliveriesService {
           const foundDeliveryIds = new Set(
             selectedAddresses.map((a) => a.deliveryId)
           );
-          const missingId = deliveryIds.find(
-            (id) => !foundDeliveryIds.has(id)
-          );
+          const missingId = deliveryIds.find((id) => !foundDeliveryIds.has(id));
           throw new NotFoundError(
             `No address found for delivery id ${missingId}`
           );
@@ -267,19 +311,17 @@ export abstract class DeliveriesService {
 
         const osrmResponse = await fetch(osrmRequestUrl);
 
-        const osrmData =
-          (await osrmResponse.json()) as OSRMTripResponse;
+        const osrmData = (await osrmResponse.json()) as OSRMTripResponse;
 
         if (osrmData.code !== "Ok") {
-          throw new InternalError(
-            `OSRM Trip failed: ${osrmData.code}`
-          );
+          throw new InternalError(`OSRM Trip failed: ${osrmData.code}`);
         }
 
         const [newRoute] = await tx
           .insert(routes)
           .values({
-            userId,
+            userId: driverId,
+            assetId,
           })
           .returning({ id: routes.id });
 
@@ -289,8 +331,7 @@ export abstract class DeliveriesService {
 
         await Promise.all(
           selectedAddresses.map((address, i) => {
-            const optimizedIndex =
-              osrmData.waypoints[i + 1]?.waypoint_index;
+            const optimizedIndex = osrmData.waypoints[i + 1]?.waypoint_index;
             return tx
               .update(deliveries)
               .set({
@@ -307,10 +348,7 @@ export abstract class DeliveriesService {
 
       return newRouteId;
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error creating delivery route:", error);
@@ -318,8 +356,21 @@ export abstract class DeliveriesService {
     }
   }
 
-  static async updateDeliveryStatus(deliveryId: string) {
+  static async updateDeliveryStatus(deliveryId: string, image?: File) {
+    let imagePath: string | undefined;
+
     try {
+      if (image) {
+        const ext = image.name.split(".").pop() ?? "jpg";
+        const filename = `pickup-${deliveryId}-${Date.now()}.${ext}`;
+        imagePath = `public/uploads/${filename}`;
+        await write(imagePath, image);
+      }
+
+      const pickupImageUrl = imagePath
+        ? `${process.env.BETTER_AUTH_URL}/uploads/${imagePath.split("/").pop()}`
+        : undefined;
+
       return await db.transaction(async (tx) => {
         const [delivery] = await tx
           .select({ status: deliveries.status })
@@ -336,8 +387,6 @@ export abstract class DeliveriesService {
 
         if (currentStatus === "in_progress") {
           newStatus = "picked_up" as typeof currentStatus;
-        } else if (currentStatus === "picked_up") {
-          newStatus = "completed" as typeof currentStatus;
         } else {
           throw new InternalError(
             `Cannot update delivery status from ${currentStatus}`
@@ -346,20 +395,25 @@ export abstract class DeliveriesService {
 
         await tx
           .update(deliveries)
-          .set({ status: newStatus })
+          .set({
+            status: newStatus,
+            ...(pickupImageUrl ? { pickupImage: pickupImageUrl } : {}),
+          })
           .where(eq(deliveries.id, deliveryId));
 
         return {
           id: deliveryId,
           oldStatus: currentStatus,
           newStatus,
+          pickupImage: pickupImageUrl ?? null,
         };
       });
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (imagePath) {
+        await file(imagePath).delete();
+      }
+
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error updating delivery status:", error);
