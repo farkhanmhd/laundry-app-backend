@@ -141,7 +141,10 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
           to = format(endOfDay(new Date()), "dd-MM-yyyy");
         }
         const totalUsage = await Inventories.getTotalUsage(from, to);
-        const uniqueOrderCount = await Inventories.getUniqueOrderCount(from, to);
+        const uniqueOrderCount = await Inventories.getUniqueOrderCount(
+          from,
+          to
+        );
         const averageUsagePerOrder =
           uniqueOrderCount > 0 ? totalUsage / uniqueOrderCount : 0;
         return status(200, {
@@ -171,7 +174,9 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
     "/:id",
     async ({ params, status }) => {
       try {
-        const inventory = await Inventories.getInventoryById(params.id as string);
+        const inventory = await Inventories.getInventoryById(
+          params.id as string
+        );
         return status(200, {
           status: "success",
           message: "Inventory Retrieved",

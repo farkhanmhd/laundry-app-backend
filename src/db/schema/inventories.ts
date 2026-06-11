@@ -33,6 +33,7 @@ export const inventories = pgTable(
     price: integer("price").notNull(),
     stock: integer("stock").notNull(),
     safetyStock: integer("safety_stock").notNull(),
+    unit: inventoryUnitEnum("unit"),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
     deletedAt: timestamp("deleted_at", { mode: "string" }),

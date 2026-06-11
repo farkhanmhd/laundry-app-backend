@@ -7,7 +7,8 @@ const inventory = t.Object({
   ...models.select.inventories,
   isOnBundling: t.Boolean(),
 });
-const addInventory = t.Object({
+
+export const addInventory = t.Object({
   name: t.String({
     ...models.insert.inventories.name,
     minLength: 1,
@@ -37,10 +38,17 @@ const addInventory = t.Object({
     minimum: 0,
     error: "Reorder point cannot be empty",
   }),
+  unit: t.Union([
+    t.Literal("kilogram"),
+    t.Literal("gram"),
+    t.Literal("litre"),
+    t.Literal("milliliter"),
+    t.Literal("pieces"),
+  ]),
 });
 
 const updateInventory = t.Composite([
-  t.Pick(addInventory, ["name", "price", "description", "safetyStock"]),
+  t.Pick(addInventory, ["name", "price", "description", "safetyStock", "unit"]),
 ]);
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);
