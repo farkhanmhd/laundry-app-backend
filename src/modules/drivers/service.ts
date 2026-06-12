@@ -32,7 +32,10 @@ export abstract class DriverService {
       .from(user)
       .where(whereQuery);
 
-    const [drivers, totalResult] = await Promise.all([driversQuery, totalQuery]);
+    const [drivers, totalResult] = await Promise.all([
+      driversQuery,
+      totalQuery,
+    ]);
 
     return { drivers, total: totalResult[0]?.count ?? 0 };
   }

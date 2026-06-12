@@ -83,7 +83,9 @@ export const exceptionHandler = new Elysia({ name: "custom-error" })
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    const key = messageKeyMap[code as keyof typeof messageKeyMap] || "common.unexpectedError";
+    const key =
+      messageKeyMap[code as keyof typeof messageKeyMap] ||
+      "common.unexpectedError";
 
     const defaultErrorResponse = {
       status: "failed",

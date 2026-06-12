@@ -30,7 +30,8 @@ const colX = (colIndex: number): number => {
 
 const tableWidth = COL_WIDTHS.reduce((a, b) => a + b, 0);
 
-const cellWidth = (colIndex: number) => (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
+const cellWidth = (colIndex: number) =>
+  (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type RestockReportItem = {
@@ -45,7 +46,12 @@ export type RestockReportItem = {
 };
 
 type HeaderDef = { text: string; align: "left" | "center" | "right" };
-type CellDef = { text: string; align: "left" | "center" | "right"; color?: string; bold?: boolean };
+type CellDef = {
+  text: string;
+  align: "left" | "center" | "right";
+  color?: string;
+  bold?: boolean;
+};
 
 const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
@@ -212,7 +218,9 @@ export function generateRestockPDF(
           doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
           CELL_PADDING_TOP +
           CELL_PADDING_BOTTOM;
-        if (textH > maxH) { maxH = textH; }
+        if (textH > maxH) {
+          maxH = textH;
+        }
       });
       return maxH;
     };
@@ -269,7 +277,12 @@ export function generateRestockPDF(
         const cells: CellDef[] = [
           { text: String(idx + 1), align: "center" },
           { text: item.inventoryName ?? "-", align: "left" },
-          { text: `+${item.restockQuantity}`, align: "center", color: "#2f855a", bold: true },
+          {
+            text: `+${item.restockQuantity}`,
+            align: "center",
+            color: "#2f855a",
+            bold: true,
+          },
           { text: String(item.stockRemaining), align: "center" },
           { text: item.supplier ?? "-", align: "left" },
           { text: item.note ?? "-", align: "left" },

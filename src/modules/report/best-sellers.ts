@@ -251,7 +251,9 @@ export function generateBestSellersPDF(
           doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
           CELL_PADDING_TOP +
           CELL_PADDING_BOTTOM;
-        if (textH > maxH) { maxH = textH; }
+        if (textH > maxH) {
+          maxH = textH;
+        }
       });
       return maxH;
     };

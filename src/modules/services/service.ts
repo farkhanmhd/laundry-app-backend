@@ -77,9 +77,7 @@ export abstract class Services {
 
       return result[0]?.id as string;
     } catch (error) {
-      if (
-        error instanceof InternalError
-      ) {
+      if (error instanceof InternalError) {
         throw error;
       }
       console.error("Error creating service:", error);

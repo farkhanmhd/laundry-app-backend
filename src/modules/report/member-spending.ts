@@ -38,7 +38,8 @@ const colX = (colIndex: number): number => {
 
 const tableWidth = COL_WIDTHS.reduce((a, b) => a + b, 0);
 
-const cellWidth = (colIndex: number) => (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
+const cellWidth = (colIndex: number) =>
+  (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type MemberSpendingItem = {
@@ -257,7 +258,9 @@ export function generateMemberSpendingPDF(
           doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
           CELL_PADDING_TOP +
           CELL_PADDING_BOTTOM;
-        if (textH > maxH) { maxH = textH; }
+        if (textH > maxH) {
+          maxH = textH;
+        }
       });
       return maxH;
     };

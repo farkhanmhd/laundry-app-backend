@@ -1,6 +1,5 @@
 import PDFDocument from "pdfkit";
 
-// ─── Colours & layout constants ───────────────────────────────────────────────
 const NAVY = "#1e3a5f";
 const LIGHT_BG = "#f7fafc";
 const BORDER = "#e2e8f0";
@@ -8,7 +7,7 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [37, 90, 110, 60, 60, 80, 78];
+const COL_WIDTHS = [25, 80, 55, 40, 55, 60, 60, 70, 55];
 const HEADER_HEIGHT = 24;
 
 const BOTTOM_SAFE_ZONE = 50;
@@ -19,7 +18,6 @@ const MIN_ROW_HEIGHT = 20;
 const HEADER_BAR_HEIGHT = 70;
 const TABLE_TOP = HEADER_BAR_HEIGHT + 15;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const colX = (colIndex: number): number => {
   let x = PAGE_MARGIN;
   for (let i = 0; i < colIndex; i++) {
@@ -33,36 +31,65 @@ const tableWidth = COL_WIDTHS.reduce((a, b) => a + b, 0);
 const cellWidth = (colIndex: number) =>
   (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-export type UsageReportItem = {
+const MONTH_NAMES: Record<number, string> = {
+  1: "Januari",
+  2: "Februari",
+  3: "Maret",
+  4: "April",
+  5: "Mei",
+  6: "Juni",
+  7: "Juli",
+  8: "Agustus",
+  9: "September",
+  10: "Oktober",
+  11: "November",
+  12: "Desember",
+};
+
+export type InventoryMonthlyItem = {
   id: string;
-  orderId: string | null;
-  inventoryName: string | null;
-  change: number;
-  stockRemaining: number;
-  actorName: string | null;
-  createdAt: string;
+  inventoryName: string;
+  month: number;
+  year: number;
+  initialQty: number;
+  totalRestocks: number;
+  totalUsage: number;
+  totalAdjustment: number;
+  finalQty: number;
 };
 
 type HeaderDef = { text: string; align: "left" | "center" | "right" };
-type CellDef = { text: string; align: "left" | "center" | "right" };
+type CellDef = {
+  text: string;
+  align: "left" | "center" | "right";
+  color?: string;
+  bold?: boolean;
+};
 
 const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
-  { text: "ID Pesanan", align: "left" },
-  { text: "Nama Item", align: "left" },
-  { text: "Jumlah", align: "center" },
-  { text: "Sisa", align: "center" },
-  { text: "Tanggal", align: "center" },
-  { text: "Oleh", align: "left" },
+  { text: "Nama Inventori", align: "left" },
+  { text: "Bulan", align: "center" },
+  { text: "Tahun", align: "center" },
+  { text: "Stok Awal", align: "center" },
+  { text: "Restok", align: "center" },
+  { text: "Pemakaian", align: "center" },
+  { text: "Penyesuaian", align: "center" },
+  { text: "Stok Akhir", align: "center" },
 ];
 
-// ─── Generator ────────────────────────────────────────────────────────────────
-export function generateUsagePDF(
+function parseFromDate(from: string) {
+  const parts = from.split("-");
+  return { month: Number(parts[1]), year: Number(parts[2]) };
+}
+
+export function generateInventoryMonthlyPDF(
   from: string,
   to: string,
-  items: UsageReportItem[]
+  items: InventoryMonthlyItem[]
 ): Promise<Buffer> {
+  const { month, year } = parseFromDate(from);
+
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
@@ -74,7 +101,7 @@ export function generateUsagePDF(
         right: PAGE_MARGIN,
       },
       info: {
-        Title: `Laporan Penggunaan Inventori ${from} - ${to}`,
+        Title: `Laporan Stok Bulanan ${MONTH_NAMES[month]} ${year}`,
         Author: "Sistem Manajemen Laundry",
         Subject: "Laporan Inventori",
       },
@@ -100,7 +127,7 @@ export function generateUsagePDF(
         .fillColor("#a8c4e0")
         .font("Helvetica")
         .fontSize(10)
-        .text("LAPORAN PENGGUNAAN INVENTORI", PAGE_MARGIN, 42);
+        .text("LAPORAN STOK BULANAN", PAGE_MARGIN, 42);
     };
 
     doc.on("pageAdded", () => {
@@ -117,7 +144,6 @@ export function generateUsagePDF(
       timeZone: "Asia/Jakarta",
     });
 
-    // ── Header bar ────────────────────────────────────────────────────────────
     doc.rect(0, 0, pageWidth, 70).fill(NAVY);
 
     doc
@@ -130,15 +156,14 @@ export function generateUsagePDF(
       .fillColor("#a8c4e0")
       .font("Helvetica")
       .fontSize(10)
-      .text("LAPORAN PENGGUNAAN INVENTORI", PAGE_MARGIN, 42);
+      .text("LAPORAN STOK BULANAN", PAGE_MARGIN, 42);
 
-    // ── Meta block ────────────────────────────────────────────────────────────
     let y = 90;
 
     const metaRows: [string, string][] = [
       ["Periode Laporan", `: ${from} s/d ${to}`],
       ["Tanggal Cetak", `: ${printedAt} WIB`],
-      ["Jumlah Transaksi", `: ${items.length} penggunaan stok`],
+      ["Jumlah Inventori", `: ${items.length} item`],
     ];
 
     for (const [label, value] of metaRows) {
@@ -159,11 +184,10 @@ export function generateUsagePDF(
 
     y += 6;
 
-    // ── Description box ───────────────────────────────────────────────────────
     const descText =
-      "Laporan ini merinci penggunaan stok inventori yang terjadi secara otomatis melalui " +
-      `pesanan pelanggan selama periode ${from} hingga ${to}. Mencakup informasi ID pesanan, ` +
-      "nama item, jumlah yang digunakan, dan sisa stok.";
+      `Laporan ini menampilkan ringkasan stok inventori periode ${from} hingga ${to}. ` +
+      "Mencakup stok awal, total restock, total pemakaian dari pesanan, total penyesuaian manual, " +
+      "dan stok akhir setiap inventori.";
 
     doc.fontSize(9);
     const descHeight =
@@ -185,7 +209,6 @@ export function generateUsagePDF(
 
     y += descHeight + 14;
 
-    // ── Helper to draw table header ────────────────────────────────────────────
     const drawTableHeader = (startY: number): number => {
       doc.rect(PAGE_MARGIN, startY, tableWidth, HEADER_HEIGHT).fill(NAVY);
 
@@ -203,7 +226,6 @@ export function generateUsagePDF(
       return startY + HEADER_HEIGHT;
     };
 
-    // ── Helper to compute row height ───────────────────────────────────────────
     const computeRowHeight = (cells: CellDef[]): number => {
       doc.fontSize(8.5).font("Helvetica");
       let maxH = MIN_ROW_HEIGHT;
@@ -219,7 +241,6 @@ export function generateUsagePDF(
       return maxH;
     };
 
-    // ── Helper to draw footer (page number + info) ─────────────────────────────
     const drawFooter = () => {
       const footerY = doc.page.height - PAGE_MARGIN - 16;
 
@@ -235,7 +256,7 @@ export function generateUsagePDF(
         .font("Helvetica")
         .fontSize(8)
         .text(
-          `Dicetak otomatis oleh sistem — ${printedAt} WIB`,
+          `Dicetak otomatis oleh sistem \u2014 ${printedAt} WIB`,
           PAGE_MARGIN,
           footerY
         );
@@ -249,10 +270,8 @@ export function generateUsagePDF(
         });
     };
 
-    // ── Table header (first page) ──────────────────────────────────────────────
     y = drawTableHeader(y);
 
-    // ── Table rows ────────────────────────────────────────────────────────────
     if (items.length === 0) {
       drawFooter();
 
@@ -267,17 +286,47 @@ export function generateUsagePDF(
         });
       y += MIN_ROW_HEIGHT + 8;
     } else {
-      items.forEach((item, idx) => {
-        const dateStr = item.createdAt.split(" ")[0] ?? "-";
+      const qtyNeedsColor = (qty: number) => (qty < 0 ? "#c53030" : TEXT_DARK);
 
+      items.forEach((item, idx) => {
         const cells: CellDef[] = [
           { text: String(idx + 1), align: "center" },
-          { text: item.orderId ?? "-", align: "left" },
-          { text: item.inventoryName ?? "-", align: "left" },
-          { text: String(Math.abs(item.change)), align: "center" },
-          { text: String(item.stockRemaining), align: "center" },
-          { text: dateStr, align: "center" },
-          { text: item.actorName ?? "-", align: "left" },
+          { text: item.inventoryName, align: "left" },
+          {
+            text: MONTH_NAMES[item.month] ?? String(item.month),
+            align: "center",
+          },
+          { text: String(item.year), align: "center" },
+          {
+            text: String(item.initialQty),
+            align: "center",
+            color: qtyNeedsColor(item.initialQty),
+            bold: true,
+          },
+          {
+            text: String(item.totalRestocks),
+            align: "center",
+            color: item.totalRestocks > 0 ? "#2f855a" : TEXT_DARK,
+            bold: item.totalRestocks > 0,
+          },
+          {
+            text: String(item.totalUsage),
+            align: "center",
+            color: item.totalUsage < 0 ? "#c53030" : TEXT_DARK,
+            bold: item.totalUsage < 0,
+          },
+          {
+            text: String(item.totalAdjustment),
+            align: "center",
+            color: qtyNeedsColor(item.totalAdjustment),
+            bold: item.totalAdjustment !== 0,
+          },
+          {
+            text: String(item.finalQty),
+            align: "center",
+            color: qtyNeedsColor(item.finalQty),
+            bold: true,
+          },
         ];
 
         doc.font("Helvetica").fontSize(8.5);
@@ -299,11 +348,11 @@ export function generateUsagePDF(
           .lineWidth(0.5)
           .stroke();
 
-        doc.font("Helvetica").fontSize(8.5);
+        doc.fontSize(8.5);
         cells.forEach((cell, ci) => {
           doc
-            .fillColor(TEXT_DARK)
-            .font("Helvetica")
+            .fillColor(cell.color ?? TEXT_DARK)
+            .font(cell.bold ? "Helvetica-Bold" : "Helvetica")
             .fontSize(8.5)
             .text(cell.text, colX(ci) + CELL_PADDING_H, y + CELL_PADDING_TOP, {
               width: cellWidth(ci),

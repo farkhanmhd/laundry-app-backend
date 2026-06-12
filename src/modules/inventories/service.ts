@@ -286,14 +286,14 @@ export abstract class Inventories {
         id: adjustmentLogs.id,
         inventoryId: adjustmentLogs.inventoryId,
         inventoryName: inventories.name,
-        type:
-          sql<string>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL OR ${adjustmentLogs.bundlingId} IS NOT NULL THEN 'usage' ELSE 'adjustment' END`.as(
-            "type"
-          ),
+        type: sql<string>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL OR ${adjustmentLogs.bundlingId} IS NOT NULL THEN 'usage' ELSE 'adjustment' END`.as(
+          "type"
+        ),
         changeAmount: adjustmentLogs.changeAmount,
         stockRemaining: adjustmentLogs.stockRemaining,
-        reference:
-          sql<string | null>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
+        reference: sql<
+          string | null
+        >`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
         note: adjustmentLogs.note,
         actorName: user.name,
         createdAt: adjustmentLogs.createdAt,

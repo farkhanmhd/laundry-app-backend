@@ -45,7 +45,8 @@ const colX = (colIndex: number): number => {
 
 const tableWidth = COL_WIDTHS.reduce((a, b) => a + b, 0);
 
-const cellWidth = (colIndex: number) => (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
+const cellWidth = (colIndex: number) =>
+  (COL_WIDTHS[colIndex] ?? 0) - CELL_PADDING_H * 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type SalesByOrderItem = {
@@ -268,7 +269,9 @@ export function generateSalesByOrderPDF(
           doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
           CELL_PADDING_TOP +
           CELL_PADDING_BOTTOM;
-        if (textH > maxH) { maxH = textH; }
+        if (textH > maxH) {
+          maxH = textH;
+        }
       });
       return maxH;
     };
@@ -374,7 +377,9 @@ export function generateSalesByOrderPDF(
         { text: String(totalItemsCount), align: "center" },
         { text: "", align: "center" },
         {
-          text: formatIDR(items.reduce((acc, i) => acc + Number(i.itemsTotal), 0)),
+          text: formatIDR(
+            items.reduce((acc, i) => acc + Number(i.itemsTotal), 0)
+          ),
           align: "right",
         },
         { text: formatIDR(totalDiscount), align: "right" },
@@ -382,7 +387,10 @@ export function generateSalesByOrderPDF(
       ];
       const totalRowHeight = computeRowHeight(totalCells);
 
-      if (y + totalRowHeight > doc.page.height - PAGE_MARGIN - BOTTOM_SAFE_ZONE) {
+      if (
+        y + totalRowHeight >
+        doc.page.height - PAGE_MARGIN - BOTTOM_SAFE_ZONE
+      ) {
         drawFooter();
         doc.addPage();
         y = drawTableHeader(TABLE_TOP);
@@ -445,19 +453,29 @@ export function generateSalesByOrderPDF(
         .fillColor(NAVY)
         .font("Helvetica-Bold")
         .fontSize(8.5)
-        .text(formatIDR(totalDiscount), colX(5) + CELL_PADDING_H, y + CELL_PADDING_TOP, {
-          width: cellWidth(5),
-          align: "right",
-        });
+        .text(
+          formatIDR(totalDiscount),
+          colX(5) + CELL_PADDING_H,
+          y + CELL_PADDING_TOP,
+          {
+            width: cellWidth(5),
+            align: "right",
+          }
+        );
 
       doc
         .fillColor(NAVY)
         .font("Helvetica-Bold")
         .fontSize(8.5)
-        .text(formatIDR(totalRevenue), colX(6) + CELL_PADDING_H, y + CELL_PADDING_TOP, {
-          width: cellWidth(6),
-          align: "right",
-        });
+        .text(
+          formatIDR(totalRevenue),
+          colX(6) + CELL_PADDING_H,
+          y + CELL_PADDING_TOP,
+          {
+            width: cellWidth(6),
+            align: "right",
+          }
+        );
 
       y += totalRowHeight;
     }

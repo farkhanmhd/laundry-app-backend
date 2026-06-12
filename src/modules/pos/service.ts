@@ -335,17 +335,23 @@ export abstract class Pos {
           status: orderStatus,
         })) as string;
 
-        const { totalItemPrice, itemPrices } = await Pos._processOrderItems(tx, {
-          items: body.items,
-          orderId,
-        });
+        const { totalItemPrice, itemPrices } = await Pos._processOrderItems(
+          tx,
+          {
+            items: body.items,
+            orderId,
+          }
+        );
 
-        const { voucherDiscountAmount, voucher } = await Pos._handleVouchers(tx, {
-          items: body.items,
-          orderId,
-          selectedMemberId,
-          totalItemPrice,
-        });
+        const { voucherDiscountAmount, voucher } = await Pos._handleVouchers(
+          tx,
+          {
+            items: body.items,
+            orderId,
+            selectedMemberId,
+            totalItemPrice,
+          }
+        );
 
         if (body.paymentType === "cash") {
           await Pos._handlePoints(tx, {

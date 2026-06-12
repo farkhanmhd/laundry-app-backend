@@ -1,9 +1,9 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { NotFoundError } from "@/exceptions";
 import { searchQueryModel } from "@/search-query";
 import { posModel } from "./model";
 import { Pos } from "./service";
-import { NotFoundError } from "@/exceptions";
 
 export const posController = new Elysia({ prefix: "/pos" })
   .use(posModel)

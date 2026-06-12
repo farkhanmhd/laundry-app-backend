@@ -1,4 +1,4 @@
-import { endOfDay, format, parse, startOfDay } from "date-fns";
+import { endOfDay, format, parse, startOfDay, startOfMonth } from "date-fns";
 import {
   and,
   between,
@@ -348,6 +348,125 @@ export abstract class ReportService {
       totalSpending: Number(member.totalSpending ?? 0),
       orderCount: Number(member.orderCount ?? 0),
       averageSpending: Math.round(member.averageSpending ?? 0),
+    }));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Inventory: Monthly Report
+  // ─────────────────────────────────────────────────────────────────────────────
+  static async getInventoryMonthlyReport(from: string, to: string) {
+    const parsedFrom = parse(from, "MM-yyyy", new Date());
+    const parsedTo = parse(to, "MM-yyyy", new Date());
+
+    const seriesStart = format(startOfMonth(parsedFrom), "yyyy-MM-dd");
+    const seriesEnd = format(startOfMonth(parsedTo), "yyyy-MM-dd");
+
+    const query = sql`
+      WITH months AS (
+        SELECT date_trunc('month', generate_series(
+          ${seriesStart}::date,
+          ${seriesEnd}::date,
+          '1 month'::interval
+        ))::date AS month_start
+      ),
+      inventory_list AS (
+        SELECT id, name FROM inventories WHERE deleted_at IS NULL
+      ),
+      inventory_months AS (
+        SELECT i.id, i.name, m.month_start
+        FROM inventory_list i
+        CROSS JOIN months m
+      ),
+      all_logs AS (
+        SELECT inventory_id, stock_remaining, created_at FROM restock_logs
+        UNION ALL
+        SELECT inventory_id, stock_remaining, created_at FROM adjustment_logs
+      ),
+      initial_stock AS (
+        SELECT DISTINCT ON (im.id, im.month_start)
+          im.id, im.month_start,
+          al.stock_remaining
+        FROM inventory_months im
+        LEFT JOIN all_logs al ON al.inventory_id = im.id AND al.created_at < im.month_start + interval '1 day'
+        ORDER BY im.id, im.month_start, al.created_at DESC
+      ),
+      restock_summary AS (
+        SELECT
+          im.id, im.month_start,
+          COALESCE(SUM(rl.restock_quantity), 0)::integer AS total_restocks
+        FROM inventory_months im
+        LEFT JOIN restock_logs rl ON rl.inventory_id = im.id
+          AND rl.created_at >= im.month_start
+          AND rl.created_at < im.month_start + interval '1 month'
+        GROUP BY im.id, im.month_start
+      ),
+      usage_summary AS (
+        SELECT
+          im.id, im.month_start,
+          COALESCE(SUM(al.change_amount), 0)::integer AS total_usage
+        FROM inventory_months im
+        LEFT JOIN adjustment_logs al ON al.inventory_id = im.id
+          AND al.created_at >= im.month_start
+          AND al.created_at < im.month_start + interval '1 month'
+          AND (al.order_id IS NOT NULL OR al.bundling_id IS NOT NULL)
+        GROUP BY im.id, im.month_start
+      ),
+      adjustment_summary AS (
+        SELECT
+          im.id, im.month_start,
+          COALESCE(SUM(al.change_amount), 0)::integer AS total_adjustment
+        FROM inventory_months im
+        LEFT JOIN adjustment_logs al ON al.inventory_id = im.id
+          AND al.created_at >= im.month_start
+          AND al.created_at < im.month_start + interval '1 month'
+          AND al.order_id IS NULL AND al.bundling_id IS NULL
+        GROUP BY im.id, im.month_start
+      )
+      SELECT
+        im.id,
+        im.name,
+        EXTRACT(MONTH FROM im.month_start)::integer AS month,
+        EXTRACT(YEAR FROM im.month_start)::integer AS year,
+        COALESCE(init.stock_remaining, 0)::integer AS initial_qty,
+        COALESCE(r.total_restocks, 0)::integer AS total_restocks,
+        COALESCE(u.total_usage, 0)::integer AS total_usage,
+        COALESCE(a.total_adjustment, 0)::integer AS total_adjustment
+      FROM inventory_months im
+      LEFT JOIN initial_stock init ON init.id = im.id AND init.month_start = im.month_start
+      LEFT JOIN restock_summary r ON r.id = im.id AND r.month_start = im.month_start
+      LEFT JOIN usage_summary u ON u.id = im.id AND u.month_start = im.month_start
+      LEFT JOIN adjustment_summary a ON a.id = im.id AND a.month_start = im.month_start
+      ORDER BY im.month_start DESC, im.name
+    `;
+
+    const result = await db.execute(query);
+    const rows = (
+      Array.isArray(result) ? result : (result as { rows: unknown[] }).rows
+    ) as Array<{
+      id: string;
+      name: string;
+      month: number;
+      year: number;
+      initial_qty: number;
+      total_restocks: number;
+      total_usage: number;
+      total_adjustment: number;
+    }>;
+
+    return rows.map((row) => ({
+      id: row.id,
+      inventoryName: row.name,
+      month: Number(row.month),
+      year: Number(row.year),
+      initialQty: Number(row.initial_qty),
+      totalRestocks: Number(row.total_restocks),
+      totalUsage: Number(row.total_usage),
+      totalAdjustment: Number(row.total_adjustment),
+      finalQty:
+        Number(row.initial_qty) +
+        Number(row.total_restocks) +
+        Number(row.total_usage) +
+        Number(row.total_adjustment),
     }));
   }
 }

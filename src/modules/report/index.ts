@@ -16,6 +16,7 @@ import { NotFoundError } from "@/exceptions";
 import { dateRangeQuery } from "@/utils";
 import { generateBestSellersPDF } from "./best-sellers";
 import { generateAdjustmentPDF } from "./inventory-adjustments";
+import { generateInventoryMonthlyPDF } from "./inventory-monthly";
 import { generateMovementPDF } from "./inventory-movement";
 import { generateRestockPDF } from "./inventory-restock";
 import { generateUsagePDF } from "./inventory-usage";
@@ -260,5 +261,43 @@ export const reportController = new Elysia({ prefix: "/report" })
           rows: t.Optional(t.Numeric()),
         }),
       ]),
+    }
+  )
+  // ─── Inventory: Monthly ─────────────────────────────────────────────────────
+  .get(
+    "/inventory/monthly",
+    async ({ query, set }) => {
+      const { from, to } = query;
+
+      const items = await ReportService.getInventoryMonthlyReport(from, to);
+
+      const filename = `laporan-stok-bulanan_${from}_sd_${to}.pdf`;
+      const pdfBuffer = await generateInventoryMonthlyPDF(from, to, items);
+
+      set.headers["Content-Type"] = "application/pdf";
+      set.headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+
+      return new Response(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    },
+    {
+      detail: {
+        description:
+          "Menghasilkan laporan PDF stok inventori bulanan (stok awal, restock, pemakaian, penyesuaian, stok akhir).",
+      },
+      query: t.Object({
+        from: t.String({
+          pattern: "^(0[1-9]|1[0-2])-\\d{4}$",
+          error: "Format bulan harus MM-YYYY (contoh: 01-2026)",
+        }),
+        to: t.String({
+          pattern: "^(0[1-9]|1[0-2])-\\d{4}$",
+          error: "Format bulan harus MM-YYYY (contoh: 01-2026)",
+        }),
+      }),
     }
   );

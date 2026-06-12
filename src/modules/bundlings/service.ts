@@ -148,7 +148,9 @@ export abstract class Bundlings {
               )
             );
         } else {
-          await tx.delete(bundlingItems).where(eq(bundlingItems.bundlingId, id));
+          await tx
+            .delete(bundlingItems)
+            .where(eq(bundlingItems.bundlingId, id));
         }
 
         if (recordsToUpsert.length > 0) {

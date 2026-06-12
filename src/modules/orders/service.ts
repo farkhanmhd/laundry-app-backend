@@ -456,10 +456,7 @@ export abstract class Orders {
         };
       });
     } catch (error) {
-      if (
-        error instanceof InternalError ||
-        error instanceof NotFoundError
-      ) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
         throw error;
       }
       console.error("Error updating order status:", error);
