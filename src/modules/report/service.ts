@@ -12,6 +12,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
+import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { user } from "@/db/schema/auth";
@@ -23,6 +24,7 @@ import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { restockLogs } from "@/db/schema/restock-logs";
 import { services } from "@/db/schema/services";
+import type { MovementReportItem } from "./inventory-movement";
 
 export abstract class ReportService {
   // ─────────────────────────────────────────────────────────────────────────────
@@ -229,6 +231,75 @@ export abstract class ReportService {
       .orderBy(desc(restockLogs.createdAt));
 
     return rows;
+  }
+
+  /**
+   * Returns combined inventory timeline (restock + adjustment + usage)
+   * sorted by time descending. Used exclusively for PDF report generation.
+   */
+  static async getMovementHistoryForReport(
+    from: string,
+    to: string,
+    inventoryId: string
+  ) {
+    const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+    const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+    const startDate = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+    const endDate = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+
+    const restockFilters = and(
+      between(restockLogs.createdAt, startDate, endDate),
+      eq(restockLogs.inventoryId, inventoryId)
+    );
+
+    const adjustmentFilters = and(
+      between(adjustmentLogs.createdAt, startDate, endDate),
+      eq(adjustmentLogs.inventoryId, inventoryId)
+    );
+
+    const restockQuery = db
+      .select({
+        id: restockLogs.id,
+        inventoryName: inventories.name,
+        type: sql<string>`'restock'`.as("type"),
+        changeAmount: restockLogs.restockQuantity,
+        stockRemaining: restockLogs.stockRemaining,
+        reference: sql<string | null>`${restockLogs.supplier}`,
+        note: restockLogs.note,
+        actorName: user.name,
+        createdAt: restockLogs.createdAt,
+      })
+      .from(restockLogs)
+      .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(restockLogs.userId, user.id))
+      .where(restockFilters);
+
+    const adjustmentQuery = db
+      .select({
+        id: adjustmentLogs.id,
+        inventoryName: inventories.name,
+        type: sql<string>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL OR ${adjustmentLogs.bundlingId} IS NOT NULL THEN 'usage' ELSE 'adjustment' END`.as(
+          "type"
+        ),
+        changeAmount: adjustmentLogs.changeAmount,
+        stockRemaining: adjustmentLogs.stockRemaining,
+        reference: sql<
+          string | null
+        >`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
+        note: adjustmentLogs.note,
+        actorName: user.name,
+        createdAt: adjustmentLogs.createdAt,
+      })
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .where(adjustmentFilters);
+
+    const rows = await unionAll(restockQuery, adjustmentQuery);
+
+    return (rows as MovementReportItem[]).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt)
+    );
   }
 
   /**

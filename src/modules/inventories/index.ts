@@ -1,5 +1,5 @@
 import { endOfDay, format, startOfMonth } from "date-fns";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import { inventoriesModel } from "./model";
@@ -197,6 +197,47 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       }
     },
     { auth: true }
+  )
+  .get(
+    "/:id/movement",
+    async ({ params, query, status }) => {
+      try {
+        const { id } = params;
+        const movement = await Inventories.getMovementHistory(id, query);
+        return status(200, {
+          status: "success",
+          message: "Movement history retrieved",
+          messageKey: "inventory.movement.retrieved",
+          data: movement,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.notFound",
+            messageParams: { id: params.id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.Integer()),
+        rows: t.Optional(t.Integer()),
+      }),
+      isSuperAdmin: true,
+    }
   )
   .guard({
     isSuperAdmin: true,

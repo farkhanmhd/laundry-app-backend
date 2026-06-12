@@ -17,6 +17,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
+import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { user } from "@/db/schema/auth";
@@ -254,6 +255,74 @@ export abstract class Inventories {
       total: total?.count ?? 0,
       restockHistory,
     };
+  }
+
+  static async getMovementHistory(
+    inventoryId: string,
+    query: { page?: number; rows?: number }
+  ) {
+    const { rows = 50, page = 1 } = query;
+
+    const restockQuery = db
+      .select({
+        id: restockLogs.id,
+        inventoryId: restockLogs.inventoryId,
+        inventoryName: inventories.name,
+        type: sql<string>`'restock'`.as("type"),
+        changeAmount: restockLogs.restockQuantity,
+        stockRemaining: restockLogs.stockRemaining,
+        reference: sql<string | null>`${restockLogs.supplier}`,
+        note: restockLogs.note,
+        actorName: user.name,
+        createdAt: restockLogs.createdAt,
+      })
+      .from(restockLogs)
+      .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(restockLogs.userId, user.id))
+      .where(eq(restockLogs.inventoryId, inventoryId));
+
+    const adjustmentQuery = db
+      .select({
+        id: adjustmentLogs.id,
+        inventoryId: adjustmentLogs.inventoryId,
+        inventoryName: inventories.name,
+        type:
+          sql<string>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL OR ${adjustmentLogs.bundlingId} IS NOT NULL THEN 'usage' ELSE 'adjustment' END`.as(
+            "type"
+          ),
+        changeAmount: adjustmentLogs.changeAmount,
+        stockRemaining: adjustmentLogs.stockRemaining,
+        reference:
+          sql<string | null>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
+        note: adjustmentLogs.note,
+        actorName: user.name,
+        createdAt: adjustmentLogs.createdAt,
+      })
+      .from(adjustmentLogs)
+      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
+      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .where(eq(adjustmentLogs.inventoryId, inventoryId));
+
+    const movementHistory = await unionAll(restockQuery, adjustmentQuery)
+      .orderBy(desc(sql`"created_at"`))
+      .limit(rows)
+      .offset((page - 1) * rows);
+
+    const [restockCount, adjustmentCount] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(restockLogs)
+        .where(eq(restockLogs.inventoryId, inventoryId)),
+      db
+        .select({ count: count() })
+        .from(adjustmentLogs)
+        .where(eq(adjustmentLogs.inventoryId, inventoryId)),
+    ]);
+
+    const total =
+      (restockCount[0]?.count ?? 0) + (adjustmentCount[0]?.count ?? 0);
+
+    return { total, movementHistory };
   }
 
   static async getInventoryOptions() {

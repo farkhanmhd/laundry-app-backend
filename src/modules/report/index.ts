@@ -7,11 +7,16 @@
 //
 // Install: bun add pdfkit && bun add -d @types/pdfkit
 
+import { eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
+import { db } from "@/db";
+import { inventories } from "@/db/schema/inventories";
+import { NotFoundError } from "@/exceptions";
 import { dateRangeQuery } from "@/utils";
 import { generateBestSellersPDF } from "./best-sellers";
 import { generateAdjustmentPDF } from "./inventory-adjustments";
+import { generateMovementPDF } from "./inventory-movement";
 import { generateRestockPDF } from "./inventory-restock";
 import { generateUsagePDF } from "./inventory-usage";
 import { generateMemberSpendingPDF } from "./member-spending";
@@ -169,6 +174,54 @@ export const reportController = new Elysia({ prefix: "/report" })
           "Menghasilkan laporan PDF restock inventori dari supplier berdasarkan rentang tanggal.",
       },
       query: dateRangeQuery,
+    }
+  )
+  // ─── Inventory: Movement ───────────────────────────────────────────────────
+  .get(
+    "/inventory/movement",
+    async ({ query, set }) => {
+      const { from, to, inventoryId } = query;
+
+      const [inventory] = await db
+        .select({ id: inventories.id })
+        .from(inventories)
+        .where(eq(inventories.id, inventoryId))
+        .limit(1);
+
+      if (!inventory) {
+        throw new NotFoundError("Inventory not found");
+      }
+
+      const items = await ReportService.getMovementHistoryForReport(
+        from,
+        to,
+        inventoryId
+      );
+      const pdfBuffer = await generateMovementPDF(from, to, items);
+
+      const filename = `laporan-pergerakan-stok_${from}_sd_${to}.pdf`;
+
+      set.headers["Content-Type"] = "application/pdf";
+      set.headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+
+      return new Response(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    },
+    {
+      detail: {
+        description:
+          "Menghasilkan laporan PDF pergerakan stok inventori (restock, penyesuaian, dan pemakaian) berdasarkan rentang tanggal.",
+      },
+      query: t.Composite([
+        dateRangeQuery,
+        t.Object({
+          inventoryId: t.String(),
+        }),
+      ]),
     }
   )
   // ─── Members: Spending ─────────────────────────────────────────────────────
