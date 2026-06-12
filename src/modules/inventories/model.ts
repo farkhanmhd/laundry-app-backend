@@ -111,6 +111,7 @@ const restockQuantity = t.Object({
   supplier: t.String(),
   restockQuantity: t.Integer(),
   restockTime: t.Date(),
+  restockPrice: t.Integer(),
   note: t.Optional(t.String()),
 });
 

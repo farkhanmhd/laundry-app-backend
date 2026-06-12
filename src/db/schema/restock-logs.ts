@@ -20,6 +20,7 @@ export const restockLogs = pgTable(
     supplier: varchar("supplier", { length: 255 }).notNull(),
     stockRemaining: integer("stock_remaining").notNull(),
     restockQuantity: integer("restock_quantity").notNull(),
+    restockPrice: integer("restock_price"),
     note: varchar("note", { length: 255 }),
     userId: varchar("user_id", { length: 255 }).notNull(),
     restockTime: timestamp("restock_time", { withTimezone: true }).notNull(),

@@ -224,6 +224,7 @@ export abstract class Inventories {
         restockQuantity: restockLogs.restockQuantity,
         stockRemaining: restockLogs.stockRemaining,
         supplier: restockLogs.supplier,
+        restockPrice: restockLogs.restockPrice,
         note: restockLogs.note,
         userId: restockLogs.userId,
         actorName: user.name,
@@ -412,6 +413,7 @@ export abstract class Inventories {
             note: body.note,
             userId,
             restockTime: body.restockTime,
+            restockPrice: body.restockPrice,
           })
           .returning({ id: restockLogs.id })
       )[0];
