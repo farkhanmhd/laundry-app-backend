@@ -12,6 +12,15 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
       tags: ["Voucher"],
     },
   })
+  .get("/visible", async ({ status }) => {
+    const vouchers = await Vouchers.getVisibleVouchers();
+    return status(200, {
+      status: "success",
+      message: "Vouchers Retrieved",
+      messageKey: "voucher.retrieved",
+      data: { vouchers },
+    });
+  })
   .get(
     "/",
     async ({ status }) => {

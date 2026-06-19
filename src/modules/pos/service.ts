@@ -1,4 +1,4 @@
-import { and, eq, gt, ilike, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, isNull, or, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
@@ -88,6 +88,11 @@ export abstract class Pos {
         return [];
       }
 
+      const searchByName = ilike(membersTable.name, `%${search}%`);
+      const searchByPhone = ilike(membersTable.phone, `%${search}%`);
+
+      const whereQuery = or(searchByName, searchByPhone);
+
       const members = await db
         .select({
           id: membersTable.id,
@@ -96,12 +101,7 @@ export abstract class Pos {
           points: membersTable.points,
         })
         .from(membersTable)
-        .where(
-          and(
-            ilike(membersTable.phone, `%${search}%`),
-            isNotNull(membersTable.phone)
-          )
-        )
+        .where(whereQuery)
         .orderBy(membersTable.name)
         .limit(5);
 

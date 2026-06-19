@@ -535,7 +535,10 @@ export abstract class Inventories {
   }
 
   static async getTotalItems(): Promise<number> {
-    const result = await db.select({ count: count() }).from(inventories);
+    const result = await db
+      .select({ count: count() })
+      .from(inventories)
+      .where(isNull(inventories.deletedAt));
     return result[0]?.count ?? 0;
   }
 

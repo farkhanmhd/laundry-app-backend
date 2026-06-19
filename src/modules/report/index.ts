@@ -267,12 +267,12 @@ export const reportController = new Elysia({ prefix: "/report" })
   .get(
     "/inventory/monthly",
     async ({ query, set }) => {
-      const { from, to } = query;
+      const { month } = query;
 
-      const items = await ReportService.getInventoryMonthlyReport(from, to);
+      const items = await ReportService.getInventoryMonthlyReport(month);
 
-      const filename = `laporan-stok-bulanan_${from}_sd_${to}.pdf`;
-      const pdfBuffer = await generateInventoryMonthlyPDF(from, to, items);
+      const filename = `laporan-stok-bulanan_${month}.pdf`;
+      const pdfBuffer = await generateInventoryMonthlyPDF(month, items);
 
       set.headers["Content-Type"] = "application/pdf";
       set.headers["Content-Disposition"] = `attachment; filename="${filename}"`;
@@ -290,11 +290,7 @@ export const reportController = new Elysia({ prefix: "/report" })
           "Menghasilkan laporan PDF stok inventori bulanan (stok awal, restock, pemakaian, penyesuaian, stok akhir).",
       },
       query: t.Object({
-        from: t.String({
-          pattern: "^(0[1-9]|1[0-2])-\\d{4}$",
-          error: "Format bulan harus MM-YYYY (contoh: 01-2026)",
-        }),
-        to: t.String({
+        month: t.String({
           pattern: "^(0[1-9]|1[0-2])-\\d{4}$",
           error: "Format bulan harus MM-YYYY (contoh: 01-2026)",
         }),

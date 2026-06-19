@@ -78,17 +78,16 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "Stok Akhir", align: "center" },
 ];
 
-function parseFromDate(from: string) {
-  const parts = from.split("-");
-  return { month: Number(parts[1]), year: Number(parts[2]) };
+function parseMonth(month: string) {
+  const parts = month.split("-");
+  return { month: Number(parts[0]), year: Number(parts[1]) };
 }
 
 export function generateInventoryMonthlyPDF(
-  from: string,
-  to: string,
+  month: string,
   items: InventoryMonthlyItem[]
 ): Promise<Buffer> {
-  const { month, year } = parseFromDate(from);
+  const { month: monthNum, year } = parseMonth(month);
 
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -101,7 +100,7 @@ export function generateInventoryMonthlyPDF(
         right: PAGE_MARGIN,
       },
       info: {
-        Title: `Laporan Stok Bulanan ${MONTH_NAMES[month]} ${year}`,
+        Title: `Laporan Stok Bulanan ${MONTH_NAMES[monthNum]} ${year}`,
         Author: "Sistem Manajemen Laundry",
         Subject: "Laporan Inventori",
       },
@@ -161,7 +160,7 @@ export function generateInventoryMonthlyPDF(
     let y = 90;
 
     const metaRows: [string, string][] = [
-      ["Periode Laporan", `: ${from} s/d ${to}`],
+      ["Periode Laporan", `: ${month}`],
       ["Tanggal Cetak", `: ${printedAt} WIB`],
       ["Jumlah Inventori", `: ${items.length} item`],
     ];
@@ -185,7 +184,7 @@ export function generateInventoryMonthlyPDF(
     y += 6;
 
     const descText =
-      `Laporan ini menampilkan ringkasan stok inventori periode ${from} hingga ${to}. ` +
+      `Laporan ini menampilkan ringkasan stok inventori periode ${month}. ` +
       "Mencakup stok awal, total restock, total pemakaian dari pesanan, total penyesuaian manual, " +
       "dan stok akhir setiap inventori.";
 

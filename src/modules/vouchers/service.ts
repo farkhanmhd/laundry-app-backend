@@ -10,6 +10,36 @@ import type { Voucher, VoucherInsert } from "./model";
  */
 
 export abstract class Vouchers {
+  static async getVisibleVouchers() {
+    try {
+      const rows = await db
+        .select({
+          id: vouchers.id,
+          code: vouchers.code,
+          description: vouchers.description,
+          discountPercentage: vouchers.discountPercentage,
+          discountAmount: vouchers.discountAmount,
+          minSpend: vouchers.minSpend,
+          maxDiscountAmount: vouchers.maxDiscountAmount,
+          expiresAt: vouchers.expiresAt,
+        })
+        .from(vouchers)
+        .where(
+          and(
+            gt(vouchers.expiresAt, sql`now()`),
+            eq(vouchers.isVisible, true),
+            isNull(vouchers.deletedAt)
+          )
+        )
+        .orderBy(desc(vouchers.createdAt));
+
+      return rows;
+    } catch (error) {
+      console.error("Error fetching vouchers:", error);
+      throw new InternalError("Could not retrieve vouchers.");
+    }
+  }
+
   /**
    * Retrieves all active vouchers from the database, sorted by creation date.
    * Implements "soft delete" by filtering out vouchers where `isActive` is false.

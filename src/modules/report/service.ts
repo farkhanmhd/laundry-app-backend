@@ -354,20 +354,13 @@ export abstract class ReportService {
   // ─────────────────────────────────────────────────────────────────────────────
   // Inventory: Monthly Report
   // ─────────────────────────────────────────────────────────────────────────────
-  static async getInventoryMonthlyReport(from: string, to: string) {
-    const parsedFrom = parse(from, "MM-yyyy", new Date());
-    const parsedTo = parse(to, "MM-yyyy", new Date());
-
-    const seriesStart = format(startOfMonth(parsedFrom), "yyyy-MM-dd");
-    const seriesEnd = format(startOfMonth(parsedTo), "yyyy-MM-dd");
+  static async getInventoryMonthlyReport(month: string) {
+    const parsed = parse(month, "MM-yyyy", new Date());
+    const seriesStart = format(startOfMonth(parsed), "yyyy-MM-dd");
 
     const query = sql`
       WITH months AS (
-        SELECT date_trunc('month', generate_series(
-          ${seriesStart}::date,
-          ${seriesEnd}::date,
-          '1 month'::interval
-        ))::date AS month_start
+        SELECT ${seriesStart}::date AS month_start
       ),
       inventory_list AS (
         SELECT id, name FROM inventories WHERE deleted_at IS NULL
