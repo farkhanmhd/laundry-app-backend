@@ -1,11 +1,13 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
+import { searchQueryModel } from "@/search-query";
 import { vouchersModel } from "./model";
 import { Vouchers } from "./service";
 
 export const vouchersController = new Elysia({ prefix: "/vouchers" })
   .use(vouchersModel)
+  .use(searchQueryModel)
   .use(betterAuth)
   .guard({
     detail: {
@@ -23,15 +25,17 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
   })
   .get(
     "/",
-    async ({ status }) => {
+    async ({ query, status }) => {
       try {
-        const result = await Vouchers.getAllVouchers();
+        const result = await Vouchers.getAllVouchers(query);
 
         return status(200, {
           status: "success",
           message: "Vouchers Retrieved",
           messageKey: "voucher.retrieved",
-          data: result,
+          data: result.data,
+          totalData: result.totalData,
+          totalPages: result.totalPages,
         });
       } catch (error) {
         if (error instanceof InternalError) {
@@ -47,6 +51,7 @@ export const vouchersController = new Elysia({ prefix: "/vouchers" })
     },
     {
       auth: true,
+      query: "vouchersQuery",
     }
   )
   .get(

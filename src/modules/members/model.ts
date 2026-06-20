@@ -13,7 +13,15 @@ const addMember = t.Object({
   }),
 });
 
-const getMembersWithSpendingQuery = t.Composite([searchQuery, dateRangeQuery]);
+const getMembersWithSpendingQuery = t.Composite([
+  searchQuery,
+  dateRangeQuery,
+  t.Object({
+    type: t.Optional(
+      t.Array(t.Union([t.Literal("user"), t.Literal("non-user")]))
+    ),
+  }),
+]);
 
 const searchByPhoneQuery = t.Object({
   phone: t.String({
@@ -23,13 +31,24 @@ const searchByPhoneQuery = t.Object({
   }),
 });
 
+const membersQuery = t.Composite([
+  searchQuery,
+  t.Object({
+    type: t.Optional(
+      t.Array(t.Union([t.Literal("user"), t.Literal("non-user")]))
+    ),
+  }),
+]);
+
 export type AddMemberBody = typeof addMember.static;
 export type GetMembersWithSpendingQuery =
   typeof getMembersWithSpendingQuery.static;
+export type MembersQuery = typeof membersQuery.static;
 
 export const membersModel = new Elysia({ name: "members/model" }).model({
   getMembersWithSpendingQuery,
   addMember,
   dateRangeQuery,
   searchByPhoneQuery,
+  membersQuery,
 });

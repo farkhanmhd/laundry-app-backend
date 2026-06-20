@@ -5,13 +5,15 @@ export const deliveriesSearchQuery = t.Object({
   rows: t.Optional(t.Number()),
   page: t.Optional(t.Number()),
   status: t.Optional(
-    t.Union([
-      t.Literal("requested"),
-      t.Literal("assigned"),
-      t.Literal("in_progress"),
-      t.Literal("completed"),
-      t.Literal("cancelled"),
-    ])
+    t.Array(
+      t.Union([
+        t.Literal("requested"),
+        t.Literal("picked_up"),
+        t.Literal("in_progress"),
+        t.Literal("completed"),
+        t.Literal("cancelled"),
+      ])
+    )
   ),
 });
 
@@ -29,6 +31,8 @@ export const updateDeliveryStatusSchema = t.Object({
     maxSize: "5m",
   }),
 });
+
+export type DeliveriesQuery = typeof deliveriesSearchQuery.static;
 
 export const deliveriesModel = new Elysia({ name: "deliveries/model" }).model({
   deliveriesSearchQuery,

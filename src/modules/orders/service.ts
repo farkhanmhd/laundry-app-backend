@@ -22,20 +22,23 @@ import { payments as paymentsTable } from "@/db/schema/payments";
 import { services } from "@/db/schema/services";
 import { vouchers } from "@/db/schema/vouchers";
 import { InternalError, NotFoundError } from "@/exceptions";
-import type { SearchQuery } from "@/search-query";
 import { reduceOrderInventoryQty, updateEarnedPoints } from "@/utils/orders";
 import type { MidtransNotification } from "../midtrans/model";
+import type { OrdersQuery } from "./model";
 
 export abstract class Orders {
-  static async getOrders(query: SearchQuery) {
+  static async getOrders(query: OrdersQuery) {
     try {
-      const { search = "", rows = 50, page = 1 } = query;
+      const { search = "", rows = 50, page = 1, status } = query;
       const searchByOrderId = ilike(ordersTable.id, `%${search}%`);
       const searchByName = ilike(ordersTable.customerName, `%${search}%`);
       const searchByPhone = ilike(members.phone, `%${search}%`);
-      const notVoucher = ne(orderItems.itemType, "voucher");
 
-      const filters: SQL[] = [notVoucher];
+      const filters: SQL[] = [];
+
+      if (status && status.length > 0) {
+        filters.push(inArray(ordersTable.status, status));
+      }
       const searchLogic = or(searchByOrderId, searchByName, searchByPhone);
 
       if (searchLogic) {

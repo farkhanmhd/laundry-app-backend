@@ -1,8 +1,22 @@
-import { and, desc, eq, getTableColumns, gt, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  gt,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { vouchers } from "@/db/schema/vouchers";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
-import type { Voucher, VoucherInsert } from "./model";
+import type { Voucher, VoucherInsert, VouchersQuery } from "./model";
 
 /**
  * Abstract class for handling voucher-related database operations.
@@ -66,15 +80,63 @@ export abstract class Vouchers {
     }
   }
 
-  static async getAllVouchers() {
+  static async getAllVouchers(query: VouchersQuery) {
     try {
-      const rows = await db
+      const { search = "", rows = 50, page = 1, visibility, type } = query;
+
+      const conditions: SQL[] = [isNull(vouchers.deletedAt)];
+
+      if (visibility) {
+        const visibilityValues: boolean[] = [];
+        if (visibility.includes("true")) {
+          visibilityValues.push(true);
+        }
+        if (visibility.includes("false")) {
+          visibilityValues.push(false);
+        }
+        if (visibilityValues.length) {
+          conditions.push(inArray(vouchers.isVisible, visibilityValues));
+        }
+      }
+
+      if (type?.includes("percentage")) {
+        conditions.push(isNotNull(vouchers.discountPercentage));
+      }
+      if (type?.includes("fixed")) {
+        conditions.push(isNotNull(vouchers.discountAmount));
+      }
+
+      if (search) {
+        const searchCondition = or(
+          ilike(vouchers.code, `%${search}%`),
+          ilike(vouchers.description, `%${search}%`)
+        );
+        if (searchCondition) {
+          conditions.push(searchCondition);
+        }
+      }
+
+      const offset = (page - 1) * rows;
+
+      const dataQuery = db
         .select()
         .from(vouchers)
-        .where(isNull(vouchers.deletedAt))
+        .where(and(...conditions))
+        .limit(rows)
+        .offset(offset)
         .orderBy(desc(vouchers.createdAt));
 
-      return rows;
+      const totalQuery = db
+        .select({ count: count() })
+        .from(vouchers)
+        .where(and(...conditions));
+
+      const [data, totalResult] = await Promise.all([dataQuery, totalQuery]);
+
+      const totalData = totalResult[0]?.count ?? 0;
+      const totalPages = Math.ceil(totalData / rows);
+
+      return { data, totalData, totalPages };
     } catch (error) {
       console.error("Error fetching vouchers:", error);
       throw new InternalError("Could not retrieve vouchers.");

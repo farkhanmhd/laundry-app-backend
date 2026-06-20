@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { searchQuery } from "@/search-query";
 
 const updateUserRoleSchema = t.Object({
   userId: t.String(),
@@ -67,10 +68,29 @@ export type CreateCashierSchema = typeof createCashierSchema.static;
 export type ConnectMemberSchema = typeof connectMemberSchema.static;
 export type CreateMemberSchema = typeof createMemberSchema.static;
 
+export const usersQuery = t.Composite([
+  searchQuery,
+  t.Object({
+    role: t.Optional(
+      t.Array(
+        t.Union([
+          t.Literal("user"),
+          t.Literal("driver"),
+          t.Literal("admin"),
+          t.Literal("superadmin"),
+        ])
+      )
+    ),
+  }),
+]);
+
+export type UsersQuery = typeof usersQuery.static;
+
 export const usersModel = new Elysia({ name: "users/model" }).model({
   updateUserRoleSchema,
   registerUserSchema,
   createCashierSchema,
   connectMemberSchema,
   createMemberSchema,
+  usersQuery,
 });

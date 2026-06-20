@@ -232,6 +232,13 @@
       "when": 1781228888073,
       "tag": "0032_complete_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781895532059,
+      "tag": "0033_soft_johnny_storm",
+      "breakpoints": true
     }
   ]
 }

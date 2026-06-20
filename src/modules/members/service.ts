@@ -8,7 +8,9 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   or,
+  type SQL,
   sql,
   sum,
 } from "drizzle-orm";
@@ -17,18 +19,33 @@ import { members as membersTable } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
-import type { SearchQuery } from "@/search-query";
-import type { AddMemberBody, GetMembersWithSpendingQuery } from "./model";
+import type {
+  AddMemberBody,
+  GetMembersWithSpendingQuery,
+  MembersQuery,
+} from "./model";
 
 export abstract class Members {
-  static async getMembers(query: SearchQuery) {
+  static async getMembers(query: MembersQuery) {
     try {
-      const { search = "", rows = 50, page = 1 } = query;
+      const { search = "", rows = 50, page = 1, type } = query;
       const searchById = ilike(membersTable.id, `%${search}%`);
       const searchByName = ilike(membersTable.name, `%${search}%`);
       const searchByPhone = ilike(membersTable.phone, `%${search}%`);
 
-      const whereQuery = or(searchById, searchByName, searchByPhone);
+      const filters: SQL[] = [];
+      if (type?.includes("user")) {
+        filters.push(isNotNull(membersTable.userId));
+      }
+      if (type?.includes("non-user")) {
+        filters.push(isNull(membersTable.userId));
+      }
+
+      const conditions = [
+        or(searchById, searchByName, searchByPhone),
+        ...filters,
+      ];
+      const whereQuery = and(...conditions);
 
       const membersQuery = db
         .select()
@@ -189,12 +206,21 @@ export abstract class Members {
    */
   static async getMembersWithSpending(query: GetMembersWithSpendingQuery) {
     try {
-      const { search = "", rows = 50, page = 1, from, to } = query;
+      const { search = "", rows = 50, page = 1, from, to, type } = query;
 
       const searchByName = ilike(membersTable.name, `%${search}%`);
       const searchByPhone = ilike(membersTable.phone, `%${search}%`);
+
+      const filters: SQL[] = [];
+      if (type?.includes("user")) {
+        filters.push(isNotNull(membersTable.userId));
+      }
+      if (type?.includes("non-user")) {
+        filters.push(isNull(membersTable.userId));
+      }
+
       const dateRange = Members.getBaseConditions(from, to);
-      const whereQuery = or(searchByName, searchByPhone);
+      const whereQuery = and(or(searchByName, searchByPhone), ...filters);
 
       const membersQuery = db
         .select({

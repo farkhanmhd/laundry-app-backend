@@ -1,13 +1,13 @@
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { NotFoundError } from "@/exceptions";
-import { searchQueryModel } from "@/search-query";
+import { ordersModel } from "./model";
 import { midtransModel } from "../midtrans/model";
 import { Orders } from "./service";
 
 export const ordersController = new Elysia({ prefix: "/orders" })
   .use(betterAuth)
-  .use(searchQueryModel)
+  .use(ordersModel)
   .use(midtransModel)
   .guard({
     tags: ["Orders"],
@@ -69,7 +69,7 @@ export const ordersController = new Elysia({ prefix: "/orders" })
       });
     },
     {
-      query: "searchQuery",
+      query: "ordersQuery",
       isAdmin: true,
     }
   )

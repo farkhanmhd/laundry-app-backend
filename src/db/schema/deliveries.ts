@@ -37,7 +37,10 @@ export const deliveries = pgTable("deliveries", {
   type: deliveryTypeEnum().notNull(),
   status: deliveryStatusEnum().default("requested").notNull(),
   notes: varchar("notes", { length: 255 }),
-  requestTime: timestamp("request_time", { mode: "string" }),
+  requestTime: timestamp("request_time", {
+    mode: "string",
+    withTimezone: true,
+  }),
   requestedAt: timestamp("requested_at", { mode: "string" }).defaultNow(),
   completedAt: timestamp("completed_at", { mode: "string" }),
 });

@@ -1,25 +1,33 @@
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import { auth } from "@/auth/auth";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
 import { members } from "@/db/schema/members";
 import { InternalError } from "@/exceptions";
-import type { SearchQuery } from "@/search-query";
 import type {
   ConnectMemberSchema,
   CreateCashierSchema,
   CreateMemberSchema,
   RegisterSchema,
+  UsersQuery,
 } from "./model";
 
 export abstract class UserService {
-  static async getUsers(query: SearchQuery) {
-    const { search = "", rows = 50, page = 1 } = query;
+  static async getUsers(query: UsersQuery) {
+    const { search = "", rows = 50, page = 1, role } = query;
     const searchByName = ilike(user.name, `%${search}%`);
     const searchByUsername = ilike(user.username, `%${search}%`);
     const searchByPhone = ilike(user.phoneNumber, `%${search}%`);
 
-    const whereQuery = and(or(searchByUsername, searchByName, searchByPhone));
+    const conditions: SQL[] = [];
+    const searchConditions = or(searchByUsername, searchByName, searchByPhone);
+    if (searchConditions) {
+      conditions.push(searchConditions);
+    }
+    if (role && role.length > 0) {
+      conditions.push(inArray(user.role, role));
+    }
+    const whereQuery = conditions.length > 0 ? and(...conditions) : undefined;
     const usersQuery = db
       .select({
         id: user.id,

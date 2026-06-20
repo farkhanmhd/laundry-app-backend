@@ -10,6 +10,7 @@ import { orders } from "@/db/schema/orders";
 import { routes } from "@/db/schema/routes";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { LAUNDRY_POINT_ZERO } from "@/utils";
+import type { DeliveriesQuery } from "./model";
 
 export type OSRMTripResponse = {
   code:
@@ -76,20 +77,15 @@ export abstract class DeliveriesService {
     search?: string,
     limit = 50,
     page = 1,
-    status?: string
+    status?: DeliveriesQuery["status"]
   ) {
     try {
       const offset = (page - 1) * limit;
 
       const conditions = [eq(deliveries.type, "pickup")];
 
-      if (status) {
-        conditions.push(
-          eq(
-            deliveries.status,
-            status as "requested" | "in_progress" | "completed" | "cancelled"
-          )
-        );
+      if (status && status.length > 0) {
+        conditions.push(inArray(deliveries.status, status));
       }
 
       if (search) {
@@ -110,7 +106,10 @@ export abstract class DeliveriesService {
           assetId: assets.id,
           licensePlate: assets.licensePlate,
           vehicleName: assets.name,
-          requestTime: deliveries.requestTime,
+          requestTime:
+            sql<string>`to_char(${deliveries.requestTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+              "requestTime"
+            ),
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)
@@ -160,20 +159,15 @@ export abstract class DeliveriesService {
     search?: string,
     limit = 10,
     page = 1,
-    status?: string
+    status?: DeliveriesQuery["status"]
   ) {
     try {
       const offset = (page - 1) * limit;
 
       const conditions = [eq(deliveries.type, "delivery")];
 
-      if (status) {
-        conditions.push(
-          eq(
-            deliveries.status,
-            status as "requested" | "in_progress" | "completed" | "cancelled"
-          )
-        );
+      if (status && status.length > 0) {
+        conditions.push(inArray(deliveries.status, status));
       }
 
       if (search) {
@@ -194,7 +188,10 @@ export abstract class DeliveriesService {
           driverName: user.name,
           licensePlate: assets.licensePlate,
           vehicleName: assets.name,
-          requestTime: deliveries.requestTime,
+          requestTime:
+            sql<string>`to_char(${deliveries.requestTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
+              "requestTime"
+            ),
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)

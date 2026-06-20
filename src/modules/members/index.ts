@@ -78,7 +78,7 @@ export const membersController = new Elysia({ prefix: "/members" })
       }
     },
     {
-      query: "searchQuery",
+      query: "membersQuery",
     }
   )
   .post(

@@ -60,7 +60,7 @@ export const usersController = new Elysia({ prefix: "/users" })
       });
     },
     {
-      query: "searchQuery",
+      query: "usersQuery",
       isSuperAdmin: true,
     }
   )
