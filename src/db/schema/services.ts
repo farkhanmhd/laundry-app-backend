@@ -1,7 +1,9 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   integer,
+  numeric,
   pgTable,
   timestamp,
   varchar,
@@ -20,6 +22,8 @@ export const services = pgTable(
     image: varchar("image").notNull(),
     description: varchar("description", { length: 512 }).notNull(),
     price: integer("price").notNull(),
+    maxWeight: numeric("max_weight", { mode: "number" }),
+    isCustomerOrderable: boolean("is_customer_orderable").default(false),
     createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
     deletedAt: timestamp("deleted_at", { mode: "string" }),

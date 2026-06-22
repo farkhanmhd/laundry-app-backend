@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   integer,
+  numeric,
   pgTable,
   timestamp,
   varchar,
@@ -19,6 +20,8 @@ export const bundlings = pgTable("bundlings", {
   description: varchar("description", { length: 255 }).notNull(),
   price: integer("price").notNull(),
   isActive: boolean("is_active").default(true),
+  maxWeight: numeric("max_weight", { mode: "number" }),
+  isCustomerOrderable: boolean("is_customer_orderable").default(false),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
   deletedAt: timestamp("deleted_at", { mode: "string" }),

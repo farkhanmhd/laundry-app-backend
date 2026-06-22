@@ -27,10 +27,20 @@ const addService = t.Object({
     minimum: 0,
     error: "Service price cannot be empty",
   }),
+  isCustomerOrderable: t.Boolean({
+    default: false,
+  }),
+  maxWeight: t.Optional(t.Nullable(t.Numeric())),
 });
 
 const updateService = t.Composite([
-  t.Pick(addService, ["name", "price", "description"]),
+  t.Pick(addService, [
+    "name",
+    "price",
+    "description",
+    "isCustomerOrderable",
+    "maxWeight",
+  ]),
 ]);
 const updateServiceImage = t.Pick(addService, ["image"]);
 

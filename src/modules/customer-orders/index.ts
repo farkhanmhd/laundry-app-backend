@@ -63,8 +63,16 @@ export const customerOrdersController = new Elysia({
           data: { orderId: newOrderId },
         });
       } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.notFound",
+            data: null,
+          });
+        }
         if (error instanceof InternalError) {
-          return status(500, {
+          return status(400, {
             status: "error",
             message: error.message,
             messageKey: "common.unexpectedError",
@@ -120,6 +128,28 @@ export const customerOrdersController = new Elysia({
       body: "requestDeliverySchema",
     }
   )
+  .get("/items", async ({ status }) => {
+    try {
+      const result = await CustomerOrderService.getPosItems();
+
+      return status(200, {
+        status: "success",
+        message: "Order Items Retrieved",
+        messageKey: "order.items.retrieved",
+        data: result,
+      });
+    } catch (error) {
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
+    }
+  })
   .guard({
     params: t.Object({
       id: t.String(),

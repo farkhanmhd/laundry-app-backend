@@ -14,6 +14,7 @@ import { redemptionHistory } from "./redemption-history";
 import { routes } from "./routes";
 import { services } from "./services";
 import { vouchers } from "./vouchers";
+import { weightRanges } from "./weight-ranges";
 
 export const table = {
   account,
@@ -35,4 +36,5 @@ export const table = {
   services,
   adjustmentLogs,
   vouchers,
+  weightRanges,
 } as const;

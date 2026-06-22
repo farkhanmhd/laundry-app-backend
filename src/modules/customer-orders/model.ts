@@ -6,6 +6,8 @@ const requestPickupSchema = t.Object({
   addressId: t.String(),
   points: t.Optional(t.Nullable(t.Number())),
   requestTime: t.String(),
+  weightRangeId: t.Number(),
+  weight: t.Optional(t.Nullable(t.Number())),
 });
 
 const requestDeliverySchema = t.Object({
@@ -14,6 +16,7 @@ const requestDeliverySchema = t.Object({
   requestTime: t.String(),
 });
 
+export type PickupItem = typeof orderItemSchema.static;
 export type RequestPickupSchema = typeof requestPickupSchema.static;
 export type RequestDeliverySchema = typeof requestDeliverySchema.static;
 

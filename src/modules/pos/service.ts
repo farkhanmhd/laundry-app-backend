@@ -42,9 +42,15 @@ export abstract class Pos {
           image: inventoriesTable.image,
           stock: sql<number | null>`${inventoriesTable.stock}`.as("stock"),
           itemType: sql<string>`'inventory'`.as("item_type"),
+          maxWeight: inventoriesTable.maxWeight,
         })
         .from(inventoriesTable)
-        .where(isNull(inventoriesTable.deletedAt));
+        .where(
+          and(
+            isNull(inventoriesTable.deletedAt),
+            eq(inventoriesTable.isCustomerOrderable, false)
+          )
+        );
 
       const services = db
         .select({
@@ -55,9 +61,15 @@ export abstract class Pos {
           image: servicesTable.image,
           stock: sql<number | null>`null`.as("stock"),
           itemType: sql<string>`'service'`.as("item_type"),
+          maxWeight: servicesTable.maxWeight,
         })
         .from(servicesTable)
-        .where(isNull(servicesTable.deletedAt));
+        .where(
+          and(
+            isNull(servicesTable.deletedAt),
+            eq(servicesTable.isCustomerOrderable, false)
+          )
+        );
 
       const bundlings = db
         .select({
@@ -68,14 +80,19 @@ export abstract class Pos {
           image: bundlingsTable.image,
           stock: sql<number | null>`null`.as("stock"),
           itemType: sql<string>`'bundling'`.as("item_type"),
+          maxWeight: bundlingsTable.maxWeight,
         })
         .from(bundlingsTable)
-        .where(isNull(bundlingsTable.deletedAt));
+        .where(
+          and(
+            isNull(bundlingsTable.deletedAt),
+            eq(bundlingsTable.isCustomerOrderable, false)
+          )
+        );
 
       const rows = await unionAll(inventories, services, bundlings);
 
-      const bundlingItemsMap =
-        await Pos.getBundlingItemsMap(rows);
+      const bundlingItemsMap = await Pos.getBundlingItemsMap(rows);
 
       return rows.map((item) => {
         if (item.itemType === "bundling") {
@@ -118,7 +135,10 @@ export abstract class Pos {
         })
         .from(bundlingItems)
         .leftJoin(servicesTable, eq(bundlingItems.serviceId, servicesTable.id))
-        .leftJoin(inventoriesTable, eq(bundlingItems.inventoryId, inventoriesTable.id))
+        .leftJoin(
+          inventoriesTable,
+          eq(bundlingItems.inventoryId, inventoriesTable.id)
+        )
         .where(inArray(bundlingItems.bundlingId, bundlingIds));
 
       for (const bi of bundlingItemRows) {

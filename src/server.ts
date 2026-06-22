@@ -30,6 +30,7 @@ import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
 import { usersController } from "./modules/users";
 import { vouchersController } from "./modules/vouchers";
+import { weightRangesController } from "./modules/weight-ranges";
 import { responseHandler } from "./responses";
 
 const port = Number(process.env.APP_PORT as string);
@@ -113,6 +114,7 @@ const app = new Elysia()
   .use(driverDashboardController)
   .use(adminDashboardController)
   .use(reportController)
+  .use(weightRangesController)
   .use(
     staticPlugin({
       assets: "public",

@@ -12,8 +12,13 @@ import type {
 } from "./model";
 
 export abstract class Services {
-  static async getServices() {
+  static async getServices(customerOrderable?: boolean) {
     try {
+      const whereConditions = [isNull(services.deletedAt)];
+      if (customerOrderable) {
+        whereConditions.push(eq(services.isCustomerOrderable, true));
+      }
+
       const rows = await db
         .select({
           ...getTableColumns(services),
@@ -28,7 +33,7 @@ export abstract class Services {
             isNull(bundlings.deletedAt)
           )
         )
-        .where(isNull(services.deletedAt))
+        .where(and(...whereConditions))
         .orderBy(desc(services.createdAt))
         .groupBy(services.id);
       return rows;

@@ -61,6 +61,8 @@ function toMovementHistoryEntry(row: MovementHistoryRow): MovementHistoryEntry {
 
 export abstract class Inventories {
   static async getInventories() {
+    const whereConditions = [isNull(inventories.deletedAt)];
+
     const result = await db
       .select({
         ...getTableColumns(inventories),
@@ -75,7 +77,7 @@ export abstract class Inventories {
           isNull(bundlings.deletedAt)
         )
       )
-      .where(isNull(inventories.deletedAt))
+      .where(and(...whereConditions))
       .groupBy(inventories.id);
     return result;
   }
@@ -530,6 +532,7 @@ export abstract class Inventories {
         .update(inventories)
         .set({
           stock: sql`${inventories.stock} + ${body.restockQuantity}`,
+          ...(body.price != null ? { price: body.price } : {}),
         })
         .where(eq(inventories.id, inventoryId))
         .returning({ stock: inventories.stock });
@@ -613,10 +616,20 @@ export abstract class Inventories {
         );
       }
 
-      const baseline = log.stockRemaining - log.changeAmount;
-      const newStockRemaining = baseline + body.changeAmount;
+      const [inventory] = await tx
+        .select({ stock: inventories.stock })
+        .from(inventories)
+        .where(eq(inventories.id, log.inventoryId))
+        .for("update")
+        .limit(1);
 
-      if (newStockRemaining < 0) {
+      if (!inventory) {
+        throw new NotFoundError("Inventory not found");
+      }
+
+      const newStock = inventory.stock - log.changeAmount + body.changeAmount;
+
+      if (newStock < 0) {
         throw new ConflictError("Stok tidak boleh negatif setelah perubahan");
       }
 
@@ -625,21 +638,15 @@ export abstract class Inventories {
         .set({
           updatedAt: sql`now()`,
           changeAmount: body.changeAmount,
-          stockRemaining: newStockRemaining,
+          stockRemaining: newStock,
           ...(body.note !== undefined && { note: body.note }),
         })
         .where(eq(adjustmentLogs.id, id));
 
-      const [updatedInventory] = await tx
+      await tx
         .update(inventories)
-        .set({ stock: newStockRemaining, updatedAt: sql`now()` })
-        .where(eq(inventories.id, log.inventoryId))
-        .returning({ id: inventories.id });
-
-      if (!updatedInventory) {
-        tx.rollback();
-        throw new InternalError();
-      }
+        .set({ stock: newStock, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId));
     });
   }
 
@@ -710,10 +717,21 @@ export abstract class Inventories {
         );
       }
 
-      const baseline = log.stockRemaining - log.restockQuantity;
-      const newStockRemaining = baseline + body.restockQuantity;
+      const [inventory] = await tx
+        .select({ stock: inventories.stock })
+        .from(inventories)
+        .where(eq(inventories.id, log.inventoryId))
+        .for("update")
+        .limit(1);
 
-      if (newStockRemaining < 0) {
+      if (!inventory) {
+        throw new NotFoundError("Inventory not found");
+      }
+
+      const newStock =
+        inventory.stock - log.restockQuantity + body.restockQuantity;
+
+      if (newStock < 0) {
         throw new ConflictError("Stok tidak boleh negatif setelah perubahan");
       }
 
@@ -722,25 +740,15 @@ export abstract class Inventories {
         .set({
           updatedAt: sql`now()`,
           restockQuantity: body.restockQuantity,
-          stockRemaining: newStockRemaining,
+          stockRemaining: newStock,
           ...(body.note !== undefined && { note: body.note }),
-          ...(body.supplier !== undefined && { supplier: body.supplier }),
-          ...(body.restockPrice !== undefined && {
-            restockPrice: body.restockPrice,
-          }),
         })
         .where(eq(restockLogs.id, id));
 
-      const [updatedInventory] = await tx
+      await tx
         .update(inventories)
-        .set({ stock: newStockRemaining, updatedAt: sql`now()` })
-        .where(eq(inventories.id, log.inventoryId))
-        .returning({ id: inventories.id });
-
-      if (!updatedInventory) {
-        tx.rollback();
-        throw new InternalError();
-      }
+        .set({ stock: newStock, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId));
     });
   }
 

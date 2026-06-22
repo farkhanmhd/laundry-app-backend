@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   timestamp,
@@ -34,6 +36,8 @@ export const inventories = pgTable(
     stock: integer("stock").notNull(),
     safetyStock: integer("safety_stock").notNull(),
     unit: inventoryUnitEnum("unit"),
+    maxWeight: numeric("max_weight", { mode: "number" }),
+    isCustomerOrderable: boolean("is_customer_orderable").default(false),
     createdAt: timestamp("created_at", {
       mode: "string",
       withTimezone: true,

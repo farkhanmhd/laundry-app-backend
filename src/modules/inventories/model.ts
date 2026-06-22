@@ -45,10 +45,30 @@ export const addInventory = t.Object({
     t.Literal("milliliter"),
     t.Literal("pieces"),
   ]),
+  isCustomerOrderable: t.Boolean({
+    default: false,
+  }),
+  maxWeight: t.Optional(
+    t.Nullable(
+      t.Numeric({
+        ...models.insert.inventories.maxWeight,
+        minimum: 0,
+        error: "Max weight cannot be empty",
+      })
+    )
+  ),
 });
 
 const updateInventory = t.Composite([
-  t.Pick(addInventory, ["name", "price", "description", "safetyStock", "unit"]),
+  t.Pick(addInventory, [
+    "name",
+    "price",
+    "description",
+    "safetyStock",
+    "unit",
+    "isCustomerOrderable",
+    "maxWeight",
+  ]),
 ]);
 
 const updateInventoryImage = t.Pick(addInventory, ["image"]);
@@ -112,6 +132,7 @@ const restockQuantity = t.Object({
   restockQuantity: t.Integer(),
   restockTime: t.String(),
   restockPrice: t.Integer(),
+  price: t.Optional(t.Nullable(t.Integer())),
   note: t.Optional(t.String()),
 });
 
@@ -155,7 +176,6 @@ export type MovementHistoryEntry = typeof movementHistoryEntry.static;
 
 const updateAdjustQuantity = t.Object({
   changeAmount: t.Integer(),
-  adjustmentTime: t.Date(),
   note: t.Optional(t.String()),
 });
 
@@ -163,10 +183,7 @@ export type UpdateAdjustQuantitySchema = typeof updateAdjustQuantity.static;
 
 const updateRestockQuantity = t.Object({
   restockQuantity: t.Integer(),
-  restockTime: t.Date(),
   note: t.Optional(t.String()),
-  supplier: t.Optional(t.String()),
-  restockPrice: t.Optional(t.Integer()),
 });
 
 export type UpdateRestockQuantitySchema = typeof updateRestockQuantity.static;

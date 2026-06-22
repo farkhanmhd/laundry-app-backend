@@ -15,10 +15,12 @@ import type {
 export abstract class Bundlings {
   static async getBundlings() {
     try {
+      const whereConditions = [isNull(bundlings.deletedAt)];
+
       const rows = await db
         .select()
         .from(bundlings)
-        .where(isNull(bundlings.deletedAt))
+        .where(and(...whereConditions))
         .orderBy(desc(bundlings.createdAt));
 
       return rows;

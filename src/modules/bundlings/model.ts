@@ -31,10 +31,20 @@ const addBundling = t.Object({
     error: "Bundling description cannot be empty",
   }),
   items: t.Array(t.Omit(bundlingItemInsert, ["id", "bundlingId"])),
+  isCustomerOrderable: t.Boolean({
+    default: false,
+  }),
+  maxWeight: t.Optional(t.Nullable(t.Numeric())),
 });
 
 const updateBundlingData = t.Composite([
-  t.Pick(bundling, ["name", "price", "description"]),
+  t.Pick(bundling, [
+    "name",
+    "price",
+    "description",
+    "isCustomerOrderable",
+    "maxWeight",
+  ]),
 ]);
 
 const updateBundlingItemBody = t.Array(

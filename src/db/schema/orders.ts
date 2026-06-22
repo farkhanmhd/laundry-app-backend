@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { integer, numeric, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { adjustmentLogs } from "./adjustment-logs";
 import { user } from "./auth";
@@ -7,6 +7,7 @@ import { members } from "./members";
 import { orderItems } from "./order-items";
 import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
+import { weightRanges } from "./weight-ranges";
 
 export const orderStatusEnum = pgEnum("orderStatus", [
   "cancelled",
@@ -24,6 +25,8 @@ export const orders = pgTable("orders", {
   memberId: varchar("member_id").references(() => members.id),
   userId: varchar("user_id").references(() => user.id),
   status: orderStatusEnum().notNull().default("pending"),
+  weight: numeric("weight"),
+  weightRangeId: integer("weight_range_id").references(() => weightRanges.id),
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
     .defaultNow()
     .notNull(),
