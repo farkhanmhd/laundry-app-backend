@@ -239,6 +239,34 @@
       "when": 1781895532059,
       "tag": "0033_soft_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782044834021,
+      "tag": "0034_reflective_red_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1782044968496,
+      "tag": "0035_yielding_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782049174241,
+      "tag": "0036_equal_karen_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1782058761722,
+      "tag": "0037_fair_justice",
+      "breakpoints": true
     }
   ]
 }

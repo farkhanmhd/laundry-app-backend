@@ -1,12 +1,3 @@
-import { drizzle } from "drizzle-orm/bun-sql";
+import { drizzle } from "drizzle-orm/node-postgres";
 
-export const db = drizzle({
-  connection: {
-    url: process.env.DATABASE_URL,
-    // ssl: process.env.NODE_ENV === "production",
-    max: 50,
-    idleTimeout: 30,
-    maxLifetime: 3600,
-    connectionTimeout: 10,
-  },
-});
+export const db = drizzle(process.env.DATABASE_URL as string);

@@ -519,6 +519,174 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       body: "restockQuantity",
     }
   )
+  .patch(
+    "/adjustments/:id",
+    async ({ params: { id }, status, body }) => {
+      try {
+        await Inventories.updateAdjustment(id, body);
+        return status(200, {
+          status: "success",
+          message: "Adjustment updated",
+          messageKey: "inventory.adjustment.updated",
+          data: null,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.adjustment.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof ConflictError) {
+          return status(409, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.adjustment.notLatest",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    {
+      body: "updateAdjustQuantity",
+    }
+  )
+  .delete("/adjustments/:id", async ({ params: { id }, status }) => {
+    try {
+      await Inventories.deleteAdjustment(id);
+      return status(200, {
+        status: "success",
+        message: "Adjustment deleted",
+        messageKey: "inventory.adjustment.deleted",
+        data: null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return status(404, {
+          status: "error",
+          message: error.message,
+          messageKey: "inventory.adjustment.notFound",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof ConflictError) {
+        return status(409, {
+          status: "error",
+          message: error.message,
+          messageKey: "inventory.adjustment.notLatest",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
+    }
+  })
+  .patch(
+    "/restock-history/:id",
+    async ({ params: { id }, status, body }) => {
+      try {
+        await Inventories.updateRestockLog(id, body);
+        return status(200, {
+          status: "success",
+          message: "Restock log updated",
+          messageKey: "inventory.restock.updated",
+          data: null,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.restock.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof ConflictError) {
+          return status(409, {
+            status: "error",
+            message: error.message,
+            messageKey: "inventory.restock.notLatest",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(500, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    {
+      body: "updateRestockQuantity",
+    }
+  )
+  .delete("/restock-history/:id", async ({ params: { id }, status }) => {
+    try {
+      await Inventories.deleteRestockLog(id);
+      return status(200, {
+        status: "success",
+        message: "Restock log deleted",
+        messageKey: "inventory.restock.deleted",
+        data: null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return status(404, {
+          status: "error",
+          message: error.message,
+          messageKey: "inventory.restock.notFound",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof ConflictError) {
+        return status(409, {
+          status: "error",
+          message: error.message,
+          messageKey: "inventory.restock.notLatest",
+          messageParams: { id },
+          data: null,
+        });
+      }
+      if (error instanceof InternalError) {
+        return status(500, {
+          status: "error",
+          message: error.message,
+          messageKey: "common.unexpectedError",
+          data: null,
+        });
+      }
+      throw error;
+    }
+  })
   .delete("/:id", async ({ params: { id }, status }) => {
     try {
       await Inventories.deleteInventory(id as string);

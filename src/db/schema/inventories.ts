@@ -34,9 +34,15 @@ export const inventories = pgTable(
     stock: integer("stock").notNull(),
     safetyStock: integer("safety_stock").notNull(),
     unit: inventoryUnitEnum("unit"),
-    createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
-    deletedAt: timestamp("deleted_at", { mode: "string" }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).defaultNow(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).defaultNow(),
+    deletedAt: timestamp("deleted_at", { mode: "string", withTimezone: true }),
   },
   (table) => [
     check("current_quantity_check", sql`${table.stock} >= 0`),

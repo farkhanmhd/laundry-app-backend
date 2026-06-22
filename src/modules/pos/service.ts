@@ -1,6 +1,7 @@
-import { and, eq, gt, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
+import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings as bundlingsTable } from "@/db/schema/bundlings";
 import { inventories as inventoriesTable } from "@/db/schema/inventories";
 import { members as membersTable } from "@/db/schema/members";
@@ -73,11 +74,74 @@ export abstract class Pos {
 
       const rows = await unionAll(inventories, services, bundlings);
 
-      return rows;
+      const bundlingItemsMap =
+        await Pos.getBundlingItemsMap(rows);
+
+      return rows.map((item) => {
+        if (item.itemType === "bundling") {
+          return {
+            ...item,
+            items: bundlingItemsMap.get(item.id) ?? [],
+          };
+        }
+        return item;
+      });
     } catch (error) {
       console.error("Error fetching POS items:", error);
       throw new InternalError("Could not retrieve POS items.");
     }
+  }
+
+  protected static async getBundlingItemsMap(
+    items: Array<{ id: string; itemType: string }>
+  ) {
+    const bundlingIds = items
+      .filter((item) => item.itemType === "bundling")
+      .map((item) => item.id);
+
+    const bundlingItemsMap = new Map<
+      string,
+      Array<{
+        id: string;
+        quantity: number;
+        name: string;
+      }>
+    >();
+
+    if (bundlingIds.length > 0) {
+      const bundlingItemRows = await db
+        .select({
+          bundlingId: bundlingItems.bundlingId,
+          itemId: sql<string>`COALESCE(${bundlingItems.id}, ${servicesTable.id}, ${inventoriesTable.id})`,
+          quantity: bundlingItems.quantity,
+          name: sql<string>`COALESCE(${servicesTable.name}, ${inventoriesTable.name})`,
+        })
+        .from(bundlingItems)
+        .leftJoin(servicesTable, eq(bundlingItems.serviceId, servicesTable.id))
+        .leftJoin(inventoriesTable, eq(bundlingItems.inventoryId, inventoriesTable.id))
+        .where(inArray(bundlingItems.bundlingId, bundlingIds));
+
+      for (const bi of bundlingItemRows) {
+        const existing = bundlingItemsMap.get(bi.bundlingId);
+        if (existing) {
+          existing.push({
+            id: bi.itemId,
+            quantity: bi.quantity,
+            name: bi.name,
+          });
+        } else {
+          bundlingItemsMap.set(bi.bundlingId, [
+            {
+              id: bi.itemId,
+              quantity: bi.quantity,
+              name: bi.name,
+            },
+          ]);
+        }
+      }
+    }
+
+    return bundlingItemsMap;
   }
 
   static async getPosMembers(query: SearchQuery) {

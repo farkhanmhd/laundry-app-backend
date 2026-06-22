@@ -1,9 +1,10 @@
 import type { User } from "better-auth/types";
-import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
 import { assets } from "@/db/schema/assets";
 import { user } from "@/db/schema/auth";
+import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
@@ -119,6 +120,7 @@ export abstract class CustomerOrderService extends Pos {
         subtotal: orderItems.subtotal,
         note: orderItems.note,
         itemType: orderItems.itemType,
+        bundlingId: orderItems.bundlingId,
         name: sql<string>`COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})`,
         price: sql<number>`COALESCE(${services.price}, ${inventories.price}, ${bundlings.price})`,
       })
@@ -128,7 +130,76 @@ export abstract class CustomerOrderService extends Pos {
       .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
       .where(eq(orderItems.orderId, orderId));
 
-    return items;
+    const bundlingItemsMap =
+      await CustomerOrderService.getOrderBundlingItemsMap(items);
+
+    const mappedItems = items.map((item) => {
+      const { bundlingId: _bundlingId, ...rest } = item;
+      if (item.itemType === "bundling" && item.bundlingId) {
+        return {
+          ...rest,
+          items: bundlingItemsMap.get(item.bundlingId) ?? [],
+        };
+      }
+      return rest;
+    });
+
+    return mappedItems;
+  }
+
+  private static async getOrderBundlingItemsMap(
+    items: Array<{ bundlingId: string | null; itemType: string }>
+  ) {
+    const bundlingIds = items
+      .filter(
+        (item): item is typeof item & { bundlingId: string } =>
+          item.itemType === "bundling" && item.bundlingId !== null
+      )
+      .map((item) => item.bundlingId);
+
+    const bundlingItemsMap = new Map<
+      string,
+      Array<{
+        id: string;
+        quantity: number;
+        name: string;
+      }>
+    >();
+
+    if (bundlingIds.length > 0) {
+      const bundlingItemRows = await db
+        .select({
+          bundlingId: bundlingItems.bundlingId,
+          itemId: sql<string>`COALESCE(${bundlingItems.id}, ${services.id}, ${inventories.id})`,
+          quantity: bundlingItems.quantity,
+          name: sql<string>`COALESCE(${services.name}, ${inventories.name})`,
+        })
+        .from(bundlingItems)
+        .leftJoin(services, eq(bundlingItems.serviceId, services.id))
+        .leftJoin(inventories, eq(bundlingItems.inventoryId, inventories.id))
+        .where(inArray(bundlingItems.bundlingId, bundlingIds));
+
+      for (const bi of bundlingItemRows) {
+        const existing = bundlingItemsMap.get(bi.bundlingId);
+        if (existing) {
+          existing.push({
+            id: bi.itemId,
+            quantity: bi.quantity,
+            name: bi.name,
+          });
+        } else {
+          bundlingItemsMap.set(bi.bundlingId, [
+            {
+              id: bi.itemId,
+              quantity: bi.quantity,
+              name: bi.name,
+            },
+          ]);
+        }
+      }
+    }
+
+    return bundlingItemsMap;
   }
 
   static async getOrderPayment(orderId: string, userId: string) {

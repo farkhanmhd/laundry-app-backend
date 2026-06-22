@@ -8,6 +8,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   ilike,
   inArray,
   isNotNull,
@@ -17,7 +18,6 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { adjustmentLogs } from "@/db/schema/adjustment-logs";
 import { user } from "@/db/schema/auth";
@@ -26,15 +26,38 @@ import { bundlings } from "@/db/schema/bundlings";
 import { inventories } from "@/db/schema/inventories";
 import { restockLogs } from "@/db/schema/restock-logs";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
+import type { Transaction } from "@/utils";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
   Inventory,
   InventoryHistoryQuery,
+  MovementHistoryEntry,
+  MovementHistoryRow,
   RestockQuantitySchema,
+  UpdateAdjustQuantitySchema,
   UpdateInventoryBody,
   UpdateInventoryImage,
+  UpdateRestockQuantitySchema,
 } from "./model";
+
+function toMovementHistoryEntry(row: MovementHistoryRow): MovementHistoryEntry {
+  return {
+    id: row.id,
+    inventoryId: row.inventory_id,
+    inventoryName: row.inventory_name,
+    type: row.type,
+    changeAmount: row.change_amount,
+    stockRemaining: row.stock_remaining,
+    previousStock: row.previous_stock,
+    reference: row.reference,
+    note: row.note,
+    actorName: row.actor_name,
+    inputTime: row.input_time,
+    createdAt: row.created_at,
+    isLatest: row.is_latest,
+  };
+}
 
 export abstract class Inventories {
   static async getInventories() {
@@ -106,6 +129,15 @@ export abstract class Inventories {
         userId: adjustmentLogs.actorId,
         user: user.name,
         createdAt: adjustmentLogs.createdAt,
+        isLatest: sql<boolean>`NOT EXISTS (
+          SELECT 1 FROM adjustment_logs _al2
+          WHERE _al2.inventory_id = ${adjustmentLogs.inventoryId}
+          AND _al2.created_at > ${adjustmentLogs.createdAt}
+        ) AND NOT EXISTS (
+          SELECT 1 FROM restock_logs _rl2
+          WHERE _rl2.inventory_id = ${adjustmentLogs.inventoryId}
+          AND _rl2.created_at > ${adjustmentLogs.createdAt}
+        )`,
       })
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
@@ -231,6 +263,15 @@ export abstract class Inventories {
         actorName: user.name,
         restockTime: restockLogs.restockTime,
         createdAt: restockLogs.createdAt,
+        isLatest: sql<boolean>`NOT EXISTS (
+          SELECT 1 FROM adjustment_logs _al2
+          WHERE _al2.inventory_id = ${restockLogs.inventoryId}
+          AND _al2.created_at > ${restockLogs.createdAt}
+        ) AND NOT EXISTS (
+          SELECT 1 FROM restock_logs _rl2
+          WHERE _rl2.inventory_id = ${restockLogs.inventoryId}
+          AND _rl2.created_at > ${restockLogs.createdAt}
+        )`,
       })
       .from(restockLogs)
       .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
@@ -262,65 +303,56 @@ export abstract class Inventories {
     query: { page?: number; rows?: number }
   ) {
     const { rows = 50, page = 1 } = query;
+    const result = await db.execute(sql`
+      SELECT sq.*,
+        row_number() OVER (ORDER BY sq.created_at DESC) = 1 AS is_latest
+      FROM (
+        SELECT
+          rl.id, rl.inventory_id, i.name AS inventory_name,
+          'restock' AS type, rl.restock_quantity AS change_amount,
+          rl.stock_remaining,
+          rl.stock_remaining - rl.restock_quantity AS previous_stock,
+          rl.supplier AS reference, rl.note, u.name AS actor_name,
+          rl.restock_time as input_time,
+          rl.created_at
+        FROM restock_logs rl
+        LEFT JOIN inventories i ON i.id = rl.inventory_id
+        LEFT JOIN "user" u ON u.id = rl.user_id
+        WHERE rl.inventory_id = ${inventoryId}
 
-    const restockQuery = db
-      .select({
-        id: restockLogs.id,
-        inventoryId: restockLogs.inventoryId,
-        inventoryName: inventories.name,
-        type: sql<string>`'restock'`.as("type"),
-        changeAmount: restockLogs.restockQuantity,
-        stockRemaining: restockLogs.stockRemaining,
-        reference: sql<string | null>`${restockLogs.supplier}`,
-        note: restockLogs.note,
-        actorName: user.name,
-        createdAt: restockLogs.createdAt,
-      })
-      .from(restockLogs)
-      .leftJoin(inventories, eq(restockLogs.inventoryId, inventories.id))
-      .leftJoin(user, eq(restockLogs.userId, user.id))
-      .where(eq(restockLogs.inventoryId, inventoryId));
+        UNION ALL
 
-    const adjustmentQuery = db
-      .select({
-        id: adjustmentLogs.id,
-        inventoryId: adjustmentLogs.inventoryId,
-        inventoryName: inventories.name,
-        type: sql<string>`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL OR ${adjustmentLogs.bundlingId} IS NOT NULL THEN 'usage' ELSE 'adjustment' END`.as(
-          "type"
-        ),
-        changeAmount: adjustmentLogs.changeAmount,
-        stockRemaining: adjustmentLogs.stockRemaining,
-        reference: sql<
-          string | null
-        >`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
-        note: adjustmentLogs.note,
-        actorName: user.name,
-        createdAt: adjustmentLogs.createdAt,
-      })
-      .from(adjustmentLogs)
-      .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
-      .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
-      .where(eq(adjustmentLogs.inventoryId, inventoryId));
+        SELECT
+          al.id, al.inventory_id, i.name,
+          CASE WHEN al.order_id IS NOT NULL OR al.bundling_id IS NOT NULL THEN 'usage' ELSE 'adjustment' END,
+          al.change_amount, al.stock_remaining,
+          al.stock_remaining - al.change_amount,
+          CASE WHEN al.order_id IS NOT NULL THEN al.order_id WHEN al.bundling_id IS NOT NULL THEN al.bundling_id END,
+          al.note, u.name, al.adjustment_time as input_time, al.created_at
+        FROM adjustment_logs al
+        LEFT JOIN inventories i ON i.id = al.inventory_id
+        LEFT JOIN "user" u ON u.id = al.actor_id
+        WHERE al.inventory_id = ${inventoryId}
+      ) sq
+      ORDER BY sq.created_at DESC
+      LIMIT ${rows}
+      OFFSET ${(page - 1) * rows}
+    `);
 
-    const movementHistory = await unionAll(restockQuery, adjustmentQuery)
-      .orderBy(desc(sql`"created_at"`))
-      .limit(rows)
-      .offset((page - 1) * rows);
+    const rawRows = result.rows as MovementHistoryRow[];
 
-    const [restockCount, adjustmentCount] = await Promise.all([
-      db
-        .select({ count: count() })
-        .from(restockLogs)
-        .where(eq(restockLogs.inventoryId, inventoryId)),
-      db
-        .select({ count: count() })
-        .from(adjustmentLogs)
-        .where(eq(adjustmentLogs.inventoryId, inventoryId)),
-    ]);
+    const rawCount = await db.execute(sql`
+      SELECT count(*) AS cnt FROM (
+        SELECT id FROM restock_logs WHERE inventory_id = ${inventoryId}
+        UNION ALL
+        SELECT id FROM adjustment_logs WHERE inventory_id = ${inventoryId}
+      ) sub
+    `);
 
-    const total =
-      (restockCount[0]?.count ?? 0) + (adjustmentCount[0]?.count ?? 0);
+    const countResult = rawCount.rows as { cnt: number }[];
+
+    const total = Number(countResult[0]?.cnt ?? 0);
+    const movementHistory = rawRows.map(toMovementHistoryEntry);
 
     return { total, movementHistory };
   }
@@ -331,7 +363,8 @@ export abstract class Inventories {
         value: inventories.id,
         label: inventories.name,
       })
-      .from(inventories);
+      .from(inventories)
+      .where(isNull(inventories.deletedAt));
 
     return options;
   }
@@ -410,6 +443,40 @@ export abstract class Inventories {
     }
 
     return result[0]?.id as string;
+  }
+
+  private static async isLatestMovement(
+    tx: Transaction,
+    inventoryId: string,
+    createdAt: string
+  ): Promise<boolean> {
+    const laterAdjustment = await tx
+      .select({ id: adjustmentLogs.id })
+      .from(adjustmentLogs)
+      .where(
+        and(
+          eq(adjustmentLogs.inventoryId, inventoryId),
+          gt(adjustmentLogs.createdAt, createdAt)
+        )
+      )
+      .limit(1);
+
+    if (laterAdjustment.length) {
+      return false;
+    }
+
+    const laterRestock = await tx
+      .select({ id: restockLogs.id })
+      .from(restockLogs)
+      .where(
+        and(
+          eq(restockLogs.inventoryId, inventoryId),
+          gt(restockLogs.createdAt, createdAt)
+        )
+      )
+      .limit(1);
+
+    return laterRestock.length === 0;
   }
 
   static async adjustQuantity(
@@ -519,6 +586,204 @@ export abstract class Inventories {
     }
 
     return result[0]?.id as string;
+  }
+
+  static async updateAdjustment(id: string, body: UpdateAdjustQuantitySchema) {
+    await db.transaction(async (tx) => {
+      const [log] = await tx
+        .select()
+        .from(adjustmentLogs)
+        .where(eq(adjustmentLogs.id, id))
+        .for("update")
+        .limit(1);
+
+      if (!log) {
+        throw new NotFoundError("Adjustment log not found");
+      }
+
+      const isLatest = await Inventories.isLatestMovement(
+        tx,
+        log.inventoryId,
+        log.createdAt
+      );
+
+      if (!isLatest) {
+        throw new ConflictError(
+          "Tidak dapat diubah, sudah ada pergerakan stok berikutnya untuk item ini"
+        );
+      }
+
+      const baseline = log.stockRemaining - log.changeAmount;
+      const newStockRemaining = baseline + body.changeAmount;
+
+      if (newStockRemaining < 0) {
+        throw new ConflictError("Stok tidak boleh negatif setelah perubahan");
+      }
+
+      await tx
+        .update(adjustmentLogs)
+        .set({
+          updatedAt: sql`now()`,
+          changeAmount: body.changeAmount,
+          stockRemaining: newStockRemaining,
+          ...(body.note !== undefined && { note: body.note }),
+        })
+        .where(eq(adjustmentLogs.id, id));
+
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({ stock: newStockRemaining, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId))
+        .returning({ id: inventories.id });
+
+      if (!updatedInventory) {
+        tx.rollback();
+        throw new InternalError();
+      }
+    });
+  }
+
+  static async deleteAdjustment(id: string) {
+    await db.transaction(async (tx) => {
+      const [log] = await tx
+        .select()
+        .from(adjustmentLogs)
+        .where(eq(adjustmentLogs.id, id))
+        .for("update")
+        .limit(1);
+
+      if (!log) {
+        throw new NotFoundError("Adjustment log not found");
+      }
+
+      const isLatest = await Inventories.isLatestMovement(
+        tx,
+        log.inventoryId,
+        log.createdAt
+      );
+
+      if (!isLatest) {
+        throw new ConflictError(
+          "Tidak dapat dihapus, sudah ada pergerakan stok berikutnya untuk item ini"
+        );
+      }
+
+      const baseline = log.stockRemaining - log.changeAmount;
+
+      await tx.delete(adjustmentLogs).where(eq(adjustmentLogs.id, id));
+
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({ stock: baseline, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId))
+        .returning({ id: inventories.id });
+
+      if (!updatedInventory) {
+        tx.rollback();
+        throw new InternalError();
+      }
+    });
+  }
+
+  static async updateRestockLog(id: string, body: UpdateRestockQuantitySchema) {
+    await db.transaction(async (tx) => {
+      const [log] = await tx
+        .select()
+        .from(restockLogs)
+        .where(eq(restockLogs.id, id))
+        .for("update")
+        .limit(1);
+
+      if (!log) {
+        throw new NotFoundError("Restock log not found");
+      }
+
+      const isLatest = await Inventories.isLatestMovement(
+        tx,
+        log.inventoryId,
+        log.createdAt
+      );
+
+      if (!isLatest) {
+        throw new ConflictError(
+          "Failed to update restock log: not the latest movement"
+        );
+      }
+
+      const baseline = log.stockRemaining - log.restockQuantity;
+      const newStockRemaining = baseline + body.restockQuantity;
+
+      if (newStockRemaining < 0) {
+        throw new ConflictError("Stok tidak boleh negatif setelah perubahan");
+      }
+
+      await tx
+        .update(restockLogs)
+        .set({
+          updatedAt: sql`now()`,
+          restockQuantity: body.restockQuantity,
+          stockRemaining: newStockRemaining,
+          ...(body.note !== undefined && { note: body.note }),
+          ...(body.supplier !== undefined && { supplier: body.supplier }),
+          ...(body.restockPrice !== undefined && {
+            restockPrice: body.restockPrice,
+          }),
+        })
+        .where(eq(restockLogs.id, id));
+
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({ stock: newStockRemaining, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId))
+        .returning({ id: inventories.id });
+
+      if (!updatedInventory) {
+        tx.rollback();
+        throw new InternalError();
+      }
+    });
+  }
+
+  static async deleteRestockLog(id: string) {
+    await db.transaction(async (tx) => {
+      const [log] = await tx
+        .select()
+        .from(restockLogs)
+        .where(eq(restockLogs.id, id))
+        .for("update")
+        .limit(1);
+
+      if (!log) {
+        throw new NotFoundError("Restock log not found");
+      }
+
+      const isLatest = await Inventories.isLatestMovement(
+        tx,
+        log.inventoryId,
+        log.createdAt
+      );
+
+      if (!isLatest) {
+        throw new ConflictError(
+          "Tidak dapat dihapus, sudah ada pergerakan stok berikutnya untuk item ini"
+        );
+      }
+
+      const baseline = log.stockRemaining - log.restockQuantity;
+
+      await tx.delete(restockLogs).where(eq(restockLogs.id, id));
+
+      const [updatedInventory] = await tx
+        .update(inventories)
+        .set({ stock: baseline, updatedAt: sql`now()` })
+        .where(eq(inventories.id, log.inventoryId))
+        .returning({ id: inventories.id });
+
+      if (!updatedInventory) {
+        tx.rollback();
+        throw new InternalError();
+      }
+    });
   }
 
   private static getDateFilter(from: string, to: string) {

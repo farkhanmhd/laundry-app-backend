@@ -102,7 +102,7 @@ export type GetInventories = typeof getInventories.static;
 const adjustQuantity = t.Object({
   note: t.Optional(t.String()),
   changeAmount: t.Integer(),
-  adjustmentTime: t.Date(),
+  adjustmentTime: t.String(),
 });
 
 export type AdjustQuantitySchema = typeof adjustQuantity.static;
@@ -110,12 +110,66 @@ export type AdjustQuantitySchema = typeof adjustQuantity.static;
 const restockQuantity = t.Object({
   supplier: t.String(),
   restockQuantity: t.Integer(),
-  restockTime: t.Date(),
+  restockTime: t.String(),
   restockPrice: t.Integer(),
   note: t.Optional(t.String()),
 });
 
 export type RestockQuantitySchema = typeof restockQuantity.static;
+
+export const movementHistoryRow = t.Object({
+  id: t.String(),
+  inventory_id: t.String(),
+  inventory_name: t.String(),
+  type: t.String(),
+  change_amount: t.Number(),
+  stock_remaining: t.Number(),
+  previous_stock: t.Number(),
+  reference: t.Nullable(t.String()),
+  note: t.Nullable(t.String()),
+  actor_name: t.String(),
+  input_time: t.String(),
+  created_at: t.String(),
+  is_latest: t.Boolean(),
+});
+
+export type MovementHistoryRow = typeof movementHistoryRow.static;
+
+export const movementHistoryEntry = t.Object({
+  id: t.String(),
+  inventoryId: t.String(),
+  inventoryName: t.String(),
+  type: t.String(),
+  changeAmount: t.Number(),
+  stockRemaining: t.Number(),
+  previousStock: t.Number(),
+  reference: t.Nullable(t.String()),
+  note: t.Nullable(t.String()),
+  actorName: t.String(),
+  inputTime: t.String(),
+  createdAt: t.String(),
+  isLatest: t.Boolean(),
+});
+
+export type MovementHistoryEntry = typeof movementHistoryEntry.static;
+
+const updateAdjustQuantity = t.Object({
+  changeAmount: t.Integer(),
+  adjustmentTime: t.Date(),
+  note: t.Optional(t.String()),
+});
+
+export type UpdateAdjustQuantitySchema = typeof updateAdjustQuantity.static;
+
+const updateRestockQuantity = t.Object({
+  restockQuantity: t.Integer(),
+  restockTime: t.Date(),
+  note: t.Optional(t.String()),
+  supplier: t.Optional(t.String()),
+  restockPrice: t.Optional(t.Integer()),
+});
+
+export type UpdateRestockQuantitySchema = typeof updateRestockQuantity.static;
 
 export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
   {
@@ -128,5 +182,7 @@ export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
     inventoryHistoryQuery,
     inventoryReportQuery,
     restockQuantity,
+    updateAdjustQuantity,
+    updateRestockQuantity,
   }
 );

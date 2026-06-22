@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
+import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { deliveries } from "@/db/schema/deliveries";
 import { inventories } from "@/db/schema/inventories";
@@ -121,6 +122,7 @@ export abstract class Orders {
           quantity: orderItems.quantity,
           subtotal: orderItems.subtotal,
           note: orderItems.note,
+          bundlingId: orderItems.bundlingId,
           name: sql<string>`COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})`,
           description: sql<string>`COALESCE(${services.description}, ${inventories.description}, ${bundlings.description})`,
           price: sql<number>`COALESCE(${services.price}, ${inventories.price}, ${bundlings.price})`,
@@ -178,8 +180,22 @@ export abstract class Orders {
         throw new NotFoundError("Order id not found");
       }
 
+      const bundlingItemsMap =
+        await Orders.getBundlingItemsMap(items);
+
+      const mappedItems = items.map((item) => {
+        const { bundlingId: _bundlingId, ...rest } = item;
+        if (item.itemtype === "bundling" && item.bundlingId) {
+          return {
+            ...rest,
+            items: bundlingItemsMap.get(item.bundlingId) ?? [],
+          };
+        }
+        return rest;
+      });
+
       return {
-        items,
+        items: mappedItems,
         voucher,
         points,
       };
@@ -190,6 +206,61 @@ export abstract class Orders {
       console.error("Error fetching order items:", error);
       throw new InternalError("Could not retrieve order items.");
     }
+  }
+
+  private static async getBundlingItemsMap(
+    items: Array<{ bundlingId: string | null; itemtype: string }>
+  ) {
+    const bundlingIds = items
+      .filter(
+        (item): item is typeof item & { bundlingId: string } =>
+          item.itemtype === "bundling" && item.bundlingId !== null
+      )
+      .map((item) => item.bundlingId);
+
+    const bundlingItemsMap = new Map<
+      string,
+      Array<{
+        id: string;
+        quantity: number;
+        name: string;
+      }>
+    >();
+
+    if (bundlingIds.length > 0) {
+      const bundlingItemRows = await db
+        .select({
+          bundlingId: bundlingItems.bundlingId,
+          itemId: sql<string>`COALESCE(${bundlingItems.id}, ${services.id}, ${inventories.id})`,
+          quantity: bundlingItems.quantity,
+          name: sql<string>`COALESCE(${services.name}, ${inventories.name})`,
+        })
+        .from(bundlingItems)
+        .leftJoin(services, eq(bundlingItems.serviceId, services.id))
+        .leftJoin(inventories, eq(bundlingItems.inventoryId, inventories.id))
+        .where(inArray(bundlingItems.bundlingId, bundlingIds));
+
+      for (const bi of bundlingItemRows) {
+        const existing = bundlingItemsMap.get(bi.bundlingId);
+        if (existing) {
+          existing.push({
+            id: bi.itemId,
+            quantity: bi.quantity,
+            name: bi.name,
+          });
+        } else {
+          bundlingItemsMap.set(bi.bundlingId, [
+            {
+              id: bi.itemId,
+              quantity: bi.quantity,
+              name: bi.name,
+            },
+          ]);
+        }
+      }
+    }
+
+    return bundlingItemsMap;
   }
 
   static async getOrderPayment(orderId: string) {

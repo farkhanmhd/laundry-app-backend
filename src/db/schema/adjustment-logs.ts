@@ -23,10 +23,12 @@ export const adjustmentLogs = pgTable("adjustment_logs", {
   note: varchar("note", { length: 255 }),
   adjustmentTime: timestamp("adjustment_time", {
     withTimezone: true,
+    mode: "string",
   }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }),
 });
 
 export const adjustmentLogsRelations = relations(adjustmentLogs, ({ one }) => ({
