@@ -106,10 +106,7 @@ export abstract class DeliveriesService {
           assetId: assets.id,
           licensePlate: assets.licensePlate,
           vehicleName: assets.name,
-          requestTime:
-            sql<string>`to_char(${deliveries.requestTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "requestTime"
-            ),
+          requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)
@@ -188,10 +185,7 @@ export abstract class DeliveriesService {
           driverName: user.name,
           licensePlate: assets.licensePlate,
           vehicleName: assets.name,
-          requestTime:
-            sql<string>`to_char(${deliveries.requestTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "requestTime"
-            ),
+          requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
         .from(deliveries)

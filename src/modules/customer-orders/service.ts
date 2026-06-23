@@ -985,18 +985,9 @@ export abstract class CustomerOrderService extends Pos {
           qrString: paymentsTable.qrString,
           acquirer: paymentsTable.acquirer,
           actions: paymentsTable.actions,
-          transactionTime:
-            sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "transactionTime"
-            ),
-          expiryTime:
-            sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "expiryTime"
-            ),
-          createdAt:
-            sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "createdAt"
-            ),
+          transactionTime: payments.transactionTime,
+          expiryTime: payments.expiryTime,
+          createdAt: payments.createdAt,
           updatedAt: paymentsTable.updatedAt,
         })
         .from(paymentsTable)

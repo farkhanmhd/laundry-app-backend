@@ -359,22 +359,10 @@ export abstract class Orders {
           qrString: paymentsTable.qrString,
           acquirer: paymentsTable.acquirer,
           actions: paymentsTable.actions,
-          transactionTime:
-            sql<string>`to_char(${paymentsTable.transactionTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "transactionTime"
-            ),
-          expiryTime:
-            sql<string>`to_char(${paymentsTable.expiryTime} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "expiryTime"
-            ),
-          createdAt:
-            sql<string>`to_char(${paymentsTable.createdAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "createdAt"
-            ),
-          updatedAt:
-            sql<string>`to_char(${paymentsTable.updatedAt} AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD"T"HH24:MI:SSOF')`.as(
-              "updatedAt"
-            ),
+          transactionTime: paymentsTable.transactionTime,
+          expiryTime: paymentsTable.expiryTime,
+          createdAt: paymentsTable.createdAt,
+          updatedAt: paymentsTable.updatedAt,
         })
         .from(paymentsTable)
         .where(eq(paymentsTable.orderId, orderId.toLowerCase()))

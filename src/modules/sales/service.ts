@@ -138,7 +138,7 @@ export abstract class SalesService {
     const rows = await db
       .select({
         // Group Key: Format date as "dd-MM-yyyy"
-        date: sql<string>`to_char(${orders.createdAt}, 'DD-MM-YYYY')`,
+        date: orders.createdAt,
 
         // Metrics
         net: sum(payments.total).mapWith(Number),
