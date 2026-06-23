@@ -105,6 +105,10 @@ export type Inventory = typeof inventory.static;
 export type InventoryHistoryQuery = typeof inventoryHistoryQuery.static;
 export type InventoryReportQuery = typeof inventoryReportQuery.static;
 
+const inventoryLogsQuery = t.Composite([searchQuery]);
+
+export type InventoryLogsQuery = typeof inventoryLogsQuery.static;
+
 const addInventoryResponse = t.Composite([
   succesResponse,
   t.Object({
@@ -197,6 +201,7 @@ export const inventoriesModel = new Elysia({ name: "inventories/model" }).model(
     updateInventoryImage,
     adjustQuantity,
     inventoryHistoryQuery,
+    inventoryLogsQuery,
     inventoryReportQuery,
     restockQuantity,
     updateAdjustQuantity,

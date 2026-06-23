@@ -1,4 +1,11 @@
-import { boolean, numeric, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  numeric,
+  pgTable,
+  serial,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const weightRanges = pgTable("weight_ranges", {
   id: serial("id").primaryKey(),

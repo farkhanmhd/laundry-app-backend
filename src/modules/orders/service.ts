@@ -180,8 +180,7 @@ export abstract class Orders {
         throw new NotFoundError("Order id not found");
       }
 
-      const bundlingItemsMap =
-        await Orders.getBundlingItemsMap(items);
+      const bundlingItemsMap = await Orders.getBundlingItemsMap(items);
 
       const mappedItems = items.map((item) => {
         const { bundlingId: _bundlingId, ...rest } = item;

@@ -288,6 +288,13 @@
       "when": 1782126910163,
       "tag": "0040_third_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1782179315045,
+      "tag": "0041_empty_masque",
+      "breakpoints": true
     }
   ]
 }

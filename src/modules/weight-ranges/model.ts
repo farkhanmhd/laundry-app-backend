@@ -18,7 +18,9 @@ const updateWeightRangeSchema = t.Partial(
 export type CreateWeightRangeSchema = typeof createWeightRangeSchema.static;
 export type UpdateWeightRangeSchema = typeof updateWeightRangeSchema.static;
 
-export const weightRangesModel = new Elysia({ name: "weight-ranges/model" }).model({
+export const weightRangesModel = new Elysia({
+  name: "weight-ranges/model",
+}).model({
   createWeightRangeSchema,
   updateWeightRangeSchema,
 });

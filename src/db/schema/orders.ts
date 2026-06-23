@@ -1,5 +1,12 @@
 import { relations } from "drizzle-orm";
-import { integer, numeric, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  integer,
+  numeric,
+  pgEnum,
+  pgTable,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { nanoid } from "../utils";
 import { adjustmentLogs } from "./adjustment-logs";
 import { user } from "./auth";

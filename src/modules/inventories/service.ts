@@ -24,14 +24,17 @@ import { user } from "@/db/schema/auth";
 import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { inventories } from "@/db/schema/inventories";
+import { inventoryLogs } from "@/db/schema/inventory-logs";
 import { restockLogs } from "@/db/schema/restock-logs";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type { Transaction } from "@/utils";
+import { computeChangedFields, logInventoryChange } from "./audit";
 import type {
   AddInventoryBody,
   AdjustQuantitySchema,
   Inventory,
   InventoryHistoryQuery,
+  InventoryLogsQuery,
   MovementHistoryEntry,
   MovementHistoryRow,
   RestockQuantitySchema,
@@ -371,25 +374,35 @@ export abstract class Inventories {
     return options;
   }
 
-  static async addInventory(formData: AddInventoryBody) {
+  static async addInventory(actorId: string, formData: AddInventoryBody) {
     const { image, ...rest } = formData;
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
     const folderPath = "public/uploads";
     const fullPath = `${folderPath}/${fileName}`;
     const imageUrl = `${process.env.BETTER_AUTH_URL}/uploads/${fileName}`;
     await write(fullPath, image);
-    const result = await db
-      .insert(inventories)
-      .values({
-        image: imageUrl,
-        ...rest,
-      })
-      .returning(); // return all columns
-    if (result.length === 0) {
-      throw new InternalError();
-    }
-    const row = { ...result[0], isOnBundling: false };
-    return row;
+    const result = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(inventories)
+        .values({
+          image: imageUrl,
+          ...rest,
+        })
+        .returning();
+      if (inserted.length === 0 || !inserted[0]) {
+        throw new InternalError();
+      }
+      await logInventoryChange(
+        tx,
+        inserted[0].id,
+        actorId,
+        "create",
+        null,
+        "Created inventory"
+      );
+      return inserted[0];
+    });
+    return { ...result, isOnBundling: false };
   }
 
   static async getInventoryById(id: string) {
@@ -410,21 +423,41 @@ export abstract class Inventories {
     return row[0] as Inventory;
   }
 
-  static async updateInventory(id: string, data: UpdateInventoryBody) {
-    const result = await db
-      .update(inventories)
-      .set({ ...data, updatedAt: sql`now()` })
-      .where(eq(inventories.id, id))
-      .returning({ id: inventories.id });
+  static async updateInventory(
+    id: string,
+    actorId: string,
+    data: UpdateInventoryBody
+  ) {
+    return await db.transaction(async (tx) => {
+      const [old] = await tx
+        .select()
+        .from(inventories)
+        .where(eq(inventories.id, id))
+        .limit(1);
+      if (!old) {
+        throw new NotFoundError("Inventory not found");
+      }
 
-    if (!result.length) {
-      throw new InternalError();
-    }
+      await tx
+        .update(inventories)
+        .set({ ...data, updatedAt: sql`now()` })
+        .where(eq(inventories.id, id));
 
-    return result[0]?.id as string;
+      const changed = computeChangedFields(old, data);
+      if (Object.keys(changed).length > 0) {
+        const summary = `Updated ${Object.keys(changed).join(", ")}`;
+        await logInventoryChange(tx, id, actorId, "update", changed, summary);
+      }
+
+      return id;
+    });
   }
 
-  static async updateInventoryImage(id: string, data: UpdateInventoryImage) {
+  static async updateInventoryImage(
+    id: string,
+    actorId: string,
+    data: UpdateInventoryImage
+  ) {
     const { image } = data;
 
     const fileName = `${Date.now()}-${image.name.split(" ").join("-")}`;
@@ -434,17 +467,32 @@ export abstract class Inventories {
 
     await write(fullPath, image);
 
-    const result = await db
-      .update(inventories)
-      .set({ image: imageUrl })
-      .where(eq(inventories.id, id))
-      .returning({ id: inventories.id });
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: inventories.id })
+        .from(inventories)
+        .where(eq(inventories.id, id))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundError("Inventory not found");
+      }
 
-    if (!result.length) {
-      throw new InternalError();
-    }
+      await tx
+        .update(inventories)
+        .set({ image: imageUrl })
+        .where(eq(inventories.id, id));
 
-    return result[0]?.id as string;
+      await logInventoryChange(
+        tx,
+        id,
+        actorId,
+        "image_update",
+        null,
+        "Updated image"
+      );
+
+      return id;
+    });
   }
 
   private static async isLatestMovement(
@@ -528,6 +576,16 @@ export abstract class Inventories {
     body: RestockQuantitySchema
   ) {
     const restockLogId = await db.transaction(async (tx) => {
+      const [oldInventory] = await tx
+        .select({ price: inventories.price })
+        .from(inventories)
+        .where(eq(inventories.id, inventoryId))
+        .limit(1);
+
+      if (!oldInventory) {
+        throw new NotFoundError("Inventory Id not found");
+      }
+
       const [updatedInventory] = await tx
         .update(inventories)
         .set({
@@ -538,7 +596,19 @@ export abstract class Inventories {
         .returning({ stock: inventories.stock });
 
       if (!updatedInventory) {
-        throw new NotFoundError("Inventory Id not found");
+        throw new InternalError();
+      }
+
+      if (body.price != null && oldInventory.price !== body.price) {
+        const changed = { price: { old: oldInventory.price, new: body.price } };
+        await logInventoryChange(
+          tx,
+          inventoryId,
+          userId,
+          "update",
+          changed,
+          "Updated price"
+        );
       }
 
       const restockLogQuery = (
@@ -568,7 +638,7 @@ export abstract class Inventories {
     return restockLogId;
   }
 
-  static async deleteInventory(id: string) {
+  static async deleteInventory(id: string, actorId: string) {
     const bundling = await db
       .select({ id: bundlingItems.id })
       .from(bundlingItems)
@@ -578,17 +648,62 @@ export abstract class Inventories {
       throw new ConflictError("Inventory is being used in a bundling");
     }
 
-    const result = await db
-      .update(inventories)
-      .set({ deletedAt: sql`now()` })
-      .where(eq(inventories.id, id))
-      .returning({ id: inventories.id });
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: inventories.id })
+        .from(inventories)
+        .where(eq(inventories.id, id))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundError("Inventory id not valid");
+      }
 
-    if (!result.length) {
-      throw new InternalError("Inventory id not valid");
-    }
+      await tx
+        .update(inventories)
+        .set({ deletedAt: sql`now()` })
+        .where(eq(inventories.id, id));
 
-    return result[0]?.id as string;
+      await logInventoryChange(
+        tx,
+        id,
+        actorId,
+        "delete",
+        null,
+        "Deleted inventory"
+      );
+
+      return id;
+    });
+  }
+
+  static async getInventoryLogs(
+    inventoryId: string,
+    query: InventoryLogsQuery
+  ) {
+    const { rows = 50, page = 1 } = query;
+
+    const logs = await db
+      .select({
+        ...getTableColumns(inventoryLogs),
+        actor: {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+        },
+      })
+      .from(inventoryLogs)
+      .leftJoin(user, eq(inventoryLogs.actorId, user.id))
+      .where(eq(inventoryLogs.inventoryId, inventoryId))
+      .orderBy(desc(inventoryLogs.createdAt))
+      .limit(rows)
+      .offset((page - 1) * rows);
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(inventoryLogs)
+      .where(eq(inventoryLogs.inventoryId, inventoryId));
+
+    return { logs, total: totalResult?.count ?? 0 };
   }
 
   static async updateAdjustment(id: string, body: UpdateAdjustQuantitySchema) {

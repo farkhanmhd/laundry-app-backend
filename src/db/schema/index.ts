@@ -6,6 +6,7 @@ import { bundlingItems } from "./bundling-items";
 import { bundlings } from "./bundlings";
 import { deliveries } from "./deliveries";
 import { inventories } from "./inventories";
+import { inventoryLogs } from "./inventory-logs";
 import { members } from "./members";
 import { orderItems } from "./order-items";
 import { orders } from "./orders";
@@ -27,6 +28,7 @@ export const table = {
   bundlingItems,
   deliveries,
   inventories,
+  inventoryLogs,
   members,
   orders,
   orderItems,

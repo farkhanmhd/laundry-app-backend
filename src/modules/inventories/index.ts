@@ -346,9 +346,9 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   })
   .post(
     "/",
-    async ({ body, status }) => {
+    async ({ body, status, user }) => {
       try {
-        const inventory = await Inventories.addInventory(body);
+        const inventory = await Inventories.addInventory(user.id, body);
         return status(201, {
           status: "success",
           message: "New inventory Created",
@@ -375,9 +375,9 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   )
   .patch(
     "/:id",
-    async ({ params: { id }, body, status }) => {
+    async ({ params: { id }, body, status, user }) => {
       try {
-        await Inventories.updateInventory(id, body);
+        await Inventories.updateInventory(id, user.id, body);
         return status(200, {
           status: "success",
           message: "Inventory Updated",
@@ -412,9 +412,9 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
   )
   .patch(
     "/:id/image",
-    async ({ params: { id }, body, status }) => {
+    async ({ params: { id }, body, status, user }) => {
       try {
-        await Inventories.updateInventoryImage(id, body);
+        await Inventories.updateInventoryImage(id, user.id, body);
         return status(200, {
           status: "success",
           message: "Inventory updated",
@@ -687,9 +687,36 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
       throw error;
     }
   })
-  .delete("/:id", async ({ params: { id }, status }) => {
+  .get(
+    "/:id/logs",
+    async ({ params: { id }, status, query }) => {
+      try {
+        const logs = await Inventories.getInventoryLogs(id, query);
+        return status(200, {
+          status: "success",
+          message: "Inventory logs retrieved",
+          messageKey: "inventory.logs.retrieved",
+          data: logs,
+        });
+      } catch (error) {
+        console.error(error);
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: "Inventory not found",
+            messageKey: "inventory.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    { query: "inventoryLogsQuery", auth: true }
+  )
+  .delete("/:id", async ({ params: { id }, status, user }) => {
     try {
-      await Inventories.deleteInventory(id as string);
+      await Inventories.deleteInventory(id as string, user.id);
       return status(200, {
         status: "success",
         message: "Inventory deleted",
