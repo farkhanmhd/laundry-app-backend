@@ -25,6 +25,7 @@ import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
 import { inventories } from "@/db/schema/inventories";
 import { inventoryLogs } from "@/db/schema/inventory-logs";
+import { orders } from "@/db/schema/orders";
 import { restockLogs } from "@/db/schema/restock-logs";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
 import type { Transaction } from "@/utils";
@@ -204,7 +205,11 @@ export abstract class Inventories {
       filters.push(between(adjustmentLogs.createdAt, startDate, endDate));
     }
 
-    const whereQuery = and(...filters, isNotNull(adjustmentLogs.orderId));
+    const whereQuery = and(
+      ...filters,
+      isNotNull(adjustmentLogs.orderId),
+      inArray(orders.status, ["completed", "ready"])
+    );
 
     const usageHistory = db
       .select({
@@ -219,6 +224,7 @@ export abstract class Inventories {
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
       .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
       .where(whereQuery)
       .limit(rows)
       .offset((page - 1) * rows)
@@ -229,6 +235,7 @@ export abstract class Inventories {
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
       .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
       .where(whereQuery);
 
     const [inventoryUsageHistory, [total]] = await Promise.all([
@@ -334,7 +341,12 @@ export abstract class Inventories {
         FROM adjustment_logs al
         LEFT JOIN inventories i ON i.id = al.inventory_id
         LEFT JOIN "user" u ON u.id = al.actor_id
+        LEFT JOIN orders o ON o.id = al.order_id
         WHERE al.inventory_id = ${inventoryId}
+          AND (
+            al.order_id IS NULL
+            OR o.status IN ('completed', 'ready')
+          )
       ) sq
       ORDER BY sq.created_at DESC
       LIMIT ${rows}
@@ -347,7 +359,13 @@ export abstract class Inventories {
       SELECT count(*) AS cnt FROM (
         SELECT id FROM restock_logs WHERE inventory_id = ${inventoryId}
         UNION ALL
-        SELECT id FROM adjustment_logs WHERE inventory_id = ${inventoryId}
+        SELECT al.id FROM adjustment_logs al
+        LEFT JOIN orders o ON o.id = al.order_id
+        WHERE al.inventory_id = ${inventoryId}
+          AND (
+            al.order_id IS NULL
+            OR o.status IN ('completed', 'ready')
+          )
       ) sub
     `);
 
@@ -946,6 +964,8 @@ export abstract class Inventories {
 
   static async getTotalUsage(from: string, to: string): Promise<number> {
     const dateFilter = Inventories.getDateFilter(from, to);
+    const whereQueries: SQL[] = [dateFilter];
+
     const result = await db
       .select({
         totalUsage: sql<number>`sum(abs(${adjustmentLogs.changeAmount}))`.as(
@@ -953,7 +973,10 @@ export abstract class Inventories {
         ),
       })
       .from(adjustmentLogs)
-      .where(dateFilter);
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
+      .where(
+        and(...whereQueries, inArray(orders.status, ["completed", "ready"]))
+      );
     return result[0]?.totalUsage ?? 0;
   }
 
@@ -962,7 +985,8 @@ export abstract class Inventories {
     const result = await db
       .select({ count: countDistinct(adjustmentLogs.orderId) })
       .from(adjustmentLogs)
-      .where(dateFilter);
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
+      .where(and(dateFilter, inArray(orders.status, ["completed", "ready"])));
     return result[0]?.count ?? 0;
   }
 }

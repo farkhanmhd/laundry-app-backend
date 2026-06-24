@@ -147,6 +147,7 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
         );
         const averageUsagePerOrder =
           uniqueOrderCount > 0 ? totalUsage / uniqueOrderCount : 0;
+
         return status(200, {
           status: "success",
           message: "Average usage per order retrieved",

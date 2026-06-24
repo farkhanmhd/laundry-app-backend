@@ -369,17 +369,44 @@ export abstract class ReportService {
         FROM inventory_list i
         CROSS JOIN months m
       ),
+      inventory_initial AS (
+        SELECT
+          i.id,
+          (i.stock - COALESCE(r.total_restock_qty, 0) - COALESCE(a.total_adjustment, 0))::integer AS initial_stock,
+          i.created_at
+        FROM inventories i
+        LEFT JOIN (
+          SELECT inventory_id, SUM(restock_quantity)::integer AS total_restock_qty
+          FROM restock_logs
+          GROUP BY inventory_id
+        ) r ON r.inventory_id = i.id
+        LEFT JOIN (
+          SELECT inventory_id, SUM(change_amount)::integer AS total_adjustment
+          FROM adjustment_logs
+          GROUP BY inventory_id
+        ) a ON a.inventory_id = i.id
+        WHERE i.deleted_at IS NULL
+      ),
       all_logs AS (
         SELECT inventory_id, stock_remaining, created_at FROM restock_logs
         UNION ALL
         SELECT inventory_id, stock_remaining, created_at FROM adjustment_logs
+        UNION ALL
+        SELECT id AS inventory_id, initial_stock AS stock_remaining, created_at FROM inventory_initial
+      ),
+      first_log AS (
+        SELECT DISTINCT ON (inventory_id)
+          inventory_id, stock_remaining
+        FROM all_logs
+        ORDER BY inventory_id, created_at ASC
       ),
       initial_stock AS (
         SELECT DISTINCT ON (im.id, im.month_start)
           im.id, im.month_start,
-          al.stock_remaining
+          COALESCE(al.stock_remaining, fl.stock_remaining) AS stock_remaining
         FROM inventory_months im
         LEFT JOIN all_logs al ON al.inventory_id = im.id AND al.created_at < im.month_start + interval '1 day'
+        LEFT JOIN first_log fl ON fl.inventory_id = im.id
         ORDER BY im.id, im.month_start, al.created_at DESC
       ),
       restock_summary AS (

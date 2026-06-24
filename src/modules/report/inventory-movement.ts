@@ -91,7 +91,7 @@ export function generateMovementPDF(
         right: PAGE_MARGIN,
       },
       info: {
-        Title: `Laporan Pergerakan BARANG ${from} - ${to}`,
+        Title: `Laporan Riwayat Stok ${from} - ${to}`,
         Author: "Sistem Manajemen Laundry",
         Subject: "Laporan Inventori",
       },
@@ -118,7 +118,7 @@ export function generateMovementPDF(
         .fillColor("#a8c4e0")
         .font("Helvetica")
         .fontSize(10)
-        .text("LAPORAN PERGERAKAN BARANG", PAGE_MARGIN, 42);
+        .text("LAPORAN RIWAYAT STOK", PAGE_MARGIN, 42);
     };
 
     doc.on("pageAdded", () => {
@@ -147,7 +147,7 @@ export function generateMovementPDF(
       .fillColor("#a8c4e0")
       .font("Helvetica")
       .fontSize(10)
-      .text("LAPORAN PERGERAKAN BARANG", PAGE_MARGIN, 42);
+      .text("LAPORAN RIWAYAT STOK", PAGE_MARGIN, 42);
 
     let y = 90;
 
@@ -387,7 +387,11 @@ export function generateMovementPDF(
           .fillColor(TEXT_MUTED)
           .font("Helvetica")
           .fontSize(8)
-          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+          .text(
+            txt,
+            pageWidth - PAGE_MARGIN - doc.widthOfString(txt),
+            footer.y
+          );
       }
     }
 

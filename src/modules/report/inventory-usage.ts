@@ -8,7 +8,7 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [37, 90, 110, 60, 60, 80, 78];
+const COL_WIDTHS = [37, 90, 110, 60, 60, 158];
 const HEADER_HEIGHT = 24;
 
 const BOTTOM_SAFE_ZONE = 50;
@@ -266,7 +266,7 @@ export function generateUsagePDF(
 
         const cells: CellDef[] = [
           { text: String(idx + 1), align: "center" },
-          { text: item.orderId ?? "-", align: "left" },
+          { text: item.orderId?.toUpperCase() ?? "-", align: "left" },
           { text: item.inventoryName ?? "-", align: "left" },
           { text: String(Math.abs(item.change)), align: "center" },
           { text: dateStr, align: "center" },

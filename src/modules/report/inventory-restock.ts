@@ -8,7 +8,7 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [37, 110, 50, 50, 90, 100, 78];
+const COL_WIDTHS = [37, 65, 100, 50, 80, 90, 93];
 const HEADER_HEIGHT = 24;
 
 const BOTTOM_SAFE_ZONE = 50;
@@ -54,6 +54,7 @@ type CellDef = {
 
 const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
+  { text: "ID Restock", align: "center" },
   { text: "Nama Item", align: "left" },
   { text: "Masuk", align: "center" },
   { text: "Supplier", align: "left" },
@@ -270,6 +271,7 @@ export function generateRestockPDF(
       items.forEach((item, idx) => {
         const cells: CellDef[] = [
           { text: String(idx + 1), align: "center" },
+          { text: item.id.toUpperCase(), align: "center" },
           { text: item.inventoryName ?? "-", align: "left" },
           {
             text: `+${item.restockQuantity}`,
