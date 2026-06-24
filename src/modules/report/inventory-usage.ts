@@ -39,7 +39,6 @@ export type UsageReportItem = {
   orderId: string | null;
   inventoryName: string | null;
   change: number;
-  stockRemaining: number;
   actorName: string | null;
   createdAt: string;
 };
@@ -52,7 +51,6 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "ID Pesanan", align: "left" },
   { text: "Nama Item", align: "left" },
   { text: "Jumlah", align: "center" },
-  { text: "Sisa", align: "center" },
   { text: "Tanggal", align: "center" },
   { text: "Oleh", align: "left" },
 ];
@@ -67,6 +65,7 @@ export function generateUsagePDF(
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
       size: "A4",
+      bufferPages: true,
       margins: {
         top: PAGE_MARGIN,
         bottom: PAGE_MARGIN,
@@ -88,6 +87,7 @@ export function generateUsagePDF(
     const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
     let pageNumber = 1;
+    const pageFooters: { y: number }[] = [];
 
     const drawPageHeader = () => {
       doc.rect(0, 0, pageWidth, HEADER_BAR_HEIGHT).fill(NAVY);
@@ -240,13 +240,7 @@ export function generateUsagePDF(
           footerY
         );
 
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(`${pageNumber}`, pageWidth - PAGE_MARGIN, footerY, {
-          align: "right",
-        });
+      pageFooters[pageNumber] = { y: footerY };
     };
 
     // ── Table header (first page) ──────────────────────────────────────────────
@@ -275,7 +269,6 @@ export function generateUsagePDF(
           { text: item.orderId ?? "-", align: "left" },
           { text: item.inventoryName ?? "-", align: "left" },
           { text: String(Math.abs(item.change)), align: "center" },
-          { text: String(item.stockRemaining), align: "center" },
           { text: dateStr, align: "center" },
           { text: item.actorName ?? "-", align: "left" },
         ];
@@ -316,6 +309,21 @@ export function generateUsagePDF(
     }
 
     drawFooter();
+
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footer = pageFooters[i + 1];
+      if (footer) {
+        const txt = `Halaman ${i + 1} dari ${range.count}`;
+        doc
+          .fillColor(TEXT_MUTED)
+          .font("Helvetica")
+          .fontSize(8)
+          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+      }
+    }
+
     doc.end();
   });
 }

@@ -38,7 +38,6 @@ export type AdjustmentReportItem = {
   id: string;
   inventoryName: string | null;
   change: number;
-  stockRemaining: number;
   note: string | null;
   actorName: string | null;
   createdAt: string;
@@ -56,7 +55,6 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
   { text: "Nama Item", align: "left" },
   { text: "Perubahan", align: "center" },
-  { text: "Stok Akhir", align: "center" },
   { text: "Keterangan", align: "left" },
   { text: "Oleh", align: "left" },
 ];
@@ -71,6 +69,7 @@ export function generateAdjustmentPDF(
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
       size: "A4",
+      bufferPages: true,
       margins: {
         top: PAGE_MARGIN,
         bottom: PAGE_MARGIN,
@@ -92,6 +91,7 @@ export function generateAdjustmentPDF(
     const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
     let pageNumber = 1;
+    const pageFooters: { y: number }[] = [];
 
     const drawPageHeader = () => {
       doc.rect(0, 0, pageWidth, HEADER_BAR_HEIGHT).fill(NAVY);
@@ -244,13 +244,7 @@ export function generateAdjustmentPDF(
           footerY
         );
 
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(`${pageNumber}`, pageWidth - PAGE_MARGIN, footerY, {
-          align: "right",
-        });
+      pageFooters[pageNumber] = { y: footerY };
     };
 
     // ── Table header (first page) ──────────────────────────────────────────────
@@ -280,11 +274,6 @@ export function generateAdjustmentPDF(
           { text: String(idx + 1), align: "center", color: TEXT_DARK },
           { text: item.inventoryName ?? "-", align: "left", color: TEXT_DARK },
           { text: changeStr, align: "center", color: changeColor, bold: true },
-          {
-            text: String(item.stockRemaining),
-            align: "center",
-            color: TEXT_DARK,
-          },
           { text: item.note ?? "-", align: "left", color: TEXT_DARK },
           { text: item.actorName ?? "-", align: "left", color: TEXT_DARK },
         ];
@@ -325,6 +314,21 @@ export function generateAdjustmentPDF(
     }
 
     drawFooter();
+
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footer = pageFooters[i + 1];
+      if (footer) {
+        const txt = `Halaman ${i + 1} dari ${range.count}`;
+        doc
+          .fillColor(TEXT_MUTED)
+          .font("Helvetica")
+          .fontSize(8)
+          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+      }
+    }
+
     doc.end();
   });
 }

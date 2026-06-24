@@ -155,7 +155,6 @@ export abstract class ReportService {
         id: adjustmentLogs.id,
         inventoryName: inventories.name,
         change: adjustmentLogs.changeAmount,
-        stockRemaining: adjustmentLogs.stockRemaining,
         note: adjustmentLogs.note,
         actorName: user.name,
         createdAt: adjustmentLogs.createdAt,

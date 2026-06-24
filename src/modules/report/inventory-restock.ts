@@ -38,7 +38,6 @@ export type RestockReportItem = {
   id: string;
   inventoryName: string | null;
   restockQuantity: number;
-  stockRemaining: number;
   supplier: string | null;
   note: string | null;
   actorName: string | null;
@@ -57,7 +56,6 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
   { text: "Nama Item", align: "left" },
   { text: "Masuk", align: "center" },
-  { text: "Sisa", align: "center" },
   { text: "Supplier", align: "left" },
   { text: "Keterangan", align: "left" },
   { text: "Oleh", align: "left" },
@@ -73,6 +71,7 @@ export function generateRestockPDF(
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
       size: "A4",
+      bufferPages: true,
       margins: {
         top: PAGE_MARGIN,
         bottom: PAGE_MARGIN,
@@ -94,6 +93,7 @@ export function generateRestockPDF(
     const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
     let pageNumber = 1;
+    const pageFooters: { y: number }[] = [];
 
     const drawPageHeader = () => {
       doc.rect(0, 0, pageWidth, HEADER_BAR_HEIGHT).fill(NAVY);
@@ -246,13 +246,7 @@ export function generateRestockPDF(
           footerY
         );
 
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(`${pageNumber}`, pageWidth - PAGE_MARGIN, footerY, {
-          align: "right",
-        });
+      pageFooters[pageNumber] = { y: footerY };
     };
 
     // ── Table header (first page) ──────────────────────────────────────────────
@@ -283,7 +277,6 @@ export function generateRestockPDF(
             color: "#2f855a",
             bold: true,
           },
-          { text: String(item.stockRemaining), align: "center" },
           { text: item.supplier ?? "-", align: "left" },
           { text: item.note ?? "-", align: "left" },
           { text: item.actorName ?? "-", align: "left" },
@@ -325,6 +318,21 @@ export function generateRestockPDF(
     }
 
     drawFooter();
+
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footer = pageFooters[i + 1];
+      if (footer) {
+        const txt = `Halaman ${i + 1} dari ${range.count}`;
+        doc
+          .fillColor(TEXT_MUTED)
+          .font("Helvetica")
+          .fontSize(8)
+          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+      }
+    }
+
     doc.end();
   });
 }

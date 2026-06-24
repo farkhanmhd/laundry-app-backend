@@ -129,7 +129,6 @@ export abstract class Inventories {
         inventoryId: inventories.id,
         name: inventories.name,
         change: adjustmentLogs.changeAmount,
-        stockRemaining: adjustmentLogs.stockRemaining,
         note: adjustmentLogs.note,
         userId: adjustmentLogs.actorId,
         user: user.name,
@@ -215,7 +214,6 @@ export abstract class Inventories {
         name: inventories.name,
         change: adjustmentLogs.changeAmount,
         user: user.name,
-        stockRemaining: adjustmentLogs.stockRemaining,
         createdAt: adjustmentLogs.createdAt,
       })
       .from(adjustmentLogs)
@@ -260,7 +258,6 @@ export abstract class Inventories {
         inventoryId: restockLogs.inventoryId,
         inventoryName: inventories.name,
         restockQuantity: restockLogs.restockQuantity,
-        stockRemaining: restockLogs.stockRemaining,
         supplier: restockLogs.supplier,
         restockPrice: restockLogs.restockPrice,
         note: restockLogs.note,

@@ -74,6 +74,7 @@ export function generateMemberSpendingPDF(
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
       size: "A4",
+      bufferPages: true,
       margins: {
         top: PAGE_MARGIN,
         bottom: PAGE_MARGIN,
@@ -95,6 +96,7 @@ export function generateMemberSpendingPDF(
     const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
     let pageNumber = 1;
+    const pageFooters: { y: number }[] = [];
 
     const drawPageHeader = () => {
       doc.rect(0, 0, pageWidth, HEADER_BAR_HEIGHT).fill(NAVY);
@@ -286,13 +288,7 @@ export function generateMemberSpendingPDF(
           footerY
         );
 
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(`${pageNumber}`, pageWidth - PAGE_MARGIN, footerY, {
-          align: "right",
-        });
+      pageFooters[pageNumber] = { y: footerY };
     };
 
     // ── Table header (first page) ──────────────────────────────────────────────
@@ -359,6 +355,21 @@ export function generateMemberSpendingPDF(
     }
 
     drawFooter();
+
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footer = pageFooters[i + 1];
+      if (footer) {
+        const txt = `Halaman ${i + 1} dari ${range.count}`;
+        doc
+          .fillColor(TEXT_MUTED)
+          .font("Helvetica")
+          .fontSize(8)
+          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+      }
+    }
+
     doc.end();
   });
 }
