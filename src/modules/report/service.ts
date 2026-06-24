@@ -9,6 +9,7 @@ import {
   isNotNull,
   isNull,
   notInArray,
+  or,
   sql,
   sum,
 } from "drizzle-orm";
@@ -180,6 +181,7 @@ export abstract class ReportService {
     const filters = [
       between(adjustmentLogs.createdAt, startDate, endDate),
       isNotNull(adjustmentLogs.orderId),
+      inArray(orders.status, ["completed", "ready"]),
     ];
 
     const rows = await db
@@ -195,6 +197,7 @@ export abstract class ReportService {
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
       .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
       .where(and(...filters))
       .orderBy(desc(adjustmentLogs.createdAt));
 
@@ -253,7 +256,11 @@ export abstract class ReportService {
 
     const adjustmentFilters = and(
       between(adjustmentLogs.createdAt, startDate, endDate),
-      eq(adjustmentLogs.inventoryId, inventoryId)
+      eq(adjustmentLogs.inventoryId, inventoryId),
+      or(
+        isNull(adjustmentLogs.orderId),
+        inArray(orders.status, ["completed", "ready"])
+      )
     );
 
     const restockQuery = db
@@ -262,7 +269,6 @@ export abstract class ReportService {
         inventoryName: inventories.name,
         type: sql<string>`'restock'`.as("type"),
         changeAmount: restockLogs.restockQuantity,
-        stockRemaining: restockLogs.stockRemaining,
         reference: sql<string | null>`${restockLogs.supplier}`,
         note: restockLogs.note,
         actorName: user.name,
@@ -281,7 +287,6 @@ export abstract class ReportService {
           "type"
         ),
         changeAmount: adjustmentLogs.changeAmount,
-        stockRemaining: adjustmentLogs.stockRemaining,
         reference: sql<
           string | null
         >`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
@@ -292,6 +297,7 @@ export abstract class ReportService {
       .from(adjustmentLogs)
       .leftJoin(inventories, eq(adjustmentLogs.inventoryId, inventories.id))
       .leftJoin(user, eq(adjustmentLogs.actorId, user.id))
+      .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
       .where(adjustmentFilters);
 
     const rows = await unionAll(restockQuery, adjustmentQuery);

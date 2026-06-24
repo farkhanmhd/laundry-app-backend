@@ -7,7 +7,7 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [30, 65, 65, 65, 60, 65, 85, 80];
+const COL_WIDTHS = [30, 75, 65, 65, 65, 75, 140];
 const HEADER_HEIGHT = 24;
 
 const BOTTOM_SAFE_ZONE = 50;
@@ -36,7 +36,6 @@ export type MovementReportItem = {
   inventoryName: string | null;
   type: "restock" | "adjustment" | "usage";
   changeAmount: number;
-  stockRemaining: number;
   reference: string | null;
   note: string | null;
   actorName: string | null;
@@ -56,7 +55,6 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "Nama Item", align: "left" },
   { text: "Tipe", align: "center" },
   { text: "Perubahan", align: "center" },
-  { text: "Stok Akhir", align: "center" },
   { text: "Referensi", align: "left" },
   { text: "Keterangan", align: "left" },
   { text: "Oleh", align: "left" },
@@ -301,11 +299,10 @@ export function generateMovementPDF(
           bold: true,
         },
         {
-          text: String(item.stockRemaining),
-          align: "center",
+          text: item.reference?.toUpperCase() ?? "-",
+          align: "left",
           color: TEXT_DARK,
         },
-        { text: item.reference ?? "-", align: "left", color: TEXT_DARK },
         { text: item.note ?? "-", align: "left", color: TEXT_DARK },
         { text: item.actorName ?? "-", align: "left", color: TEXT_DARK },
       ];
