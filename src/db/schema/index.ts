@@ -1,6 +1,5 @@
 import { addresses } from "./addresses";
 import { adjustmentLogs } from "./adjustment-logs";
-import { assets } from "./assets";
 import { account, session, user, verification } from "./auth";
 import { bundlingItems } from "./bundling-items";
 import { bundlings } from "./bundlings";
@@ -14,6 +13,7 @@ import { payments } from "./payments";
 import { redemptionHistory } from "./redemption-history";
 import { routes } from "./routes";
 import { services } from "./services";
+import { vehicles } from "./vehicles";
 import { vouchers } from "./vouchers";
 import { weightRanges } from "./weight-ranges";
 
@@ -23,7 +23,7 @@ export const table = {
   session,
   verification,
   addresses,
-  assets,
+  vehicles,
   bundlings,
   bundlingItems,
   deliveries,

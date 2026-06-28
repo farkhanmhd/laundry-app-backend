@@ -53,7 +53,7 @@ function toMovementHistoryEntry(row: MovementHistoryRow): MovementHistoryEntry {
     type: row.type,
     changeAmount: row.change_amount,
     stockRemaining: row.stock_remaining,
-    previousStock: row.previous_stock,
+    initialQty: row.initial_qty,
     reference: row.reference,
     note: row.note,
     actorName: row.actor_name,
@@ -320,7 +320,7 @@ export abstract class Inventories {
           rl.id, rl.inventory_id, i.name AS inventory_name,
           'restock' AS type, rl.restock_quantity AS change_amount,
           rl.stock_remaining,
-          rl.stock_remaining - rl.restock_quantity AS previous_stock,
+          rl.stock_remaining - rl.restock_quantity AS initial_qty,
           rl.supplier AS reference, rl.note, u.name AS actor_name,
           rl.restock_time as input_time,
           rl.created_at
@@ -335,7 +335,7 @@ export abstract class Inventories {
           al.id, al.inventory_id, i.name,
           CASE WHEN al.order_id IS NOT NULL OR al.bundling_id IS NOT NULL THEN 'usage' ELSE 'adjustment' END,
           al.change_amount, al.stock_remaining,
-          al.stock_remaining - al.change_amount,
+          al.stock_remaining - al.change_amount AS initial_qty,
           CASE WHEN al.order_id IS NOT NULL THEN al.order_id WHEN al.bundling_id IS NOT NULL THEN al.bundling_id END,
           al.note, u.name, al.adjustment_time as input_time, al.created_at
         FROM adjustment_logs al
@@ -345,7 +345,7 @@ export abstract class Inventories {
         WHERE al.inventory_id = ${inventoryId}
           AND (
             al.order_id IS NULL
-            OR o.status IN ('completed', 'ready')
+            OR o.status IN ('completed', 'ready', 'processing')
           )
       ) sq
       ORDER BY sq.created_at DESC
@@ -364,7 +364,7 @@ export abstract class Inventories {
         WHERE al.inventory_id = ${inventoryId}
           AND (
             al.order_id IS NULL
-            OR o.status IN ('completed', 'ready')
+            OR o.status IN ('completed', 'ready', 'processing')
           )
       ) sub
     `);
@@ -605,7 +605,7 @@ export abstract class Inventories {
         .update(inventories)
         .set({
           stock: sql`${inventories.stock} + ${body.restockQuantity}`,
-          ...(body.price != null ? { price: body.price } : {}),
+          ...(body.price === null ? {} : { price: body.price }),
         })
         .where(eq(inventories.id, inventoryId))
         .returning({ stock: inventories.stock });

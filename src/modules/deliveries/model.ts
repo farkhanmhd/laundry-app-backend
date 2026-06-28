@@ -22,7 +22,7 @@ export const createRouteSchema = t.Object({
     t.String({ minLength: 1, error: "Order ID(s) Cannot be empty" })
   ),
   driverId: t.String(),
-  assetId: t.String(),
+  vehicleId: t.String(),
 });
 
 export const updateDeliveryStatusSchema = t.Object({

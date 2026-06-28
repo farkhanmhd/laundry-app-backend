@@ -18,7 +18,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
         const newRouteId = await DeliveriesService.createDeliveryRoute({
           deliveryIds: body.deliveryIds,
           driverId: body.driverId,
-          assetId: body.assetId,
+          vehicleId: body.vehicleId,
         });
 
         return status(201, {

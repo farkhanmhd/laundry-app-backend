@@ -259,7 +259,7 @@ export abstract class ReportService {
       eq(adjustmentLogs.inventoryId, inventoryId),
       or(
         isNull(adjustmentLogs.orderId),
-        inArray(orders.status, ["completed", "ready"])
+        inArray(orders.status, ["completed", "ready", "processing"])
       )
     );
 
@@ -269,6 +269,8 @@ export abstract class ReportService {
         inventoryName: inventories.name,
         type: sql<string>`'restock'`.as("type"),
         changeAmount: restockLogs.restockQuantity,
+        initialQty: sql<number>`${restockLogs.stockRemaining} - ${restockLogs.restockQuantity}`,
+        stockRemaining: restockLogs.stockRemaining,
         reference: sql<string | null>`${restockLogs.supplier}`,
         note: restockLogs.note,
         actorName: user.name,
@@ -287,6 +289,8 @@ export abstract class ReportService {
           "type"
         ),
         changeAmount: adjustmentLogs.changeAmount,
+        initialQty: sql<number>`${adjustmentLogs.stockRemaining} - ${adjustmentLogs.changeAmount}`,
+        stockRemaining: adjustmentLogs.stockRemaining,
         reference: sql<
           string | null
         >`CASE WHEN ${adjustmentLogs.orderId} IS NOT NULL THEN ${adjustmentLogs.orderId} WHEN ${adjustmentLogs.bundlingId} IS NOT NULL THEN ${adjustmentLogs.bundlingId} END`,
@@ -368,12 +372,13 @@ export abstract class ReportService {
         SELECT ${seriesStart}::date AS month_start
       ),
       inventory_list AS (
-        SELECT id, name FROM inventories WHERE deleted_at IS NULL
+        SELECT id, name, created_at FROM inventories WHERE deleted_at IS NULL
       ),
       inventory_months AS (
         SELECT i.id, i.name, m.month_start
         FROM inventory_list i
         CROSS JOIN months m
+        WHERE i.created_at < m.month_start + interval '1 month'
       ),
       inventory_initial AS (
         SELECT

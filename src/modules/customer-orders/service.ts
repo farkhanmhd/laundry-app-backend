@@ -12,7 +12,6 @@ import {
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
-import { assets } from "@/db/schema/assets";
 import { user } from "@/db/schema/auth";
 import { bundlingItems } from "@/db/schema/bundling-items";
 import { bundlings } from "@/db/schema/bundlings";
@@ -28,6 +27,7 @@ import {
 } from "@/db/schema/payments";
 import { routes } from "@/db/schema/routes";
 import { services } from "@/db/schema/services";
+import { vehicles } from "@/db/schema/vehicles";
 import { weightRanges } from "@/db/schema/weight-ranges";
 import { InternalError, NotFoundError } from "@/exceptions";
 import type { ChargeDetails, ItemDetails } from "@/types/midtrans";
@@ -354,14 +354,14 @@ export abstract class CustomerOrderService extends Pos {
         label: addresses.label,
         notes: deliveries.notes,
         driverName: user.name,
-        vehicleName: assets.name,
-        licensePlate: assets.licensePlate,
+        vehicleName: vehicles.name,
+        licensePlate: vehicles.licensePlate,
       })
       .from(deliveries)
       .leftJoin(addresses, eq(addresses.id, deliveries.addressId))
       .leftJoin(routes, eq(deliveries.routeId, routes.id))
       .leftJoin(user, eq(routes.userId, user.id))
-      .leftJoin(assets, eq(routes.assetId, assets.id))
+      .leftJoin(vehicles, eq(routes.vehicleId, vehicles.id))
       .where(eq(deliveries.orderId, orderId));
 
     return deliveryData;
@@ -643,7 +643,7 @@ export abstract class CustomerOrderService extends Pos {
     >();
 
     for (const row of rows) {
-      const maxWeight = row.maxWeight !== null ? Number(row.maxWeight) : null;
+      const maxWeight = row.maxWeight === null ? null : Number(row.maxWeight);
 
       map.set(row.id, {
         maxWeight,

@@ -3,12 +3,12 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
+import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { accountController } from "./modules/account";
 import { adminDashboardController } from "./modules/admin-dashboard";
-import { assetsController } from "./modules/assets";
 import { bundlingsController } from "./modules/bundlings";
 import { customerDashboardController } from "./modules/customer-dashboard";
 import { customerDeliveriesController } from "./modules/customer-deliveries";
@@ -28,6 +28,7 @@ import { servicesController } from "./modules/services";
 import { staffsController } from "./modules/staffs";
 import { fileUploadController } from "./modules/uploads";
 import { usersController } from "./modules/users";
+import { vehiclesController } from "./modules/vehicles";
 import { vouchersController } from "./modules/vouchers";
 import { weightRangesController } from "./modules/weight-ranges";
 import { responseHandler } from "./responses";
@@ -38,11 +39,11 @@ const uploadDir = "public/uploads";
 await mkdir(uploadDir, { recursive: true });
 
 const app = new Elysia()
-  // .use(
-  //   dts("./src/server.ts", {
-  //     dtsPath: "/types.d.ts",
-  //   })
-  // )
+  .use(
+    dts("./src/server.ts", {
+      dtsPath: "/types.d.ts",
+    })
+  )
   .use(
     openapi({
       enabled: process.env.NODE_ENV !== "production",
@@ -91,7 +92,7 @@ const app = new Elysia()
   .use(betterAuth)
   .use(responseHandler)
   .use(exceptionHandler)
-  .use(assetsController)
+  .use(vehiclesController)
   .use(driversController)
   .use(inventoriesController)
   .use(membersController)

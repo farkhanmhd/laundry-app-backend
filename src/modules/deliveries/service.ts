@@ -1,13 +1,13 @@
 import { file, write } from "bun";
-import { and, count, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
-import { assets } from "@/db/schema/assets";
 import { user } from "@/db/schema/auth";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { routes } from "@/db/schema/routes";
+import { vehicles } from "@/db/schema/vehicles";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { LAUNDRY_POINT_ZERO } from "@/utils";
 import type { DeliveriesQuery } from "./model";
@@ -103,9 +103,9 @@ export abstract class DeliveriesService {
           address: addresses.address,
           status: deliveries.status,
           driverName: user.name,
-          assetId: assets.id,
-          licensePlate: assets.licensePlate,
-          vehicleName: assets.name,
+          vehicleId: vehicles.id,
+          licensePlate: vehicles.licensePlate,
+          vehicleName: vehicles.name,
           requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
@@ -114,7 +114,7 @@ export abstract class DeliveriesService {
         .innerJoin(members, eq(orders.memberId, members.id))
         .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
         .leftJoin(routes, eq(deliveries.routeId, routes.id))
-        .leftJoin(assets, eq(routes.assetId, assets.id))
+        .leftJoin(vehicles, eq(routes.vehicleId, vehicles.id))
         .leftJoin(user, eq(routes.userId, user.id))
         .where(and(...conditions))
         .limit(limit)
@@ -181,10 +181,10 @@ export abstract class DeliveriesService {
           customerPhone: members.phone,
           address: addresses.address,
           status: deliveries.status,
-          assetId: assets.id,
+          vehicleId: vehicles.id,
           driverName: user.name,
-          licensePlate: assets.licensePlate,
-          vehicleName: assets.name,
+          licensePlate: vehicles.licensePlate,
+          vehicleName: vehicles.name,
           requestTime: deliveries.requestTime,
           requestedAt: deliveries.requestedAt,
         })
@@ -193,7 +193,7 @@ export abstract class DeliveriesService {
         .innerJoin(members, eq(orders.memberId, members.id))
         .innerJoin(addresses, eq(deliveries.addressId, addresses.id))
         .leftJoin(routes, eq(deliveries.routeId, routes.id))
-        .leftJoin(assets, eq(routes.assetId, assets.id))
+        .leftJoin(vehicles, eq(routes.vehicleId, vehicles.id))
         .leftJoin(user, eq(routes.userId, user.id))
         .where(and(...conditions))
         .limit(limit)
@@ -234,11 +234,11 @@ export abstract class DeliveriesService {
   static async createDeliveryRoute({
     deliveryIds,
     driverId,
-    assetId,
+    vehicleId,
   }: {
     deliveryIds: string[];
     driverId: string;
-    assetId: string;
+    vehicleId: string;
   }) {
     try {
       const newRouteId = await db.transaction(async (tx) => {
@@ -248,23 +248,23 @@ export abstract class DeliveriesService {
           .where(and(eq(user.id, driverId), eq(user.role, "driver")))
           .limit(1);
 
-        const getAssetQuery = tx
-          .select({ id: assets.id })
-          .from(assets)
-          .where(eq(assets.id, assetId))
+        const getVehicleQuery = tx
+          .select({ id: vehicles.id })
+          .from(vehicles)
+          .where(and(eq(vehicles.id, vehicleId), isNull(vehicles.deletedAt)))
           .limit(1);
 
-        const [driver, asset] = await Promise.all([
+        const [driver, vehicle] = await Promise.all([
           getDriverQuery,
-          getAssetQuery,
+          getVehicleQuery,
         ]);
 
         if (!driver) {
           throw new NotFoundError(`Driver not found with id ${driverId}`);
         }
 
-        if (!asset) {
-          throw new NotFoundError(`Asset not found with id ${assetId}`);
+        if (!vehicle) {
+          throw new NotFoundError(`Vehicle not found with id ${vehicleId}`);
         }
 
         const selectedAddresses = await tx
@@ -312,7 +312,7 @@ export abstract class DeliveriesService {
           .insert(routes)
           .values({
             userId: driverId,
-            assetId,
+            vehicleId,
           })
           .returning({ id: routes.id });
 

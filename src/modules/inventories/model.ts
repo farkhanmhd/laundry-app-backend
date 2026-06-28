@@ -45,9 +45,11 @@ export const addInventory = t.Object({
     t.Literal("milliliter"),
     t.Literal("pieces"),
   ]),
-  isCustomerOrderable: t.Boolean({
-    default: false,
-  }),
+  isCustomerOrderable: t.Optional(
+    t.Boolean({
+      default: false,
+    })
+  ),
   maxWeight: t.Optional(
     t.Nullable(
       t.Numeric({
@@ -149,7 +151,7 @@ export const movementHistoryRow = t.Object({
   type: t.String(),
   change_amount: t.Number(),
   stock_remaining: t.Number(),
-  previous_stock: t.Number(),
+  initial_qty: t.Number(),
   reference: t.Nullable(t.String()),
   note: t.Nullable(t.String()),
   actor_name: t.String(),
@@ -167,7 +169,7 @@ export const movementHistoryEntry = t.Object({
   type: t.String(),
   changeAmount: t.Number(),
   stockRemaining: t.Number(),
-  previousStock: t.Number(),
+  initialQty: t.Number(),
   reference: t.Nullable(t.String()),
   note: t.Nullable(t.String()),
   actorName: t.String(),

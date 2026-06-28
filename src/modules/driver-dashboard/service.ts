@@ -1,11 +1,11 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
-import { assets } from "@/db/schema/assets";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { routes } from "@/db/schema/routes";
+import { vehicles } from "@/db/schema/vehicles";
 
 export abstract class DriverDashboardService {
   static async getMetrics(driverId: string) {
@@ -36,12 +36,12 @@ export abstract class DriverDashboardService {
     const activeRoutes = await db
       .select({
         id: routes.id,
-        assetId: routes.assetId,
-        assetName: assets.name,
-        assetLicensePlate: assets.licensePlate,
+        vehicleId: routes.vehicleId,
+        vehicleName: vehicles.name,
+        vehicleLicensePlate: vehicles.licensePlate,
       })
       .from(routes)
-      .leftJoin(assets, eq(routes.assetId, assets.id))
+      .leftJoin(vehicles, eq(routes.vehicleId, vehicles.id))
       .where(
         and(
           eq(routes.userId, driverId),
@@ -71,9 +71,9 @@ export abstract class DriverDashboardService {
 
     return {
       id: activeRoute.id,
-      assetId: activeRoute.assetId,
-      assetName: activeRoute.assetName,
-      assetLicensePlate: activeRoute.assetLicensePlate,
+      vehicleId: activeRoute.vehicleId,
+      vehicleName: activeRoute.vehicleName,
+      vehicleLicensePlate: activeRoute.vehicleLicensePlate,
       totalDeliveries,
       completedDeliveries,
       progress:

@@ -2,26 +2,54 @@ import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { NotFoundError } from "@/exceptions";
 import { searchQueryModel } from "@/search-query";
-import { assetsModel } from "./model";
-import { AssetService } from "./service";
+import { vehiclesModel } from "./model";
+import { VehicleService } from "./service";
 
-export const assetsController = new Elysia({ prefix: "/assets" })
+export const vehiclesController = new Elysia({ prefix: "/vehicles" })
   .use(betterAuth)
   .use(searchQueryModel)
-  .use(assetsModel)
+  .use(vehiclesModel)
   .guard({
     detail: {
-      tags: ["Assets"],
+      tags: ["Vehicles"],
     },
   })
   .get(
+    "/:id",
+    async ({ params: { id }, status }) => {
+      try {
+        const result = await VehicleService.getVehicle(id);
+        return status(200, {
+          status: "success",
+          message: "Vehicle retrieved",
+          messageKey: "vehicle.retrieved",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "vehicle.notFound",
+            messageParams: { id },
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    {
+      auth: true,
+    }
+  )
+  .get(
     "/",
     async ({ status, query }) => {
-      const result = await AssetService.getAssets(query);
+      const result = await VehicleService.getVehicles(query);
       return status(200, {
         status: "success",
-        message: "Assets retrieved",
-        messageKey: "asset.retrieved",
+        message: "Vehicles retrieved",
+        messageKey: "vehicle.retrieved",
         data: result,
       });
     },
@@ -33,16 +61,16 @@ export const assetsController = new Elysia({ prefix: "/assets" })
   .post(
     "/",
     async ({ status, body }) => {
-      const asset = await AssetService.createAsset(body);
+      const vehicle = await VehicleService.createVehicle(body);
       return status(201, {
         status: "success",
-        message: "Asset created",
-        messageKey: "asset.created",
-        data: asset,
+        message: "Vehicle created",
+        messageKey: "vehicle.created",
+        data: vehicle,
       });
     },
     {
-      body: "createAssetSchema",
+      body: "createVehicleSchema",
       isSuperAdmin: true,
     }
   )
@@ -50,11 +78,11 @@ export const assetsController = new Elysia({ prefix: "/assets" })
     "/:id",
     async ({ params: { id }, body, status }) => {
       try {
-        await AssetService.updateAsset(id, body);
+        await VehicleService.updateVehicle(id, body);
         return status(200, {
           status: "success",
-          message: "Asset updated",
-          messageKey: "asset.updated",
+          message: "Vehicle updated",
+          messageKey: "vehicle.updated",
           data: null,
         });
       } catch (error) {
@@ -62,7 +90,7 @@ export const assetsController = new Elysia({ prefix: "/assets" })
           return status(404, {
             status: "error",
             message: error.message,
-            messageKey: "asset.notFound",
+            messageKey: "vehicle.notFound",
             messageParams: { id },
             data: null,
           });
@@ -71,7 +99,7 @@ export const assetsController = new Elysia({ prefix: "/assets" })
       }
     },
     {
-      body: "updateAssetSchema",
+      body: "updateVehicleSchema",
       isSuperAdmin: true,
     }
   )
@@ -79,11 +107,11 @@ export const assetsController = new Elysia({ prefix: "/assets" })
     "/:id",
     async ({ params: { id }, status }) => {
       try {
-        await AssetService.deleteAsset(id);
+        await VehicleService.deleteVehicle(id);
         return status(200, {
           status: "success",
-          message: "Asset deleted",
-          messageKey: "asset.deleted",
+          message: "Vehicle deleted",
+          messageKey: "vehicle.deleted",
           data: null,
         });
       } catch (error) {
@@ -91,7 +119,7 @@ export const assetsController = new Elysia({ prefix: "/assets" })
           return status(404, {
             status: "error",
             message: error.message,
-            messageKey: "asset.notFound",
+            messageKey: "vehicle.notFound",
             messageParams: { id },
             data: null,
           });

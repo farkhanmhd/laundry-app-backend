@@ -7,7 +7,7 @@ const TEXT_DARK = "#1a1a1a";
 const TEXT_MUTED = "#888888";
 
 const PAGE_MARGIN = 40;
-const COL_WIDTHS = [30, 75, 65, 65, 65, 75, 140];
+const COL_WIDTHS = [30, 70, 60, 55, 65, 45, 55, 65, 70];
 const HEADER_HEIGHT = 24;
 
 const BOTTOM_SAFE_ZONE = 50;
@@ -36,6 +36,8 @@ export type MovementReportItem = {
   inventoryName: string | null;
   type: "restock" | "adjustment" | "usage";
   changeAmount: number;
+  initialQty: number;
+  stockRemaining: number;
   reference: string | null;
   note: string | null;
   actorName: string | null;
@@ -54,7 +56,9 @@ const HEADERS: readonly HeaderDef[] = [
   { text: "No", align: "center" },
   { text: "Nama Item", align: "left" },
   { text: "Tipe", align: "center" },
+  { text: "Qty Awal", align: "center" },
   { text: "Perubahan", align: "center" },
+  { text: "Sisa", align: "center" },
   { text: "Referensi", align: "left" },
   { text: "Keterangan", align: "left" },
   { text: "Oleh", align: "left" },
@@ -216,9 +220,10 @@ export function generateMovementPDF(
     };
 
     const computeRowHeight = (cells: CellDef[]): number => {
-      doc.fontSize(8.5).font("Helvetica");
+      doc.font("Helvetica");
       let maxH = MIN_ROW_HEIGHT;
       cells.forEach((cell, ci) => {
+        doc.fontSize(ci === 2 ? 7 : 8.5);
         const textH =
           doc.heightOfString(cell.text, { width: cellWidth(ci) }) +
           CELL_PADDING_TOP +
@@ -239,16 +244,6 @@ export function generateMovementPDF(
         .strokeColor(BORDER)
         .lineWidth(0.5)
         .stroke();
-
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(
-          `Dicetak otomatis oleh sistem \u2014 ${printedAt} WIB`,
-          PAGE_MARGIN,
-          footerY
-        );
 
       pageFooters[pageNumber] = { y: footerY };
     };
@@ -293,10 +288,20 @@ export function generateMovementPDF(
           bold: true,
         },
         {
+          text: String(item.initialQty),
+          align: "center",
+          color: TEXT_DARK,
+        },
+        {
           text: change.changeStr,
           align: "center",
           color: change.changeColor,
           bold: true,
+        },
+        {
+          text: String(item.stockRemaining),
+          align: "center",
+          color: TEXT_DARK,
         },
         {
           text: item.reference?.toUpperCase() ?? "-",
@@ -312,7 +317,7 @@ export function generateMovementPDF(
       doc
         .fillColor(cell.color ?? TEXT_DARK)
         .font(cell.bold ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(8.5)
+        .fontSize(ci === 2 ? 7 : 8.5)
         .text(cell.text, colX(ci) + CELL_PADDING_H, y + CELL_PADDING_TOP, {
           width: cellWidth(ci),
           align: cell.align,

@@ -11,13 +11,13 @@ import {
 } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema/addresses";
-import { assets } from "@/db/schema/assets";
 import { user } from "@/db/schema/auth";
 import { deliveries } from "@/db/schema/deliveries";
 import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { payments } from "@/db/schema/payments";
 import { routes } from "@/db/schema/routes";
+import { vehicles } from "@/db/schema/vehicles";
 import { AuthorizationError, InternalError, NotFoundError } from "@/exceptions";
 import type { SearchQuery } from "@/search-query";
 
@@ -190,18 +190,18 @@ export abstract class RoutesService {
         id: routes.id,
         userId: routes.userId,
         driverName: user.name,
-        assetId: routes.assetId,
-        assetName: assets.name,
-        assetLicensePlate: assets.licensePlate,
+        vehicleId: routes.vehicleId,
+        vehicleName: vehicles.name,
+        vehicleLicensePlate: vehicles.licensePlate,
         deliveryCount: count(deliveries.id),
         completedCount: sql<number>`COUNT(*) FILTER (WHERE ${deliveries.status} IN ('completed', 'cancelled'))`,
       })
       .from(routes)
       .leftJoin(user, eq(routes.userId, user.id))
-      .leftJoin(assets, eq(routes.assetId, assets.id))
+      .leftJoin(vehicles, eq(routes.vehicleId, vehicles.id))
       .leftJoin(deliveries, eq(routes.id, deliveries.routeId))
       .where(whereQuery)
-      .groupBy(routes.id, user.name, assets.name, assets.licensePlate)
+      .groupBy(routes.id, user.name, vehicles.name, vehicles.licensePlate)
       .limit(rows)
       .offset((page - 1) * rows)
       .orderBy(sql`MAX(${deliveries.requestedAt}) DESC NULLS LAST`);

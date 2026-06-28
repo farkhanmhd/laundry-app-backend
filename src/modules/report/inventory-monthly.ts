@@ -252,16 +252,6 @@ export function generateInventoryMonthlyPDF(
         .lineWidth(0.5)
         .stroke();
 
-      doc
-        .fillColor(TEXT_MUTED)
-        .font("Helvetica")
-        .fontSize(8)
-        .text(
-          `Dicetak otomatis oleh sistem \u2014 ${printedAt} WIB`,
-          PAGE_MARGIN,
-          footerY
-        );
-
       pageFooters[pageNumber] = { y: footerY };
     };
 
@@ -371,7 +361,11 @@ export function generateInventoryMonthlyPDF(
           .fillColor(TEXT_MUTED)
           .font("Helvetica")
           .fontSize(8)
-          .text(txt, pageWidth - PAGE_MARGIN - doc.widthOfString(txt), footer.y);
+          .text(
+            txt,
+            pageWidth - PAGE_MARGIN - doc.widthOfString(txt),
+            footer.y
+          );
       }
     }
 
