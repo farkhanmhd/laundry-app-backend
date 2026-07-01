@@ -181,7 +181,7 @@ export abstract class ReportService {
     const filters = [
       between(adjustmentLogs.createdAt, startDate, endDate),
       isNotNull(adjustmentLogs.orderId),
-      inArray(orders.status, ["completed", "ready"]),
+      inArray(orders.status, ["completed", "ready", "processing"]),
     ];
 
     const rows = await db

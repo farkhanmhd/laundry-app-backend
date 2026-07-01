@@ -208,7 +208,7 @@ export abstract class Inventories {
     const whereQuery = and(
       ...filters,
       isNotNull(adjustmentLogs.orderId),
-      inArray(orders.status, ["completed", "ready"])
+      inArray(orders.status, ["completed", "ready", "processing"])
     );
 
     const usageHistory = db
@@ -975,7 +975,10 @@ export abstract class Inventories {
       .from(adjustmentLogs)
       .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
       .where(
-        and(...whereQueries, inArray(orders.status, ["completed", "ready"]))
+        and(
+          ...whereQueries,
+          inArray(orders.status, ["completed", "ready", "processing"])
+        )
       );
     return result[0]?.totalUsage ?? 0;
   }
@@ -986,7 +989,12 @@ export abstract class Inventories {
       .select({ count: countDistinct(adjustmentLogs.orderId) })
       .from(adjustmentLogs)
       .leftJoin(orders, eq(adjustmentLogs.orderId, orders.id))
-      .where(and(dateFilter, inArray(orders.status, ["completed", "ready"])));
+      .where(
+        and(
+          dateFilter,
+          inArray(orders.status, ["completed", "ready", "processing"])
+        )
+      );
     return result[0]?.count ?? 0;
   }
 }
