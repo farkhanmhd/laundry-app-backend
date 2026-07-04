@@ -2,6 +2,7 @@ import { endOfDay, format, startOfMonth } from "date-fns";
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
+import { customerOrderableTransformer } from "@/utils";
 import { inventoriesModel } from "./model";
 import { Inventories } from "./service";
 
@@ -372,6 +373,7 @@ export const inventoriesController = new Elysia({ prefix: "/inventories" })
     {
       parse: "multipart/form-data",
       body: "addInventory",
+      transform: ({ body }) => customerOrderableTransformer(body),
     }
   )
   .patch(

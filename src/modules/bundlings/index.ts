@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { InternalError, NotFoundError } from "@/exceptions";
+import { customerOrderableTransformer } from "@/utils";
 import { bundlingsModel } from "./model";
 import { Bundlings } from "./service";
 
@@ -126,6 +127,8 @@ export const bundlingsController = new Elysia({ prefix: "/bundlings" })
         ) {
           body.price = Number(body.price);
         }
+
+        customerOrderableTransformer(body);
       },
     }
   )

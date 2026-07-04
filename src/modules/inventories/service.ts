@@ -82,7 +82,8 @@ export abstract class Inventories {
         )
       )
       .where(and(...whereConditions))
-      .groupBy(inventories.id);
+      .groupBy(inventories.id)
+      .orderBy(desc(inventories.createdAt));
     return result;
   }
 

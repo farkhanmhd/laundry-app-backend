@@ -11,7 +11,7 @@ const createVehicleSchema = t.Object({
     maxLength: 11,
     error: "License plate is required",
   }),
-  ownerId: t.Optional(t.String()),
+  ownerId: t.Optional(t.Nullable(t.String())),
 });
 
 const updateVehicleSchema = t.Object({

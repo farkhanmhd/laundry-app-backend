@@ -437,14 +437,12 @@ export abstract class Pos {
           }
         );
 
-        if (body.paymentType === "cash") {
-          await Pos._handlePoints(tx, {
-            body,
-            selectedMemberId,
-            orderId,
-            totalItemPrice,
-          });
-        }
+        await Pos._handlePoints(tx, {
+          body,
+          selectedMemberId,
+          orderId,
+          totalItemPrice,
+        });
 
         await insertPaymentQuery(tx, {
           orderId,

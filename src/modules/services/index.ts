@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
 import { ConflictError, InternalError, NotFoundError } from "@/exceptions";
+import { customerOrderableTransformer } from "@/utils";
 import { servicesModel } from "./model";
 import { Services } from "./service";
 
@@ -100,6 +101,7 @@ export const servicesController = new Elysia({ prefix: "/services" })
     {
       parse: "multipart/form-data",
       body: "addService",
+      transform: ({ body }) => customerOrderableTransformer(body),
     }
   )
   .patch(

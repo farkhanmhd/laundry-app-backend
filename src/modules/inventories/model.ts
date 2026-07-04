@@ -25,7 +25,7 @@ export const addInventory = t.Object({
   }),
   stock: t.Numeric({
     ...models.insert.inventories.stock,
-    minimum: 0,
+    minimum: 1,
     error: "Quantity cannot be empty",
   }),
   description: t.String({
@@ -35,7 +35,7 @@ export const addInventory = t.Object({
   }),
   safetyStock: t.Numeric({
     ...models.insert.inventories.safetyStock,
-    minimum: 0,
+    minimum: 1,
     error: "Reorder point cannot be empty",
   }),
   unit: t.Union([
@@ -45,16 +45,12 @@ export const addInventory = t.Object({
     t.Literal("milliliter"),
     t.Literal("pieces"),
   ]),
-  isCustomerOrderable: t.Optional(
-    t.Boolean({
-      default: false,
-    })
-  ),
+  isCustomerOrderable: t.Boolean({ default: false }),
   maxWeight: t.Optional(
     t.Nullable(
       t.Numeric({
         ...models.insert.inventories.maxWeight,
-        minimum: 0,
+        minimum: 1,
         error: "Max weight cannot be empty",
       })
     )

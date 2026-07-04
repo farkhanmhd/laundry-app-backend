@@ -30,7 +30,7 @@ import { services } from "@/db/schema/services";
 import { vehicles } from "@/db/schema/vehicles";
 import { weightRanges } from "@/db/schema/weight-ranges";
 import { InternalError, NotFoundError } from "@/exceptions";
-import type { ChargeDetails, ItemDetails } from "@/types/midtrans";
+import type { ChargeDetails, ItemDetails, QrisTransactionResponse } from "@/types/midtrans";
 import {
   chargeQris,
   insertNewOrder,
@@ -38,6 +38,7 @@ import {
   reduceMemberPoint,
 } from "@/utils/orders";
 import { Pos } from "../pos/service";
+import type { Transaction } from "@/utils";
 import type {
   PickupItem,
   RequestDeliverySchema,
@@ -61,6 +62,13 @@ interface ResolvedItem {
   bundlingId?: string;
   quantity: number;
   itemType: "service" | "inventory" | "bundling" | "voucher" | "points";
+}
+
+interface CustomerOrderItem {
+  id: string;
+  quantity: number;
+  subtotal: number;
+  name: string;
 }
 
 interface ItemRow {
@@ -441,7 +449,7 @@ export abstract class CustomerOrderService extends Pos {
 
         const { voucherDiscountAmount } =
           await CustomerOrderService._handleVouchers(tx, {
-            items: [],
+            items: body.items,
             orderId,
             selectedMemberId: memberId,
             totalItemPrice,
@@ -1018,129 +1026,17 @@ export abstract class CustomerOrderService extends Pos {
   static async chargeQrisPayment(orderId: string, userId: string) {
     await CustomerOrderService.verifyOrderOwnership(orderId, userId);
 
-    const item_details: ItemDetails[] = [];
-
     try {
       await db.transaction(async (tx) => {
-        const [order] = await tx
-          .select({
-            id: ordersTable.id,
-            status: ordersTable.status,
-          })
-          .from(ordersTable)
-          .where(eq(ordersTable.id, orderId))
-          .limit(1);
+        await CustomerOrderService.validateOrderForCharge(tx, orderId);
+        await CustomerOrderService.validatePickupDelivery(tx, orderId);
+        const customerOrderItems = await CustomerOrderService.getChargeOrderItems(tx, orderId);
+        const paymentDetail = await CustomerOrderService.getPaymentDetail(tx, orderId);
+        const itemDetails = CustomerOrderService.buildQrisItemDetails(customerOrderItems);
 
-        if (!order) {
-          throw new NotFoundError("Order not found");
-        }
-
-        if (!["pending", "processing"].includes(order.status)) {
-          throw new InternalError(
-            "Only pending or processing orders can be charged"
-          );
-        }
-
-        const [pickupDelivery] = await tx
-          .select({
-            id: deliveries.id,
-            status: deliveries.status,
-          })
-          .from(deliveries)
-          .where(
-            and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
-          )
-          .limit(1);
-
-        if (!pickupDelivery) {
-          throw new NotFoundError("Pickup delivery not found");
-        }
-
-        if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
-          throw new InternalError(
-            "QRIS payment can only be charged after item picked up"
-          );
-        }
-
-        const customerOrderItems = await tx
-          .select({
-            id: orderItems.id,
-            quantity: orderItems.quantity,
-            subtotal: orderItems.subtotal,
-            note: orderItems.note,
-            itemType: orderItems.itemType,
-            name: sql<string>`
-            CASE
-              WHEN ${orderItems.itemType} = 'voucher' THEN 'Voucher'
-              WHEN ${orderItems.itemType} = 'points' THEN 'Points'
-              ELSE COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})
-            END
-          `,
-          })
-          .from(orderItems)
-          .leftJoin(services, eq(orderItems.serviceId, services.id))
-          .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
-          .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
-          .where(eq(orderItems.orderId, orderId));
-
-        if (!customerOrderItems.length) {
-          throw new NotFoundError("Order items not found");
-        }
-
-        const [paymentDetail] = await tx
-          .select({ total: payments.total })
-          .from(payments)
-          .where(eq(payments.orderId, orderId))
-          .limit(1);
-
-        if (!paymentDetail) {
-          throw new NotFoundError("Payment details not found");
-        }
-
-        for (const item of customerOrderItems) {
-          item_details.push({
-            id: item.id,
-            quantity: item.quantity,
-            price: item.subtotal,
-            name: item.name,
-          });
-        }
-
-        const chargeQrisData: ChargeDetails = {
-          payment_type: "qris",
-          transaction_details: {
-            order_id: orderId,
-            gross_amount: paymentDetail.total,
-          },
-          qris: {
-            acquirer: "gopay",
-          },
-          item_details,
-        };
-
-        let paymentDataUpdate: PaymentInsert | undefined;
+        const chargeQrisData = CustomerOrderService.buildChargeQrisData(orderId, paymentDetail.total, itemDetails);
         const qrisResponse = await chargeQris(chargeQrisData);
-
-        if (qrisResponse.status_code === "201") {
-          paymentDataUpdate = {
-            orderId,
-            amountPaid: paymentDetail.total,
-            transactionStatus: "pending",
-            total: paymentDetail.total,
-            fraudStatus: qrisResponse.fraud_status,
-            transactionTime: qrisResponse.transaction_time,
-            expiryTime: qrisResponse.expiry_time,
-            qrString: qrisResponse.qr_string,
-            acquirer: qrisResponse.acquirer,
-            actions: qrisResponse.actions,
-          };
-        } else {
-          throw new InternalError("Unsupported payment type");
-        }
-
-        if (!paymentDataUpdate) {
-          throw new InternalError("Failed to update payment data");
-        }
+        const paymentDataUpdate = CustomerOrderService.buildPaymentDataUpdate(orderId, paymentDetail.total, qrisResponse);
 
         await tx
           .update(payments)
@@ -1154,5 +1050,134 @@ export abstract class CustomerOrderService extends Pos {
       console.error("Error charging QRIS payment:", error);
       throw new InternalError("Failed to charge QRIS payment.");
     }
+  }
+
+  private static async validateOrderForCharge(tx: Transaction, orderId: string) {
+    const [order] = await tx
+      .select({
+        id: ordersTable.id,
+        status: ordersTable.status,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) {
+      throw new NotFoundError("Order not found");
+    }
+
+    if (!["pending", "processing"].includes(order.status)) {
+      throw new InternalError("Only pending or processing orders can be charged");
+    }
+
+    return order;
+  }
+
+  private static async validatePickupDelivery(tx: Transaction, orderId: string) {
+    const [pickupDelivery] = await tx
+      .select({
+        id: deliveries.id,
+        status: deliveries.status,
+      })
+      .from(deliveries)
+      .where(
+        and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
+      )
+      .limit(1);
+
+    if (!pickupDelivery) {
+      throw new NotFoundError("Pickup delivery not found");
+    }
+
+    if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
+      throw new InternalError("QRIS payment can only be charged after item picked up");
+    }
+
+    return pickupDelivery;
+  }
+
+  private static async getChargeOrderItems(tx: Transaction, orderId: string) {
+    const items = await tx
+      .select({
+        id: orderItems.id,
+        quantity: orderItems.quantity,
+        subtotal: orderItems.subtotal,
+        note: orderItems.note,
+        itemType: orderItems.itemType,
+        name: sql<string>`
+          CASE
+            WHEN ${orderItems.itemType} = 'voucher' THEN 'Voucher'
+            WHEN ${orderItems.itemType} = 'points' THEN 'Points'
+            ELSE COALESCE(${services.name}, ${inventories.name}, ${bundlings.name})
+          END
+        `,
+      })
+      .from(orderItems)
+      .leftJoin(services, eq(orderItems.serviceId, services.id))
+      .leftJoin(inventories, eq(orderItems.inventoryId, inventories.id))
+      .leftJoin(bundlings, eq(orderItems.bundlingId, bundlings.id))
+      .where(eq(orderItems.orderId, orderId));
+
+    if (!items.length) {
+      throw new NotFoundError("Order items not found");
+    }
+
+    return items;
+  }
+
+  private static async getPaymentDetail(tx: Transaction, orderId: string) {
+    const [paymentDetail] = await tx
+      .select({ total: payments.total })
+      .from(payments)
+      .where(eq(payments.orderId, orderId))
+      .limit(1);
+
+    if (!paymentDetail) {
+      throw new NotFoundError("Payment details not found");
+    }
+
+    return paymentDetail;
+  }
+
+  private static buildQrisItemDetails(items: CustomerOrderItem[]) {
+    return items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      price: item.quantity > 0 ? Math.round(item.subtotal / item.quantity) : 0,
+      name: item.name,
+    }));
+  }
+
+  private static buildChargeQrisData(orderId: string, total: number, itemDetails: ItemDetails[]): ChargeDetails {
+    return {
+      payment_type: "qris",
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: total,
+      },
+      qris: {
+        acquirer: "gopay",
+      },
+      item_details: itemDetails,
+    };
+  }
+
+  private static buildPaymentDataUpdate(orderId: string, total: number, qrisResponse: QrisTransactionResponse): PaymentInsert {
+    if (qrisResponse.status_code !== "201") {
+      throw new InternalError("Unsupported payment type");
+    }
+
+    return {
+      orderId,
+      amountPaid: total,
+      transactionStatus: "pending",
+      total,
+      fraudStatus: qrisResponse.fraud_status,
+      transactionTime: qrisResponse.transaction_time,
+      expiryTime: qrisResponse.expiry_time,
+      qrString: qrisResponse.qr_string,
+      acquirer: qrisResponse.acquirer,
+      actions: qrisResponse.actions,
+    };
   }
 }

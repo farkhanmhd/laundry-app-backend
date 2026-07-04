@@ -29,3 +29,12 @@ export const dateRangeQuery = t.Object({
 });
 
 export type DateRangeQuery = typeof dateRangeQuery.static;
+
+export function customerOrderableTransformer(body: Record<string, unknown>) {
+  if (body && typeof body === "object" && "isCustomerOrderable" in body) {
+    const val = (body as Record<string, unknown>).isCustomerOrderable;
+    if (typeof val === "string") {
+      (body as Record<string, unknown>).isCustomerOrderable = val === "true";
+    }
+  }
+}
