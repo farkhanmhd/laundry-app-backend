@@ -419,7 +419,7 @@ export const reduceOrderInventoryQty = async (
         stockRemaining: updatedInventory.stock,
         changeAmount: -1 * stockLog.quantity,
         bundlingId: stockLog.bundlingId || null,
-        adjustmentTime: new Date(),
+        adjustmentTime: new Date().toISOString(),
         orderId,
       });
     })
