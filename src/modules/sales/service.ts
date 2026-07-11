@@ -307,7 +307,7 @@ export abstract class SalesService {
     const dataPromise = db
       .select({
         id: orders.id,
-        totalItems: count(orderItems.id),
+        totalItems: sql<number>`COALESCE(SUM(CASE WHEN ${orderItems.itemType} NOT IN ('voucher', 'points') THEN ${orderItems.quantity} ELSE 0 END), 0)`,
         paymentType: payments.paymentType,
         itemsTotal: sql`${payments.total} + ${payments.discountAmount}`,
         discountAmount: payments.discountAmount,

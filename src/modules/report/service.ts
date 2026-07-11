@@ -103,7 +103,7 @@ export abstract class ReportService {
       .select({
         id: orders.id,
         member: members.name,
-        totalItems: count(orderItems.id),
+        totalItems: sql<number>`COALESCE(SUM(CASE WHEN ${orderItems.itemType} NOT IN ('voucher', 'points') THEN ${orderItems.quantity} ELSE 0 END), 0)`,
         paymentType: payments.paymentType,
         itemsTotal: sql<number>`${payments.total} + ${payments.discountAmount}`,
         discountAmount: payments.discountAmount,
