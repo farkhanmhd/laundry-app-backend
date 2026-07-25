@@ -17,6 +17,16 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.FRONTEND_URL as string],
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: process.env.COOKIE_DOMAIN as string, // titik di depan penting, biar dishare ke semua subdomain
+    },
+    defaultCookieAttributes: {
+      secure: true,
+      sameSite: "none", // wajib "none" kalau frontend & backend beda subdomain + pakai https
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
