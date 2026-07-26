@@ -23,8 +23,8 @@ export const auth = betterAuth({
       domain: process.env.COOKIE_DOMAIN as string, // titik di depan penting, biar dishare ke semua subdomain
     },
     defaultCookieAttributes: {
-      secure: true,
-      sameSite: "none", // wajib "none" kalau frontend & backend beda subdomain + pakai https
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     },
   },
   database: drizzleAdapter(db, {
