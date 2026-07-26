@@ -4,7 +4,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "export NODE_ENV=development && bun run --watch src/server.ts",
-    "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server src/server.ts",
+    "build": "export NODE_ENV=production && bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server src/server.ts",
     "lint": "bunx ultracite check",
     "start": "./server",
     "format": "bunx ultracite fix",
