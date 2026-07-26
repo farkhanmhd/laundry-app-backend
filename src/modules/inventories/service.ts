@@ -250,7 +250,7 @@ export abstract class Inventories {
   }
 
   static async getRestockHistory(query: InventoryHistoryQuery) {
-    const { rows = 50, page = 1, inventoryIds = [] } = query;
+    const { rows = 50, page = 1, inventoryIds = [], from, to } = query;
 
     const filters: SQL[] = [];
 
@@ -258,6 +258,14 @@ export abstract class Inventories {
 
     if (inventoryIds.length > 0) {
       filters.push(searchByInventoryId);
+    }
+
+    if (from && to) {
+      const parsedFrom = parse(from, "dd-MM-yyyy", new Date());
+      const parsedTo = parse(to, "dd-MM-yyyy", new Date());
+      const startDate = format(startOfDay(parsedFrom), "yyyy-MM-dd HH:mm:ss");
+      const endDate = format(endOfDay(parsedTo), "yyyy-MM-dd HH:mm:ss");
+      filters.push(between(restockLogs.createdAt, startDate, endDate));
     }
 
     const restockHistoryQuery = db
