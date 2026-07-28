@@ -302,6 +302,13 @@
       "when": 1782549463936,
       "tag": "0042_melodic_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1785231495008,
+      "tag": "0043_fancy_drax",
+      "breakpoints": true
     }
   ]
 }

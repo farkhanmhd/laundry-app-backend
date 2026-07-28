@@ -3,6 +3,7 @@ import { adjustmentLogs } from "./adjustment-logs";
 import { account, session, user, verification } from "./auth";
 import { bundlingItems } from "./bundling-items";
 import { bundlings } from "./bundlings";
+import { businessSettings } from "./business-settings";
 import { deliveries } from "./deliveries";
 import { inventories } from "./inventories";
 import { inventoryLogs } from "./inventory-logs";
@@ -26,6 +27,7 @@ export const table = {
   vehicles,
   bundlings,
   bundlingItems,
+  businessSettings,
   deliveries,
   inventories,
   inventoryLogs,

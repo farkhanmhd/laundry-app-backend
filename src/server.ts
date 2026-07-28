@@ -3,12 +3,14 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
+import { dts } from "elysia-remote-dts";
 import { OpenAPI } from "./auth/auth";
 import { betterAuth } from "./auth/auth-instance";
 import { exceptionHandler } from "./exceptions";
 import { accountController } from "./modules/account";
 import { adminDashboardController } from "./modules/admin-dashboard";
 import { bundlingsController } from "./modules/bundlings";
+import { businessSettingsController } from "./modules/business-settings";
 import { customerDashboardController } from "./modules/customer-dashboard";
 import { customerDeliveriesController } from "./modules/customer-deliveries";
 import { customerOrdersController } from "./modules/customer-orders";
@@ -38,6 +40,11 @@ const uploadDir = "public/uploads";
 await mkdir(uploadDir, { recursive: true });
 
 const app = new Elysia()
+  .use(
+    dts("./src/server.ts", {
+      dtsPath: "/types.d.ts",
+    })
+  )
   .use(
     openapi({
       enabled: process.env.NODE_ENV !== "production",
@@ -87,6 +94,7 @@ const app = new Elysia()
   .use(responseHandler)
   .use(exceptionHandler)
   .use(vehiclesController)
+  .use(businessSettingsController)
   .use(driversController)
   .use(inventoriesController)
   .use(membersController)
