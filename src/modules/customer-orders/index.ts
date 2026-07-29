@@ -202,6 +202,47 @@ export const customerOrdersController = new Elysia({
       throw error;
     }
   })
+  .patch(
+    "/:id/items",
+    async ({ status, params, user, body }) => {
+      try {
+        const result = await CustomerOrderService.updateOrderItems(
+          params.id,
+          user.id,
+          body
+        );
+
+        return status(200, {
+          status: 200,
+          message: "Order items updated successfully",
+          messageKey: "order.items.updated",
+          data: result,
+        });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return status(404, {
+            status: "error",
+            message: error.message,
+            messageKey: "order.notFound",
+            messageParams: { id: params.id },
+            data: null,
+          });
+        }
+        if (error instanceof InternalError) {
+          return status(400, {
+            status: "error",
+            message: error.message,
+            messageKey: "common.unexpectedError",
+            data: null,
+          });
+        }
+        throw error;
+      }
+    },
+    {
+      body: "updateOrderItemsSchema",
+    }
+  )
   .get("/:id/payment", async ({ status, params, user }) => {
     try {
       const data = await CustomerOrderService.getOrderPayment(

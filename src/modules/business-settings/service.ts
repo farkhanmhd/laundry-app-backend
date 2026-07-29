@@ -18,8 +18,13 @@ export abstract class BusinessSettingsService {
     return result;
   }
 
-  static async upsert(body: CreateBusinessSettingsSchema | UpdateBusinessSettingsSchema) {
-    const existing = await db.select({ id: businessSettings.id }).from(businessSettings).limit(1);
+  static async upsert(
+    body: CreateBusinessSettingsSchema | UpdateBusinessSettingsSchema
+  ) {
+    const existing = await db
+      .select({ id: businessSettings.id })
+      .from(businessSettings)
+      .limit(1);
 
     const values = {
       ...body,

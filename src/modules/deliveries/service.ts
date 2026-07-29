@@ -8,6 +8,7 @@ import { members } from "@/db/schema/members";
 import { orders } from "@/db/schema/orders";
 import { routes } from "@/db/schema/routes";
 import { vehicles } from "@/db/schema/vehicles";
+import { weightRanges } from "@/db/schema/weight-ranges";
 import { InternalError, NotFoundError } from "@/exceptions";
 import { LAUNDRY_POINT_ZERO } from "@/utils";
 import type { DeliveriesQuery } from "./model";
@@ -347,8 +348,14 @@ export abstract class DeliveriesService {
     }
   }
 
-  static async updateDeliveryStatus(deliveryId: string, image?: File) {
+  static async updateDeliveryStatus(
+    deliveryId: string,
+    body:
+      | { deliveryType: "pickup"; image?: File; weight: number }
+      | { deliveryType: "delivery"; image?: File }
+  ) {
     let imagePath: string | undefined;
+    const { deliveryType, image } = body;
 
     try {
       if (image) {
@@ -358,19 +365,55 @@ export abstract class DeliveriesService {
         await write(imagePath, image);
       }
 
-      const pickupImageUrl = imagePath
+      const imageUrl = imagePath
         ? `${process.env.BETTER_AUTH_URL}/uploads/${imagePath.split("/").pop()}`
         : undefined;
 
       return await db.transaction(async (tx) => {
         const [delivery] = await tx
-          .select({ status: deliveries.status })
+          .select({ status: deliveries.status, orderId: deliveries.orderId })
           .from(deliveries)
           .where(eq(deliveries.id, deliveryId))
           .limit(1);
 
         if (!delivery) {
           throw new NotFoundError("Delivery ID not found");
+        }
+
+        if (deliveryType === "pickup") {
+          const { weight } = body;
+
+          const [order] = await tx
+            .select({ weightRangeId: orders.weightRangeId })
+            .from(orders)
+            .where(eq(orders.id, delivery.orderId))
+            .limit(1);
+
+          if (order?.weightRangeId) {
+            const [range] = await tx
+              .select({
+                minWeight: weightRanges.minWeight,
+                maxWeight: weightRanges.maxWeight,
+              })
+              .from(weightRanges)
+              .where(eq(weightRanges.id, order.weightRangeId))
+              .limit(1);
+
+            if (
+              range &&
+              (weight < Number(range.minWeight) ||
+                weight > Number(range.maxWeight))
+            ) {
+              throw new InternalError(
+                `Weight ${weight}kg is out of range. Must be between ${range.minWeight}kg and ${range.maxWeight}kg`
+              );
+            }
+          }
+
+          await tx
+            .update(orders)
+            .set({ weight: String(weight) })
+            .where(eq(orders.id, delivery.orderId));
         }
 
         const currentStatus = delivery.status;
@@ -388,7 +431,7 @@ export abstract class DeliveriesService {
           .update(deliveries)
           .set({
             status: newStatus,
-            ...(pickupImageUrl ? { pickupImage: pickupImageUrl } : {}),
+            ...(imageUrl ? { pickupImage: imageUrl } : {}),
           })
           .where(eq(deliveries.id, deliveryId));
 
@@ -396,7 +439,8 @@ export abstract class DeliveriesService {
           id: deliveryId,
           oldStatus: currentStatus,
           newStatus,
-          pickupImage: pickupImageUrl ?? null,
+          image: imageUrl ?? null,
+          ...(deliveryType === "pickup" ? { weight: body.weight } : {}),
         };
       });
     } catch (error) {

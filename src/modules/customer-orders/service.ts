@@ -30,7 +30,12 @@ import { services } from "@/db/schema/services";
 import { vehicles } from "@/db/schema/vehicles";
 import { weightRanges } from "@/db/schema/weight-ranges";
 import { InternalError, NotFoundError } from "@/exceptions";
-import type { ChargeDetails, ItemDetails, QrisTransactionResponse } from "@/types/midtrans";
+import type {
+  ChargeDetails,
+  ItemDetails,
+  QrisTransactionResponse,
+} from "@/types/midtrans";
+import type { Transaction } from "@/utils";
 import {
   chargeQris,
   insertNewOrder,
@@ -38,11 +43,11 @@ import {
   reduceMemberPoint,
 } from "@/utils/orders";
 import { Pos } from "../pos/service";
-import type { Transaction } from "@/utils";
 import type {
   PickupItem,
   RequestDeliverySchema,
   RequestPickupSchema,
+  UpdateOrderItemsBody,
 } from "./model";
 
 interface RequestDeliveryParam extends RequestDeliverySchema {
@@ -863,6 +868,301 @@ export abstract class CustomerOrderService extends Pos {
     }
   }
 
+  static async updateOrderItems(
+    orderId: string,
+    userId: string,
+    body: UpdateOrderItemsBody
+  ) {
+    await CustomerOrderService.verifyOrderOwnership(orderId, userId);
+
+    const [pickupDelivery] = await db
+      .select({ id: deliveries.id })
+      .from(deliveries)
+      .where(
+        and(eq(deliveries.orderId, orderId), eq(deliveries.type, "pickup"))
+      )
+      .limit(1);
+
+    if (!pickupDelivery) {
+      throw new InternalError("Pickup has not been requested");
+    }
+
+    const [payment] = await db
+      .select({
+        transactionStatus: payments.transactionStatus,
+        actions: payments.actions,
+      })
+      .from(payments)
+      .where(eq(payments.orderId, orderId))
+      .limit(1);
+
+    if (!payment) {
+      throw new NotFoundError("Payment not found");
+    }
+
+    if (payment.transactionStatus !== "pending" || payment.actions !== null) {
+      throw new InternalError(
+        "Cannot update items after payment has been processed"
+      );
+    }
+
+    const weightRange = await CustomerOrderService.validateWeightRange(
+      body.weightRangeId
+    );
+
+    CustomerOrderService.validateCustomWeight(body.weight, weightRange);
+
+    const editableItems = body.data.filter(
+      (item) => !["voucher", "points"].includes(item.itemType)
+    );
+
+    if (!editableItems.length) {
+      throw new InternalError("No items to update");
+    }
+
+    if (
+      !editableItems.some(
+        (item) => item.itemType === "service" || item.itemType === "bundling"
+      )
+    ) {
+      throw new InternalError(
+        "At least one service or bundling item is required"
+      );
+    }
+
+    const seen = new Set<string>();
+    for (const item of editableItems) {
+      const key = `${item.itemType}:${item.itemId}`;
+      if (seen.has(key)) {
+        throw new InternalError("Duplicate items detected");
+      }
+      seen.add(key);
+    }
+
+    try {
+      return await db.transaction(async (tx) =>
+        CustomerOrderService._updateOrderItemsTransaction(
+          tx,
+          orderId,
+          editableItems,
+          body.weightRangeId,
+          body.weight
+        )
+      );
+    } catch (error) {
+      if (error instanceof InternalError || error instanceof NotFoundError) {
+        throw error;
+      }
+      console.error("Error updating order items:", error);
+      throw new InternalError("Failed to update order items.");
+    }
+  }
+
+  private static async _deleteRemovedEditableItems(
+    tx: Transaction,
+    existingOrderItems: Array<{
+      id: string;
+      itemType: string;
+      serviceId: string | null;
+      inventoryId: string | null;
+      bundlingId: string | null;
+    }>,
+    bodyEntityIds: Set<string>
+  ) {
+    const idsToDelete = existingOrderItems
+      .filter(
+        (item) =>
+          item.itemType !== "voucher" &&
+          item.itemType !== "points" &&
+          !bodyEntityIds.has(
+            item.serviceId || item.inventoryId || item.bundlingId || ""
+          )
+      )
+      .map((item) => item.id);
+
+    if (idsToDelete.length > 0) {
+      await tx.delete(orderItems).where(inArray(orderItems.id, idsToDelete));
+    }
+  }
+
+  private static async _fetchPrices(
+    tx: Transaction,
+    editableItems: UpdateOrderItemsBody["data"]
+  ) {
+    const serviceIds = editableItems
+      .filter((i) => i.itemType === "service")
+      .map((i) => i.itemId);
+    const inventoryIds = editableItems
+      .filter((i) => i.itemType === "inventory")
+      .map((i) => i.itemId);
+    const bundlingIds = editableItems
+      .filter((i) => i.itemType === "bundling")
+      .map((i) => i.itemId);
+
+    const [serviceRows, inventoryRows, bundlingRows] = await Promise.all([
+      serviceIds.length > 0
+        ? tx
+            .select({ id: services.id, price: services.price })
+            .from(services)
+            .where(inArray(services.id, serviceIds))
+        : [],
+      inventoryIds.length > 0
+        ? tx
+            .select({ id: inventories.id, price: inventories.price })
+            .from(inventories)
+            .where(inArray(inventories.id, inventoryIds))
+        : [],
+      bundlingIds.length > 0
+        ? tx
+            .select({ id: bundlings.id, price: bundlings.price })
+            .from(bundlings)
+            .where(inArray(bundlings.id, bundlingIds))
+        : [],
+    ]);
+
+    const foundIds = new Set([
+      ...serviceRows.map((r) => r.id),
+      ...inventoryRows.map((r) => r.id),
+      ...bundlingRows.map((r) => r.id),
+    ]);
+
+    for (const item of editableItems) {
+      if (!foundIds.has(item.itemId)) {
+        throw new NotFoundError(`Item ${item.itemId} not found`);
+      }
+    }
+
+    const priceMap = new Map<string, number>();
+    for (const row of [...serviceRows, ...inventoryRows, ...bundlingRows]) {
+      priceMap.set(row.id, Number(row.price));
+    }
+    return priceMap;
+  }
+
+  private static async _upsertOrderItems(
+    tx: Transaction,
+    orderId: string,
+    editableItems: UpdateOrderItemsBody["data"],
+    existingOrderItems: Array<{
+      id: string;
+      itemType: string;
+      serviceId: string | null;
+      inventoryId: string | null;
+      bundlingId: string | null;
+      note: string | null;
+    }>,
+    priceMap: Map<string, number>
+  ) {
+    const existingByEntityId = new Map<
+      string,
+      (typeof existingOrderItems)[number]
+    >();
+    for (const item of existingOrderItems) {
+      if (item.itemType === "voucher" || item.itemType === "points") {
+        continue;
+      }
+      const entityId = item.serviceId || item.inventoryId || item.bundlingId;
+      if (entityId) {
+        existingByEntityId.set(entityId, item);
+      }
+    }
+
+    let newEditableTotal = 0;
+    const bodyEntityIds = new Set<string>();
+
+    for (const item of editableItems) {
+      bodyEntityIds.add(item.itemId);
+      const subtotal = item.quantity * (priceMap.get(item.itemId) ?? 0);
+      newEditableTotal += subtotal;
+
+      const existing = existingByEntityId.get(item.itemId);
+      if (existing) {
+        await tx
+          .update(orderItems)
+          .set({ quantity: item.quantity, subtotal })
+          .where(eq(orderItems.id, existing.id));
+      } else {
+        const base = {
+          orderId,
+          itemType: item.itemType,
+          quantity: item.quantity,
+          subtotal,
+          note: null as string | null,
+        };
+        if (item.itemType === "service") {
+          await tx
+            .insert(orderItems)
+            .values({ ...base, serviceId: item.itemId });
+        } else if (item.itemType === "inventory") {
+          await tx
+            .insert(orderItems)
+            .values({ ...base, inventoryId: item.itemId });
+        } else {
+          await tx
+            .insert(orderItems)
+            .values({ ...base, bundlingId: item.itemId });
+        }
+      }
+    }
+
+    await CustomerOrderService._deleteRemovedEditableItems(
+      tx,
+      existingOrderItems,
+      bodyEntityIds
+    );
+
+    return newEditableTotal;
+  }
+
+  private static async _updateOrderItemsTransaction(
+    tx: Transaction,
+    orderId: string,
+    editableItems: UpdateOrderItemsBody["data"],
+    weightRangeId: number,
+    weight?: number | null
+  ) {
+    const existingOrderItems = await tx
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+
+    const nonEditableItems = existingOrderItems.filter(
+      (item) => item.itemType === "voucher" || item.itemType === "points"
+    );
+
+    const priceMap = await CustomerOrderService._fetchPrices(tx, editableItems);
+
+    const newEditableTotal = await CustomerOrderService._upsertOrderItems(
+      tx,
+      orderId,
+      editableItems,
+      existingOrderItems,
+      priceMap
+    );
+
+    const nonEditableTotal = nonEditableItems.reduce(
+      (sum, item) => sum + item.subtotal,
+      0
+    );
+    const newTotal = newEditableTotal + nonEditableTotal;
+    const discountAmount = -nonEditableTotal;
+
+    await tx
+      .update(payments)
+      .set({ total: newTotal, amountPaid: newTotal, discountAmount })
+      .where(eq(payments.orderId, orderId));
+
+    const orderWeight =
+      weight !== undefined && weight !== null ? String(weight) : null;
+
+    await tx
+      .update(ordersTable)
+      .set({ weightRangeId, weight: orderWeight })
+      .where(eq(ordersTable.id, orderId));
+
+    return { total: newTotal };
+  }
+
   static async cancelOrder(orderId: string, userId: string) {
     await CustomerOrderService.verifyOrderOwnership(orderId, userId);
 
@@ -1030,13 +1330,26 @@ export abstract class CustomerOrderService extends Pos {
       await db.transaction(async (tx) => {
         await CustomerOrderService.validateOrderForCharge(tx, orderId);
         await CustomerOrderService.validatePickupDelivery(tx, orderId);
-        const customerOrderItems = await CustomerOrderService.getChargeOrderItems(tx, orderId);
-        const paymentDetail = await CustomerOrderService.getPaymentDetail(tx, orderId);
-        const itemDetails = CustomerOrderService.buildQrisItemDetails(customerOrderItems);
+        const customerOrderItems =
+          await CustomerOrderService.getChargeOrderItems(tx, orderId);
+        const paymentDetail = await CustomerOrderService.getPaymentDetail(
+          tx,
+          orderId
+        );
+        const itemDetails =
+          CustomerOrderService.buildQrisItemDetails(customerOrderItems);
 
-        const chargeQrisData = CustomerOrderService.buildChargeQrisData(orderId, paymentDetail.total, itemDetails);
+        const chargeQrisData = CustomerOrderService.buildChargeQrisData(
+          orderId,
+          paymentDetail.total,
+          itemDetails
+        );
         const qrisResponse = await chargeQris(chargeQrisData);
-        const paymentDataUpdate = CustomerOrderService.buildPaymentDataUpdate(orderId, paymentDetail.total, qrisResponse);
+        const paymentDataUpdate = CustomerOrderService.buildPaymentDataUpdate(
+          orderId,
+          paymentDetail.total,
+          qrisResponse
+        );
 
         await tx
           .update(payments)
@@ -1052,7 +1365,10 @@ export abstract class CustomerOrderService extends Pos {
     }
   }
 
-  private static async validateOrderForCharge(tx: Transaction, orderId: string) {
+  private static async validateOrderForCharge(
+    tx: Transaction,
+    orderId: string
+  ) {
     const [order] = await tx
       .select({
         id: ordersTable.id,
@@ -1067,13 +1383,18 @@ export abstract class CustomerOrderService extends Pos {
     }
 
     if (!["pending", "processing"].includes(order.status)) {
-      throw new InternalError("Only pending or processing orders can be charged");
+      throw new InternalError(
+        "Only pending or processing orders can be charged"
+      );
     }
 
     return order;
   }
 
-  private static async validatePickupDelivery(tx: Transaction, orderId: string) {
+  private static async validatePickupDelivery(
+    tx: Transaction,
+    orderId: string
+  ) {
     const [pickupDelivery] = await tx
       .select({
         id: deliveries.id,
@@ -1090,7 +1411,9 @@ export abstract class CustomerOrderService extends Pos {
     }
 
     if (!["completed", "picked_up"].includes(pickupDelivery.status)) {
-      throw new InternalError("QRIS payment can only be charged after item picked up");
+      throw new InternalError(
+        "QRIS payment can only be charged after item picked up"
+      );
     }
 
     return pickupDelivery;
@@ -1148,7 +1471,11 @@ export abstract class CustomerOrderService extends Pos {
     }));
   }
 
-  private static buildChargeQrisData(orderId: string, total: number, itemDetails: ItemDetails[]): ChargeDetails {
+  private static buildChargeQrisData(
+    orderId: string,
+    total: number,
+    itemDetails: ItemDetails[]
+  ): ChargeDetails {
     return {
       payment_type: "qris",
       transaction_details: {
@@ -1162,7 +1489,11 @@ export abstract class CustomerOrderService extends Pos {
     };
   }
 
-  private static buildPaymentDataUpdate(orderId: string, total: number, qrisResponse: QrisTransactionResponse): PaymentInsert {
+  private static buildPaymentDataUpdate(
+    orderId: string,
+    total: number,
+    qrisResponse: QrisTransactionResponse
+  ): PaymentInsert {
     if (qrisResponse.status_code !== "201") {
       throw new InternalError("Unsupported payment type");
     }

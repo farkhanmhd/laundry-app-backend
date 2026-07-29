@@ -25,12 +25,17 @@ export const createRouteSchema = t.Object({
   vehicleId: t.String(),
 });
 
-export const updateDeliveryStatusSchema = t.Object({
-  image: t.File({
-    type: "image/*",
-    maxSize: "5m",
+export const updateDeliveryStatusSchema = t.Union([
+  t.Object({
+    deliveryType: t.Literal("pickup"),
+    image: t.File({ type: "image/*", maxSize: "5m" }),
+    weight: t.Number(),
   }),
-});
+  t.Object({
+    deliveryType: t.Literal("delivery"),
+    image: t.File({ type: "image/*", maxSize: "5m" }),
+  }),
+]);
 
 export type DeliveriesQuery = typeof deliveriesSearchQuery.static;
 

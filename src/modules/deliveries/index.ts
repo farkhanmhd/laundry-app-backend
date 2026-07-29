@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { betterAuth } from "@/auth/auth-instance";
-import { AuthorizationError, NotFoundError } from "@/exceptions";
+import { AuthorizationError, InternalError, NotFoundError } from "@/exceptions";
 import { deliveriesModel } from "./model";
 import { DeliveriesService } from "./service";
 
@@ -106,7 +106,7 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
       try {
         const result = await DeliveriesService.updateDeliveryStatus(
           params.id,
-          body.image
+          body
         );
 
         return status(200, {
@@ -123,6 +123,13 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
             messageKey: "delivery.notFound",
           });
         }
+        if (error instanceof InternalError) {
+          return status(422, {
+            status: "error",
+            message: error.message,
+            messageKey: "delivery.statusUpdateFailed",
+          });
+        }
         throw error;
       }
     },
@@ -131,5 +138,10 @@ export const deliveriesController = new Elysia({ prefix: "/deliveries" })
         id: t.String(),
       }),
       body: "updateDeliveryStatusSchema",
+      transform: ({ body }) => {
+        if ("weight" in body) {
+          body.weight = Number(body.weight);
+        }
+      },
     }
   );
